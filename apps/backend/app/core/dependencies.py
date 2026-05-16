@@ -1,0 +1,165 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  Sismik Mekanik ERP — FastAPI Dependencies (DB, Auth, RBAC)
+# ─────────────────────────────────────────────────────────────────────────────
+
+from __future__ import annotations
+
+import uuid
+from collections.abc import AsyncGenerator
+
+import jwt
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.config import settings
+from app.core.database import get_db as database_get_db
+from app.core.security import decode_token
+from app.db.models import User, RolePermission
+
+oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl="/api/v1/auth/login",
+    auto_error=False,     # isteğe bağlı: optional auth endpoint'leri için
+)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Veritabanı Oturumu (Session)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    """Her istek için yeni bir async veritabanı oturumu sağlar."""
+    async for session in database_get_db():
+        yield session
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Kimlik Doğrulama (Authentication)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+async def _get_user_by_sub(db: AsyncSession, sub: str) -> User:
+    """JWT subject alanından UUID'ye çevirip kullanıcıyı veritabanından getirir."""
+    user_result = await db.execute(select(User).where(User.id == uuid.UUID(sub)))
+    user = user_result.scalar_one_or_none()
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Kullanıcı bulunamadı veya hesabı pasif durumda.",
+        )
+    return user
+
+
+async def get_current_user(
+    token:        str          = Depends(oauth2_scheme),
+    db:           AsyncSession = Depends(get_db),
+) -> User:
+    """Token içindeki sub (UUID) ile kullanıcıyı getirir — gerekli endpoint'lerde kullanılır."""
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Kimlik doğrulama gerekli.",
+        )
+    try:
+        payload = decode_token(token)
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="Geçersiz token.")
+
+    sub = payload.get("sub")
+    if not sub:
+        raise HTTPException(status_code=401, detail="Token içeriği geçersiz.")
+
+    return await _get_user_by_sub(db, sub)
+
+
+async def get_current_active_user(
+    user: User = Depends(get_current_user),
+) -> User:
+    """Aktif kullanıcıyı döner — pasif hesapları reddeder."""
+    return user
+
+
+async def get_current_user_optional(
+    token:        str | None   = Depends(oauth2_scheme),
+    db:           AsyncSession = Depends(get_db),
+) -> User | None:
+    """Token varsa kullanıcı döner, yoksa None — public endpoint'ler için kullanılır."""
+    if not token:
+        return None
+    try:
+        payload = decode_token(token)
+    except jwt.PyJWTError:
+        return None
+    return await _get_user_by_sub(db, payload["sub"])
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Rol Bazlı Yetkilendirme (RBAC)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+async def _get_user_role_names(db: AsyncSession, user_id: uuid.UUID) -> list[str]:
+    """Kullanıcının tüm rol isimlerini tek sorguda getirir."""
+    from app.db.models import Role, RolePermission, UserRole
+    result = await db.execute(
+        select(Role.name)
+        .join(UserRole, UserRole.role_id == Role.id)
+        .where(UserRole.user_id == user_id)
+    )
+    return [r for r in result.scalars()]
+
+
+def require_role(*role_names: str):
+    """
+    Decorator-like dependency fabrikası.
+    Kullanıcı verilen rollerden en az birine sahip olmalıdır, yoksa 403.
+
+    Kullanımı:
+        @router.post("")
+        async def create_project(..., user=Depends(require_role("admin"))):
+            ...
+    """
+    async def _checker(
+        token: str          = Depends(oauth2_scheme),
+        db:    AsyncSession = Depends(get_db),
+    ) -> User:
+        if not token:
+            raise HTTPException(status_code=401, detail="Kimlik doğrulama gerekli.")
+        try:
+            payload = decode_token(token)
+        except jwt.PyJWTError:
+            raise HTTPException(status_code=401, detail="Geçersiz token.")
+        user = await _get_user_by_sub(db, payload["sub"])
+        # Token içindeki rollerle kontrol et
+        token_roles: list[str] = payload.get("roles", [])
+        if not any(r in token_roles for r in role_names):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Bu işlem için yetkiniz yok.",
+            )
+        return user
+    return _checker
+
+
+async def require_permission(
+    token:        str          = Depends(oauth2_scheme),
+    db:           AsyncSession = Depends(get_db),
+    permission:   str          = "projects:read",
+) -> User:
+    """
+    JWT içindeki permissions listesi ile kontrol eder.
+    403 döner, kullanıcı nesnesi başarılıysa döner.
+    """
+    if not token:
+        raise HTTPException(status_code=401, detail="Kimlik doğrulama gerekli.")
+    try:
+        payload = decode_token(token)
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="Geçersiz token.")
+    user = await _get_user_by_sub(db, payload["sub"])
+    token_perms: list[str] = payload.get("permissions", [])
+    if permission not in token_perms:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bu işlem için yetkiniz yok.",
+        )
+    return user
