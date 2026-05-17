@@ -125,8 +125,12 @@ export default function DocumentsPage() {
 
   async function handleDownload(docId: string) {
     try {
-      const res = await apiGet(`/documents/${docId}/download`);
-      window.open(res.url, "_blank");
+      const res = await apiGet<{ url?: string }>(`/documents/${docId}/download`);
+      const downloadUrl = typeof res?.url === "string" ? res.url : "";
+      if (!downloadUrl) {
+        throw new Error("İndirme bağlantısı alınamadı.");
+      }
+      window.open(downloadUrl, "_blank");
     } catch (err: any) {
       alert(err.response?.data?.detail || "İndirme linki oluşturulamadı.");
     }
