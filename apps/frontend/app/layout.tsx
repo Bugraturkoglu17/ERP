@@ -1,11 +1,40 @@
-import type { Metadata } from "next";
-import { Providers } from "@/components/Providers";
-import "./globals.css";
+"use client";
 
-export const metadata: Metadata = {
-  title: "Sismik Mekanik ERP",
-  description: "Mekanik Tesisat · Sismik Koruma · Yangın Söndürme ERP Sistemi",
-};
+import "./globals.css";
+import { Menu } from "lucide-react";
+import { useState } from "react";
+import { Sidebar } from "@/components/layout/sidebar";
+
+function AppShell({ children }: { children: React.ReactNode }) {
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  return (
+    <body className="flex min-h-screen bg-slate-50 text-slate-900">
+      <Sidebar mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
+      <main className="flex min-w-0 flex-1 flex-col">
+        <header className="flex h-16 shrink-0 items-center justify-between border-b bg-white px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setMobileOpen(true)}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 text-slate-700 hover:bg-slate-100 lg:hidden"
+              aria-label="Menüyü aç"
+            >
+              <Menu className="h-4 w-4" />
+            </button>
+            <h1 className="truncate text-sm font-semibold text-slate-800 sm:text-base lg:text-lg">
+              Sismik Mekanik Yonetim Paneli
+            </h1>
+          </div>
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="h-8 w-8 rounded-full bg-slate-200" />
+          </div>
+        </header>
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">{children}</div>
+      </main>
+    </body>
+  );
+}
 
 export default function RootLayout({
   children,
@@ -13,10 +42,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="tr" className="h-full">
-      <body className="h-full font-sans">
-        <Providers>{children}</Providers>
-      </body>
+    <html lang="tr" suppressHydrationWarning>
+      <AppShell>{children}</AppShell>
     </html>
   );
 }

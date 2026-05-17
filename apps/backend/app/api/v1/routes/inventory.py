@@ -30,6 +30,7 @@ from app.db.schemas import (
     InventoryTransactionRead,
     LowStockAlertRead,
     MaterialCreate,
+    MaterialCreateWithStock,
     MaterialRead,
     MaterialUpdate,
     StockRead,
@@ -132,6 +133,27 @@ async def update_warehouse(
     return warehouse
 
 
+@router.delete(
+    "/warehouses/{warehouse_id}",
+    summary="Depoyu pasife al (sil)",
+)
+async def delete_warehouse(
+    warehouse_id: str,
+    db:           AsyncSession = Depends(get_db),
+) -> Warehouse:
+    try:
+        uid = uuid.UUID(warehouse_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Geçersiz UUID formatı.")
+    warehouse = await db.get(Warehouse, uid)
+    if not warehouse:
+        raise NotFoundError(detail="Depo bulunamadı.")
+    warehouse.is_active = False
+    await db.commit()
+    await db.refresh(warehouse)
+    return warehouse
+
+
 # ═════════════════════════════════════════════════════════════════════════════
 #  MALZEME KATALOGU (Materials)
 # ═════════════════════════════════════════════════════════════════════════════
@@ -143,17 +165,61 @@ async def update_warehouse(
     summary="Yeni malzeme ekle",
 )
 async def create_material(
-    body: MaterialCreate,
+    body: MaterialCreateWithStock,
     db:   AsyncSession = Depends(get_db),
 ) -> Material:
-    mat = Material(**body.model_dump())
+    # ── 1 · Malzemeyi Oluştur ────────────────────────────────────────────────────
+    mat_data = body.model_dump(exclude={"warehouse_id", "initial_quantity"})
+    mat = Material(**mat_data)
     db.add(mat)
+    
     try:
         await db.commit()
         await db.refresh(mat)
     except IntegrityError as exc:
         await db.rollback()
         raise ConflictError(detail=f"Kayıt başarısız: {exc}")
+
+    # ── 2 · Opsiyonel: İlk Stok Girişi ──────────────────────────────────────────
+    if body.warehouse_id and body.initial_quantity and body.initial_quantity > 0:
+        # Stok kaydını bul veya oluştur
+        stock_row = await db.execute(
+            select(Stock).where(
+                Stock.warehouse_id == body.warehouse_id,
+                Stock.material_id  == mat.id,
+            )
+        )
+        stock = stock_row.scalar_one_or_none()
+        if stock is None:
+            stock = Stock(
+                warehouse_id = body.warehouse_id,
+                material_id  = mat.id,
+                quantity     = 0,
+            )
+            db.add(stock)
+        
+        stock.quantity += body.initial_quantity
+
+        # Hareket kaydı (IN)
+        tx = InventoryTransaction(
+            material_id        = mat.id,
+            to_warehouse_id    = body.warehouse_id,
+            quantity           = body.initial_quantity,
+            transaction_type   = InventoryTransactionType.IN,
+            notes              = "İlk stok girişi (Malzeme oluşturulurken)",
+            unit_cost          = body.unit_cost,
+            total_cost         = Decimal(str(body.unit_cost)) * Decimal(str(body.initial_quantity)) if body.unit_cost else None,
+        )
+        db.add(tx)
+        
+        try:
+            await db.commit()
+        except Exception as exc:
+            await db.rollback()
+            # Malzeme zaten oluşturuldu, stok giriş hatası için uyarı verebiliriz ama malzemeyi geri silmiyoruz
+            # veya transaction ile sarmalayabiliriz. Burada basitlik için ayrı commit yapıyoruz.
+            raise HTTPException(status_code=500, detail=f"Malzeme oluşturuldu ancak ilk stok girişi başarısız: {exc}")
+
     return mat
 
 
@@ -188,10 +254,14 @@ async def list_materials(
     summary="Malzeme detayı",
 )
 async def get_material(
-    material_id: uuid.UUID,
+    material_id: str,
     db:          AsyncSession = Depends(get_db),
 ) -> Material:
-    mat = await db.get(Material, material_id)
+    try:
+        uid = uuid.UUID(material_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Geçersiz UUID formatı.")
+    mat = await db.get(Material, uid)
     if not mat:
         raise NotFoundError(detail="Malzeme bulunamadı.")
     return mat
@@ -203,11 +273,15 @@ async def get_material(
     summary="Malzeme bilgilerini güncelle",
 )
 async def update_material(
-    material_id: uuid.UUID,
+    material_id: str,
     body:         MaterialUpdate,
     db:           AsyncSession = Depends(get_db),
 ) -> Material:
-    mat = await db.get(Material, material_id)
+    try:
+        uid = uuid.UUID(material_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Geçersiz UUID formatı.")
+    mat = await db.get(Material, uid)
     if not mat:
         raise NotFoundError(detail="Malzeme bulunamadı.")
     for key, value in body.model_dump(exclude_unset=True).items():
@@ -218,6 +292,28 @@ async def update_material(
     except IntegrityError as exc:
         await db.rollback()
         raise ConflictError(detail=f"Güncelleme başarısız: {exc}")
+    return mat
+
+
+@router.delete(
+    "/materials/{material_id}",
+    summary="Malzemeyi pasife al (sil)",
+)
+async def delete_material(
+    material_id: str,
+    db:          AsyncSession = Depends(get_db),
+) -> Material:
+    try:
+        uid = uuid.UUID(material_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Geçersiz UUID formatı.")
+    
+    mat = await db.get(Material, uid)
+    if not mat:
+        raise NotFoundError(detail="Malzeme bulunamadı.")
+    mat.is_active = False
+    await db.commit()
+    await db.refresh(mat)
     return mat
 
 

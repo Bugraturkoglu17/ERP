@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
@@ -14,8 +15,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.exceptions import NotFoundError
 from app.db.crud import CRUDBase
-from app.db.models import Customer, Expense, ExpenseCategory, Invoice, Project
-from app.db.schemas import InvoiceRead
+from app.db.models import Customer, Expense, ExpenseCategory, Invoice, Project, InvoiceItem, Payment, InvoiceStatus
+from app.db.schemas import (
+    InvoiceRead,
+    InvoiceCreate,
+    ExpenseCreate,
+    ExpenseRead,
+    PaymentCreate,
+    PaymentRead,
+)
 
 router = APIRouter()
 
@@ -116,3 +124,138 @@ async def get_invoice(invoice_id: str, db: AsyncSession = Depends(get_db)):
     if not inv:
         raise NotFoundError(detail="Fatura bulunamadı.")
     return inv
+
+
+# ── Invoice Creation ──────────────────────────────────────────────────────────
+
+@router.post("/invoices", response_model=InvoiceRead, status_code=status.HTTP_201_CREATED)
+async def create_invoice(
+    invoice_in: InvoiceCreate,
+    db:         AsyncSession = Depends(get_db),
+) -> Invoice:
+    issue_date = invoice_in.issue_date
+    if issue_date and issue_date.tzinfo is not None:
+        issue_date = issue_date.replace(tzinfo=None)
+
+    due_date = invoice_in.due_date
+    if due_date and due_date.tzinfo is not None:
+        due_date = due_date.replace(tzinfo=None)
+
+    inv = Invoice(
+        customer_id=invoice_in.customer_id,
+        project_id=invoice_in.project_id,
+        invoice_no=invoice_in.invoice_no,
+        title=invoice_in.title,
+        issue_date=issue_date,
+        due_date=due_date,
+        subtotal=Decimal(str(invoice_in.subtotal)),
+        tax_rate=Decimal(str(invoice_in.tax_rate)),
+        tax_amount=Decimal(str(invoice_in.tax_amount)),
+        grand_total=Decimal(str(invoice_in.grand_total)),
+        status=InvoiceStatus(invoice_in.status),
+    )
+    db.add(inv)
+    await db.flush()
+
+    for item in invoice_in.items:
+        db_item = InvoiceItem(
+            invoice_id=inv.id,
+            description=item.description,
+            quantity=Decimal(str(item.quantity)),
+            unit_price=Decimal(str(item.unit_price)),
+            total_amount=Decimal(str(item.quantity * item.unit_price)),
+        )
+        db.add(db_item)
+
+    await db.commit()
+    await db.refresh(inv)
+    return inv
+
+
+# ── Expense CRUD ─────────────────────────────────────────────────────────────
+
+@router.get("/expenses", response_model=list[ExpenseRead])
+async def list_expenses(
+    project_id: UUID | None = None,
+    db:         AsyncSession = Depends(get_db),
+) -> list[Expense]:
+    query = select(Expense)
+    if project_id:
+        query = query.where(Expense.project_id == project_id)
+    query = query.order_by(Expense.expense_date.desc())
+    result = await db.execute(query)
+    return list(result.scalars())
+
+
+@router.post("/expenses", response_model=ExpenseRead, status_code=status.HTTP_201_CREATED)
+async def create_expense(
+    expense_in: ExpenseCreate,
+    db:         AsyncSession = Depends(get_db),
+) -> Expense:
+    exp_date = expense_in.expense_date
+    if exp_date and exp_date.tzinfo is not None:
+        exp_date = exp_date.replace(tzinfo=None)
+
+    exp = Expense(
+        project_id=expense_in.project_id,
+        category=ExpenseCategory(expense_in.category),
+        description=expense_in.description,
+        amount=Decimal(str(expense_in.amount)),
+        quantity=Decimal(str(expense_in.quantity)) if expense_in.quantity else None,
+        expense_date=exp_date,
+    )
+    db.add(exp)
+    await db.commit()
+    await db.refresh(exp)
+    return exp
+
+
+# ── Payment CRUD ─────────────────────────────────────────────────────────────
+
+@router.get("/payments", response_model=list[PaymentRead])
+async def list_payments(
+    invoice_id: UUID | None = None,
+    db:         AsyncSession = Depends(get_db),
+) -> list[Payment]:
+    query = select(Payment)
+    if invoice_id:
+        query = query.where(Payment.invoice_id == invoice_id)
+    query = query.order_by(Payment.payment_date.desc())
+    result = await db.execute(query)
+    return list(result.scalars())
+
+
+@router.post("/payments", response_model=PaymentRead, status_code=status.HTTP_201_CREATED)
+async def create_payment(
+    payment_in: PaymentCreate,
+    db:         AsyncSession = Depends(get_db),
+) -> Payment:
+    pay_date = payment_in.payment_date
+    if pay_date and pay_date.tzinfo is not None:
+        pay_date = pay_date.replace(tzinfo=None)
+
+    pay = Payment(
+        invoice_id=payment_in.invoice_id,
+        direction=payment_in.direction,
+        amount=Decimal(str(payment_in.amount)),
+        payment_method=payment_in.payment_method,
+        reference_no=payment_in.reference_no,
+        payment_date=pay_date,
+        notes=payment_in.notes,
+    )
+    db.add(pay)
+
+    if payment_in.invoice_id:
+        inv = await db.get(Invoice, payment_in.invoice_id)
+        if inv:
+            inv.paid_amount = (inv.paid_amount or Decimal(0)) + Decimal(str(payment_in.amount))
+            if inv.paid_amount >= inv.grand_total:
+                inv.status = InvoiceStatus.PAID
+                inv.paid_at = payment_in.payment_date
+            else:
+                inv.status = InvoiceStatus.APPROVED
+            db.add(inv)
+
+    await db.commit()
+    await db.refresh(pay)
+    return pay

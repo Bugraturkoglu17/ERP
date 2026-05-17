@@ -44,6 +44,10 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         self, db: AsyncSession, obj_in: CreateSchemaType, **extra: Any
     ) -> ModelType:
         obj_data = obj_in.model_dump() | extra
+        from datetime import datetime
+        for k, v in obj_data.items():
+            if isinstance(v, datetime) and v.tzinfo is not None:
+                obj_data[k] = v.replace(tzinfo=None)
         instance = self.model(**obj_data)
         db.add(instance)
         await db.commit()
@@ -58,7 +62,10 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         obj_in: UpdateSchemaType,
     ) -> ModelType:
         obj_data = obj_in.model_dump(exclude_unset=True)
+        from datetime import datetime
         for field, value in obj_data.items():
+            if isinstance(value, datetime) and value.tzinfo is not None:
+                value = value.replace(tzinfo=None)
             setattr(db_obj, field, value)
         await db.commit()
         await db.refresh(db_obj)

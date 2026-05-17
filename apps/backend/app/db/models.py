@@ -372,6 +372,7 @@ class Document(SQLModel, table=True):
     mime_type:       Optional[str] = Field(default=None, max_length=128)
     # ── Versiyon kontrolü ──────────────────────────────────
     version:         int    = Field(default=1)
+    parent_id:       Optional[UUID] = Field(default=None, foreign_key="documents.id", index=True)
     revision_note:   Optional[str] = Field(default=None, max_length=255)
     # ── Kalıcı eski versiyonlar ─────────────────────────────
     archived:        bool   = Field(default=False)

@@ -30,12 +30,19 @@ from app.db.models import (
     User,
 )
 from app.db.schemas import (
+    BranchCreate,
+    BranchRead,
+    BranchUpdate,
     CustomerRead,
+    CustomerCreate,
     ProjectAssignmentCreate,
     ProjectAssignmentRead,
     ProjectCreate,
     ProjectRead,
     ProjectUpdate,
+    RegionCreate,
+    RegionRead,
+    RegionUpdate,
 )
 
 router = APIRouter()
@@ -96,7 +103,28 @@ async def list_customers(db: AsyncSession = Depends(get_db)):
     return await crud_customer.get_multi(db)
 
 
-@router.get("/regions/{customer_id}", response_model=list[Region], tags=["hierarchy"])
+@router.post("/customers", response_model=CustomerRead, dependencies=[Depends(require_role("admin"))], tags=["hierarchy"])
+async def create_customer(customer_in: CustomerCreate, db: AsyncSession = Depends(get_db)):
+    return await crud_customer.create(db, customer_in)
+
+
+@router.patch("/customers/{customer_id}", response_model=CustomerRead, dependencies=[Depends(require_role("admin"))], tags=["hierarchy"])
+async def update_customer(customer_id: str, customer_in: CustomerCreate, db: AsyncSession = Depends(get_db)):
+    customer = await crud_customer.get(db, customer_id)
+    if not customer:
+        raise NotFoundError(detail="Müşteri bulunamadı.")
+    return await crud_customer.update(db, db_obj=customer, obj_in=customer_in)
+
+
+@router.delete("/customers/{customer_id}", status_code=status.HTTP_204_NO_CONTENT, response_model=None, response_class=Response, dependencies=[Depends(require_role("admin"))], tags=["hierarchy"])
+async def delete_customer(customer_id: str, db: AsyncSession = Depends(get_db)) -> None:
+    customer = await crud_customer.get(db, customer_id)
+    if not customer:
+        raise NotFoundError(detail="Müşteri bulunamadı.")
+    await crud_customer.delete(db, customer)
+
+
+@router.get("/regions/{customer_id}", response_model=list[RegionRead], tags=["hierarchy"])
 async def list_regions_by_customer(
     customer_id: str,
     db:          AsyncSession = Depends(get_db),
@@ -106,7 +134,31 @@ async def list_regions_by_customer(
     return list(result.scalars())
 
 
-@router.get("/branches/{region_id}", response_model=list[Branch], tags=["hierarchy"])
+@router.post("/regions", response_model=RegionRead, dependencies=[Depends(require_role("admin"))], tags=["hierarchy"])
+async def create_region(region_in: RegionCreate, db: AsyncSession = Depends(get_db)):
+    customer = await crud_customer.get(db, region_in.customer_id)
+    if not customer:
+        raise NotFoundError(detail="Müşteri bulunamadı.")
+    return await crud_region.create(db, region_in)
+
+
+@router.patch("/regions/{region_id}", response_model=RegionRead, dependencies=[Depends(require_role("admin"))], tags=["hierarchy"])
+async def update_region(region_id: str, region_in: RegionUpdate, db: AsyncSession = Depends(get_db)):
+    region = await crud_region.get(db, region_id)
+    if not region:
+        raise NotFoundError(detail="Bölge bulunamadı.")
+    return await crud_region.update(db, db_obj=region, obj_in=region_in)
+
+
+@router.delete("/regions/{region_id}", status_code=status.HTTP_204_NO_CONTENT, response_model=None, response_class=Response, dependencies=[Depends(require_role("admin"))], tags=["hierarchy"])
+async def delete_region(region_id: str, db: AsyncSession = Depends(get_db)) -> None:
+    region = await crud_region.get(db, region_id)
+    if not region:
+        raise NotFoundError(detail="Bölge bulunamadı.")
+    await crud_region.delete(db, region)
+
+
+@router.get("/branches/{region_id}", response_model=list[BranchRead], tags=["hierarchy"])
 async def list_branches_by_region(
     region_id: str,
     db:        AsyncSession = Depends(get_db),
@@ -114,6 +166,30 @@ async def list_branches_by_region(
     """Bir bölgenin şubelerini getirir."""
     result = await db.execute(select(Branch).where(Branch.region_id == region_id))
     return list(result.scalars())
+
+
+@router.post("/branches", response_model=BranchRead, dependencies=[Depends(require_role("admin"))], tags=["hierarchy"])
+async def create_branch(branch_in: BranchCreate, db: AsyncSession = Depends(get_db)):
+    region = await crud_region.get(db, branch_in.region_id)
+    if not region:
+        raise NotFoundError(detail="Bölge bulunamadı.")
+    return await crud_branch.create(db, branch_in)
+
+
+@router.patch("/branches/{branch_id}", response_model=BranchRead, dependencies=[Depends(require_role("admin"))], tags=["hierarchy"])
+async def update_branch(branch_id: str, branch_in: BranchUpdate, db: AsyncSession = Depends(get_db)):
+    branch = await crud_branch.get(db, branch_id)
+    if not branch:
+        raise NotFoundError(detail="Şube bulunamadı.")
+    return await crud_branch.update(db, db_obj=branch, obj_in=branch_in)
+
+
+@router.delete("/branches/{branch_id}", status_code=status.HTTP_204_NO_CONTENT, response_model=None, response_class=Response, dependencies=[Depends(require_role("admin"))], tags=["hierarchy"])
+async def delete_branch(branch_id: str, db: AsyncSession = Depends(get_db)) -> None:
+    branch = await crud_branch.get(db, branch_id)
+    if not branch:
+        raise NotFoundError(detail="Şube bulunamadı.")
+    await crud_branch.delete(db, branch)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

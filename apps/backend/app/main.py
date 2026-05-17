@@ -25,6 +25,15 @@ app = FastAPI(
 )
 
 
+# ── Static Files Mount for Local Storage Fallback ──────────────────────────────
+from fastapi.staticfiles import StaticFiles
+import os
+
+uploads_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "uploads")
+os.makedirs(uploads_dir, exist_ok=True)
+app.mount("/static/uploads", StaticFiles(directory=uploads_dir), name="uploads")
+
+
 # ── CORS ───────────────────────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,

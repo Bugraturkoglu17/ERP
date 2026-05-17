@@ -105,6 +105,20 @@ class RegionRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class RegionCreate(BaseModel):
+    customer_id: UUID
+    name: str
+    code: str | None = None
+    city: str
+
+
+class RegionUpdate(BaseModel):
+    customer_id: UUID | None = None
+    name: str | None = None
+    code: str | None = None
+    city: str | None = None
+
+
 class BranchRead(BaseModel):
     id:         UUID
     region_id:  UUID
@@ -112,6 +126,20 @@ class BranchRead(BaseModel):
     code:       str | None
     address:    str | None
     model_config = ConfigDict(from_attributes=True)
+
+
+class BranchCreate(BaseModel):
+    region_id: UUID
+    name: str
+    code: str | None = None
+    address: str | None = None
+
+
+class BranchUpdate(BaseModel):
+    region_id: UUID | None = None
+    name: str | None = None
+    code: str | None = None
+    address: str | None = None
 
 
 # ── Projects ─────────────────────────────────────────────────────────────────
@@ -211,6 +239,11 @@ class MaterialCreate(BaseModel):
     is_active:       bool = True
 
 
+class MaterialCreateWithStock(MaterialCreate):
+    warehouse_id:     UUID | None = None
+    initial_quantity: int | None = None
+
+
 class MaterialUpdate(BaseModel):
     sku:             str | None = None
     name:            str | None = None
@@ -307,7 +340,44 @@ class LowStockAlertRead(BaseModel):
     model_config  = ConfigDict(from_attributes=True)
 
 
-# ── Finance ──────────────────────────────────────────────────────────────────
+# ── Documents ────────────────────────────────────────────────────────────────────
+ 
+class DocumentCreate(BaseModel):
+    project_id:   UUID
+    doc_type:     str
+    original_name: str
+    revision_note: str | None = None
+ 
+class DocumentUpdate(BaseModel):
+    doc_type:     str | None = None
+    original_name: str | None = None
+    revision_note: str | None = None
+ 
+class DocumentRead(BaseModel):
+    id:              UUID
+    project_id:      UUID
+    doc_type:        str
+    original_name:   str
+    file_key:        str
+    bucket_name:     str
+    file_size_bytes: int | None
+    mime_type:       str | None
+    version:         int
+    revision_note:   str | None
+    archived:        bool
+    uploaded_by:     UUID | None
+    created_at:      datetime
+    model_config    = ConfigDict(from_attributes=True)
+ 
+class DocumentVersionCreate(BaseModel):
+    doc_id:         UUID
+    revision_note:  str | None = None
+ 
+class DocumentDownloadResponse(BaseModel):
+    url: str
+    expires_in: int
+ 
+# ── Finance ──────────────────────────────────────────────────────────────────────
 
 class InvoiceRead(BaseModel):
     id:            UUID
@@ -315,4 +385,78 @@ class InvoiceRead(BaseModel):
     grand_total:   float
     status:        str
     issue_date:    datetime
+    title:         str | None = None
+    customer_id:   UUID | None = None
+    project_id:    UUID | None = None
+    subtotal:      float | None = None
+    tax_rate:      float | None = None
+    tax_amount:    float | None = None
+    due_date:      datetime | None = None
+    model_config  = ConfigDict(from_attributes=True)
+
+class InvoiceItemCreate(BaseModel):
+    description:     str
+    quantity:        float
+    unit_price:      float
+
+class InvoiceItemRead(BaseModel):
+    id:              UUID
+    invoice_id:      UUID
+    description:     str
+    quantity:        float
+    unit_price:      float
+    total_amount:    float
+    model_config  = ConfigDict(from_attributes=True)
+
+class InvoiceCreate(BaseModel):
+    customer_id:       UUID
+    project_id:        UUID | None = None
+    invoice_no:        str
+    title:             str
+    issue_date:        datetime
+    due_date:          datetime | None = None
+    subtotal:          float
+    tax_rate:          float = 20.0
+    tax_amount:        float
+    grand_total:       float
+    status:            str = "draft"
+    items:             list[InvoiceItemCreate] = []
+
+class ExpenseCreate(BaseModel):
+    project_id:        UUID
+    category:          str
+    description:       str
+    amount:            float
+    quantity:          float | None = None
+    expense_date:      datetime
+
+class ExpenseRead(BaseModel):
+    id:                UUID
+    project_id:        UUID
+    category:          str
+    description:       str
+    amount:            float
+    quantity:          float | None
+    expense_date:      datetime
+    created_at:        datetime
+    model_config  = ConfigDict(from_attributes=True)
+
+class PaymentCreate(BaseModel):
+    invoice_id:        UUID | None = None
+    direction:         str = "incoming"
+    amount:            float
+    payment_method:    str
+    reference_no:      str | None = None
+    payment_date:      datetime
+    notes:             str | None = None
+
+class PaymentRead(BaseModel):
+    id:                UUID
+    invoice_id:        UUID | None
+    direction:         str
+    amount:            float
+    payment_method:    str
+    reference_no:      str | None
+    payment_date:      datetime
+    created_at:        datetime
     model_config  = ConfigDict(from_attributes=True)

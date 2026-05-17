@@ -1,41 +1,36 @@
 {
-  "name": "sismik-mekanik-web",
+  "name": "sismik-erp-frontend",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev":       "next dev",
-    "build":     "next build",
-    "start":     "next start",
-    "lint":      "eslint . --ext .ts,.tsx",
-    "typecheck": "tsc --noEmit",
-    "lint:fix":  "eslint . --ext .ts,.tsx --fix"
+    "predev": "npm run api:generate || echo API offline, using cached types.",
+    "dev": "next dev",
+    "prebuild": "npm run api:generate || echo API offline, using cached types.",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "api:generate": "openapi-typescript http://localhost:8000/api/v1/openapi.json --output types/api.ts"
   },
   "dependencies": {
-    "next": "14.2.14",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "axios": "^1.7.5",
-    "zustand": "^4.5.4",
-    "date-fns": "^3.6.0",
+    "axios": "^1.16.1",
     "clsx": "^2.1.1",
-    "tailwind-merge": "^2.5.0",
-    "react-hook-form": "^7.52.2",
-    "zod": "^3.23.8",
-    "@hookform/resolvers": "^3.9.0",
-    "lucide-react": "^0.439.0",
-    "recharts": "^2.12.7",
-    "js-cookie": "^3.0.5"
+    "lucide-react": "^0.378.0",
+    "next": "^16.2.6",
+    "react": "^18",
+    "react-dom": "^18",
+    "tailwind-merge": "^2.3.0",
+    "tailwind-variants": "^0.2.1"
   },
   "devDependencies": {
-    "typescript": "^5.6.2",
-    "@types/node": "^20.14.11",
-    "@types/react": "^18.3.3",
-    "@types/react-dom": "^18.3.0",
-    "@types/bcryptjs": "^2.4.6",
-    "tailwindcss": "^3.4.7",
-    "postcss": "^8.4.40",
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
     "autoprefixer": "^10.4.19",
-    "eslint": "^8.57.0",
-    "eslint-config-next": "14.2.14"
+    "eslint": "^9",
+    "eslint-config-next": "^16.2.6",
+    "openapi-typescript": "^7.13.0",
+    "postcss": "^8",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5"
   }
 }

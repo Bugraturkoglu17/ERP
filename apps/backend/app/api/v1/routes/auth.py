@@ -90,3 +90,99 @@ async def get_me(
 ) -> UserRead:
     """Token'ındaki kullanıcı profilini döner."""
     return UserRead.model_validate(user)
+
+
+# ── User CRUD for Admin & RBAC ───────────────────────────────────────────────
+
+from app.db.schemas import UserCreate, UserUpdate
+
+@router.get("/users", response_model=list[UserRead], tags=["auth"])
+async def list_users(
+    db:   AsyncSession = Depends(get_db),
+    user: User         = Depends(get_current_user),
+) -> list[User]:
+    """Tüm kullanıcıları listele."""
+    if "admin" not in (user.default_role or ""):
+        raise HTTPException(status_code=403, detail="Kullanıcıları listeleme yetkiniz yok.")
+        
+    result = await db.execute(select(User).order_by(User.created_at.desc()))
+    return list(result.scalars())
+
+
+@router.post("/users", response_model=UserRead, status_code=status.HTTP_201_CREATED, tags=["auth"])
+async def create_user(
+    user_in: UserCreate,
+    db:      AsyncSession = Depends(get_db),
+    admin:   User         = Depends(get_current_user),
+) -> User:
+    """Yeni kullanıcı oluştur."""
+    if "admin" not in (admin.default_role or ""):
+        raise HTTPException(status_code=403, detail="Kullanıcı oluşturma yetkiniz yok.")
+
+    existing = await db.execute(select(User).where(User.email == user_in.email))
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Bu e-posta adresiyle kayıtlı bir kullanıcı zaten var.")
+
+    db_user = User(
+        email=user_in.email,
+        hashed_password=hash_password(user_in.password),
+        full_name=user_in.full_name,
+        phone=user_in.phone,
+        default_role=user_in.roles[0] if user_in.roles else "saha_muhendisi",
+        discipline=user_in.discipline,
+        discipline_only=user_in.discipline_only,
+        is_active=True,
+    )
+    db.add(db_user)
+    await db.commit()
+    await db.refresh(db_user)
+    return db_user
+
+
+@router.patch("/users/{user_id}", response_model=UserRead, tags=["auth"])
+async def update_user_details(
+    user_id: str,
+    user_in: UserUpdate,
+    db:      AsyncSession = Depends(get_db),
+    admin:   User         = Depends(get_current_user),
+) -> User:
+    """Kullanıcı bilgilerini ve yetkilerini güncelle."""
+    if "admin" not in (admin.default_role or ""):
+        raise HTTPException(status_code=403, detail="Kullanıcı güncelleme yetkiniz yok.")
+
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı.")
+
+    if user_in.full_name is not None:
+        user.full_name = user_in.full_name
+    if user_in.phone is not None:
+        user.phone = user_in.phone
+    if user_in.discipline is not None:
+        user.discipline = user_in.discipline
+    if user_in.is_active is not None:
+        user.is_active = user_in.is_active
+
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
+@router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["auth"])
+async def delete_user_account(
+    user_id: str,
+    db:      AsyncSession = Depends(get_db),
+    admin:   User         = Depends(get_current_user),
+):
+    """Kullanıcı hesabını sil (soft veya hard)."""
+    if "admin" not in (admin.default_role or ""):
+        raise HTTPException(status_code=403, detail="Kullanıcı silme yetkiniz yok.")
+
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı.")
+    
+    user.is_active = False
+    db.add(user)
+    await db.commit()

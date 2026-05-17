@@ -1,5 +1,6 @@
 # Node.js / Next.js
 node_modules/
+.kilo/node_modules/
 .next/
 out/
 build/
@@ -8,6 +9,7 @@ build/
 
 # Python
 __pycache__/
+**/__pycache__/
 *.py[cod]
 *$py.class
 .venv/

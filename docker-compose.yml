@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: sismik-erp-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-sismik_erp}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - sismik-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: sismik-erp-redis
+    restart: always
+    networks:
+      - sismik-network
+
+  backend:
+    build: 
+      context: ./apps/backend
+    container_name: sismik-erp-backend
+    restart: always
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-sismik_erp}
+      - REDIS_URL=redis://redis:6379/0
+      - ENV=development
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+    networks:
+      - sismik-network
+
+  worker:
+    build:
+      context: ./apps/backend
+    container_name: sismik-erp-worker
+    restart: always
+    command: celery -A app.core.workers.tasks worker --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-sismik_erp}
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+    networks:
+      - sismik-network
+
+networks:
+  sismik-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
