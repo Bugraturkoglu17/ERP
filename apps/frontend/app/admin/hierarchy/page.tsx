@@ -14,13 +14,14 @@ export default function HierarchyAdminPage() {
   const [branchForm, setBranchForm] = useState({ region_id: "", name: "", address: "", code: "" });
 
   async function loadAll() {
-    const custs = await apiGet("/projects/customers").catch(() => []);
-    setCustomers(Array.isArray(custs) ? custs : []);
+    const custsData = await apiGet<any[]>("/projects/customers").catch(() => []);
+    const custs = Array.isArray(custsData) ? custsData : [];
+    setCustomers(custs);
 
     const regionMap: Record<string, any[]> = {};
     const branchMap: Record<string, any[]> = {};
 
-    await Promise.all((custs || []).map(async (c: any) => {
+    await Promise.all(custs.map(async (c: any) => {
       const regs = await apiGet(`/projects/regions/${c.id}`).catch(() => []);
       regionMap[c.id] = Array.isArray(regs) ? regs : [];
       await Promise.all((regionMap[c.id] || []).map(async (r: any) => {
