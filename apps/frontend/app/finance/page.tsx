@@ -144,8 +144,8 @@ export default function FinancePage() {
       alert("Hakediş Faturası başarıyla oluşturuldu.");
       setIsInvoiceModalOpen(false);
       // Reload
-      const invs = await apiGet("/finance/invoices");
-      setInvoices(invs);
+      const invs = await apiGet<any[]>("/finance/invoices");
+      setInvoices(Array.isArray(invs) ? invs : []);
     } catch (err: any) {
       alert(err.response?.data?.detail || "Fatura oluşturulamadı.");
     }
@@ -175,8 +175,8 @@ export default function FinancePage() {
         expense_date: new Date().toISOString().split("T")[0]
       });
       // Reload
-      const exps = await apiGet("/finance/expenses");
-      setExpenses(exps);
+      const exps = await apiGet<any[]>("/finance/expenses");
+      setExpenses(Array.isArray(exps) ? exps : []);
     } catch (err: any) {
       alert(err.response?.data?.detail || "Gider kaydı eklenemedi.");
     }
@@ -209,11 +209,11 @@ export default function FinancePage() {
       });
       // Reload
       const [invs, pays] = await Promise.all([
-        apiGet("/finance/invoices"),
-        apiGet("/finance/payments")
+        apiGet<any[]>("/finance/invoices"),
+        apiGet<any[]>("/finance/payments")
       ]);
-      setInvoices(invs);
-      setPayments(pays);
+      setInvoices(Array.isArray(invs) ? invs : []);
+      setPayments(Array.isArray(pays) ? pays : []);
     } catch (err: any) {
       alert(err.response?.data?.detail || "Ödeme işlenemedi.");
     }

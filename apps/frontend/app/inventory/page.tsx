@@ -130,6 +130,8 @@ export default function InventoryPage() {
       unit: m.unit,
       unit_cost: m.unit_cost || 0,
       min_stock_level: m.min_stock_level || 0,
+      warehouse_id: "",
+      initial_quantity: 0,
     });
     setIsMaterialModalOpen(true);
   }

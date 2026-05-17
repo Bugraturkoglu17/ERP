@@ -98,4 +98,4 @@ export const typedApi = {
 
 // Kolay tip erişimi için kısayollar:
 export type ApiSchemas = paths;
-export type SchemaModel<K extends keyof paths[keyof paths]['get']['responses'][200]['content']['application/json']> = any;
+export type SchemaModel = Record<string, unknown>;

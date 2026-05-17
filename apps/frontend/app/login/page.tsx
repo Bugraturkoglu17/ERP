@@ -30,6 +30,7 @@ export default function LoginPage() {
 
       localStorage.setItem("token", response.data.access_token);
       window.location.href = "/";
+    } catch (err: any) {
       const errorMessage = err.response?.data?.detail;
       if (Array.isArray(errorMessage)) {
         setError(errorMessage.map((e: any) => e.msg).join(", "));

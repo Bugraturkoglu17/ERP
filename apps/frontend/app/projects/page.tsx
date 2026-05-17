@@ -181,9 +181,10 @@ export default function ProjectsPage() {
       alert("Yeni proje ve şantiye başarıyla kaydedildi.");
       setIsCreateModalOpen(false);
       // Reload
-      const projs = await apiGet("/projects");
-      setProjects(projs);
-      if (projs.length > 0) {
+      const projs = await apiGet<any[]>("/projects");
+      const nextProjects = Array.isArray(projs) ? projs : [];
+      setProjects(nextProjects);
+      if (nextProjects.length > 0) {
         handleSelectProject(newProj);
       }
     } catch (err: any) {
@@ -257,7 +258,7 @@ export default function ProjectsPage() {
         contract_value: projectForm.contract_value ? parseFloat(projectForm.contract_value) : null,
         status: projectForm.status,
       };
-      const updated = await apiPatch(`/projects/${activeProject.id}`, payload);
+      const updated = await apiPatch<any>(`/projects/${activeProject.id}`, payload);
       const nextProjects = projects.map((p) => (p.id === activeProject.id ? { ...p, ...updated } : p));
       setProjects(nextProjects);
       setActiveProject({ ...activeProject, ...updated });
