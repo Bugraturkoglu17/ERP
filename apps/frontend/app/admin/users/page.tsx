@@ -38,7 +38,7 @@ export default function UsersAdminPage() {
     async function loadUsers() {
       setLoading(true);
       try {
-        const data = await apiGet("/auth/users");
+        const data = await apiGet<any[]>("/auth/users");
         setUsers(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error("Users fetch error:", err);
@@ -75,8 +75,8 @@ export default function UsersAdminPage() {
         discipline_only: false
       });
       // Reload list
-      const data = await apiGet("/auth/users");
-      setUsers(data);
+      const data = await apiGet<any[]>("/auth/users");
+      setUsers(Array.isArray(data) ? data : []);
     } catch (err: any) {
       alert(err.response?.data?.detail || "Kullanıcı oluşturulamadı.");
     }
@@ -86,8 +86,8 @@ export default function UsersAdminPage() {
     try {
       await apiPatch(`/auth/users/${userId}`, { is_active: !currentStatus });
       alert("Kullanıcı durumu güncellendi.");
-      const data = await apiGet("/auth/users");
-      setUsers(data);
+      const data = await apiGet<any[]>("/auth/users");
+      setUsers(Array.isArray(data) ? data : []);
     } catch (err: any) {
       alert(err.response?.data?.detail || "Durum güncellenemedi.");
     }
