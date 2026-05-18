@@ -51,12 +51,14 @@ def create_access_token(
     sub:         str,
     roles:       list[str],
     permissions: list[str],
+    tenant_id:   str | None = None,
     discipline:  str | None  = None,
 ) -> str:
     payload: dict[str, Any] = {
         "sub":         sub,
         "roles":       roles,
         "permissions": permissions,
+        "tenant_id":   tenant_id,
         "discipline":  discipline,
     }
     return _create_token(payload, ACCESS_EXPIRES)
@@ -90,8 +92,8 @@ async def get_user_permissions(db: AsyncSession, user_id: UUID) -> list[str]:
     """Kullanıcının tüm permission kodlarını getirir."""
     result = await db.execute(
         select(Permission.code)
-        .join(RolePermission)
-        .join(UserRole)
+        .join(RolePermission, RolePermission.permission_id == Permission.id)
+        .join(UserRole, UserRole.role_id == RolePermission.role_id)
         .where(UserRole.user_id == user_id)
     )
     return list(result.scalars())

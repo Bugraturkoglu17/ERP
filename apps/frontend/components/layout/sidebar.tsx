@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { X } from "lucide-react";
+import { LogOut, X } from "lucide-react";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
-import { NAV_ITEMS } from "@/lib/navigation";
+import { getVisibleNavItems } from "@/lib/navigation";
+import { getRoles, getTokenPayloadFromStorage } from "@/lib/auth";
 
 type SidebarProps = {
   mobileOpen?: boolean;
@@ -13,6 +15,21 @@ type SidebarProps = {
 
 export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
   const pathname = usePathname();
+  const [roles, setRoles] = useState<string[]>([]);
+
+  useEffect(() => {
+    const payload = getTokenPayloadFromStorage();
+    setRoles(getRoles(payload));
+  }, []);
+
+  const navItems = getVisibleNavItems(roles);
+
+  const handleLogout = () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("token");
+      window.location.href = "/login";
+    }
+  };
 
   return (
     <>
@@ -47,7 +64,7 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
       </div>
 
       <nav className="flex-1 px-4 space-y-1 mt-4">
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href;
           
@@ -79,6 +96,14 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
             <p className="text-xs text-slate-500 truncate">Yönetici</p>
           </div>
         </div>
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-md border border-slate-700 px-3 py-2 text-sm font-medium text-slate-200 transition-colors hover:bg-slate-800 hover:text-white"
+        >
+          <LogOut className="h-4 w-4" />
+          Cikis Yap
+        </button>
       </div>
       </aside>
     </>

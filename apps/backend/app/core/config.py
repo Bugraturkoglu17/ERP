@@ -48,6 +48,7 @@ class Settings(BaseSettings):
 
     # ── Celery ──────────────────────────────────────────────────────────────
     CELERY_WORKERS: int = 4
+    AUTO_CREATE_SCHEMA: bool = True
 
     @property
     def is_production(self) -> bool:

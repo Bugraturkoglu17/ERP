@@ -66,6 +66,9 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 async def init_db() -> None:
     """Uygulama başlarken tüm modelleri veritabanına kaydet (migration yoksa)."""
+    if not settings.AUTO_CREATE_SCHEMA:
+        return
+
     from app.db import models  # noqa: F401
 
     async with async_engine.begin() as conn:

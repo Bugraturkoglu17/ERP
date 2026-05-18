@@ -46,6 +46,7 @@ class UserCreate(BaseModel):
 
 class UserRead(BaseModel):
     id:             UUID
+    tenant_id:      UUID | None
     email:          str
     full_name:      str
     phone:          str  | None
@@ -60,6 +61,113 @@ class UserUpdate(BaseModel):
     phone:      str | None         = None
     discipline: str | None         = None
     is_active:  bool | None        = None
+
+
+class TenantCreate(BaseModel):
+    name: str
+    code: str
+    logo_url: str | None = None
+
+
+class TenantRead(BaseModel):
+    id: UUID
+    name: str
+    code: str
+    logo_url: str | None
+    status: str
+    is_active: bool
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TenantAdminProvisionRequest(BaseModel):
+    tenant_id: UUID
+    email: EmailStr
+    full_name: str
+    temporary_password: str
+
+
+class TenantUpdate(BaseModel):
+    name: str | None = None
+    code: str | None = None
+    logo_url: str | None = None
+    status: str | None = None
+    is_active: bool | None = None
+
+
+class TenantSettingsUpsert(BaseModel):
+    tax_no: str | None = None
+    sector: str | None = None
+    country: str | None = None
+    theme_color: str | None = None
+    domain: str | None = None
+    subdomain: str | None = None
+
+
+class TenantSettingsRead(TenantSettingsUpsert):
+    tenant_id: UUID
+    updated_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TenantAdminRead(UserRead):
+    force_password_change: bool = False
+
+
+class TenantAdminResetRequest(BaseModel):
+    temporary_password: str
+    force_password_change: bool = True
+
+
+class TenantAdminUpdateRequest(BaseModel):
+    is_active: bool | None = None
+    force_password_change: bool | None = None
+
+
+class PlatformPlanCreate(BaseModel):
+    code: str
+    name: str
+    max_users: int = 10
+    storage_limit_gb: int = 5
+    modules: list[str] = []
+
+
+class PlatformPlanRead(BaseModel):
+    id: UUID
+    code: str
+    name: str
+    max_users: int
+    storage_limit_gb: int
+    modules: list[str]
+    is_active: bool
+    created_at: datetime
+
+
+class PlatformSubscriptionAssignRequest(BaseModel):
+    tenant_id: UUID
+    plan_id: UUID
+    status: str = "active"
+    ends_at: datetime | None = None
+
+
+class PlatformSubscriptionRead(BaseModel):
+    id: UUID
+    tenant_id: UUID
+    plan_id: UUID
+    status: str
+    starts_at: datetime
+    ends_at: datetime | None
+    created_at: datetime
+
+
+class PlatformAuditRead(BaseModel):
+    id: UUID
+    actor_user_id: UUID
+    action: str
+    tenant_id: UUID | None
+    target_user_id: UUID | None
+    details: str | None
+    created_at: datetime
 
 
 # ── Role / Permission ─────────────────────────────────────────────────────────

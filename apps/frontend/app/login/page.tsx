@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import axios from "axios";
+import { buildApiUrl } from "@/lib/api";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -19,7 +20,7 @@ export default function LoginPage() {
       params.append("password", password);
 
       const response = await axios.post<{ access_token: string; token_type: string }>(
-        `${process.env.NEXT_PUBLIC_API_URL}/auth/login`,
+        buildApiUrl("/auth/login"),
         params,
         {
           headers: {

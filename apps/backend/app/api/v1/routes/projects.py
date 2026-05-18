@@ -10,14 +10,16 @@ Roller:
 from __future__ import annotations
 
 import ast
+import json
 from decimal import Decimal
+from types import SimpleNamespace
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database         import get_db
-from app.core.dependencies     import get_current_user, require_role
+from app.core.dependencies     import get_current_user, is_platform_admin, require_role
 from app.core.exceptions       import NotFoundError
 from app.db.crud               import CRUDBase
 from app.db.models import (
@@ -52,6 +54,25 @@ crud_region     = CRUDBase(Region)
 crud_branch     = CRUDBase(Branch)
 crud_project    = CRUDBase(Project)
 crud_assignment = CRUDBase(ProjectAssignment)
+
+
+def _has_admin_role(user: User) -> bool:
+    return "admin" in (user.default_role or "")
+
+
+def _tenant_mismatch(user: User, tenant_id: object) -> bool:
+    if is_platform_admin(user):
+        return False
+    if user.tenant_id is None or tenant_id is None:
+        return True
+    return str(user.tenant_id) != str(tenant_id)
+
+
+def _require_tenant_user(user: User) -> None:
+    if is_platform_admin(user):
+        return
+    if user.tenant_id is None:
+        raise HTTPException(status_code=403, detail="Tenant bağlamı bulunamadı.")
 
 
 def _parse_scope_codes(raw: object) -> list[str]:
@@ -98,97 +119,176 @@ def _to_project_read(project: Project) -> ProjectRead:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @router.get("/customers", response_model=list[CustomerRead], tags=["hierarchy"])
-async def list_customers(db: AsyncSession = Depends(get_db)):
+async def list_customers(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
     """Tüm müşterileri listele — proje oluşturma ekranı cascade dropdown'ı içindir."""
-    return await crud_customer.get_multi(db)
+    if is_platform_admin(user):
+        return await crud_customer.get_multi(db)
+    _require_tenant_user(user)
+    result = await db.execute(select(Customer).where(Customer.tenant_id == user.tenant_id))
+    return list(result.scalars())
 
 
 @router.post("/customers", response_model=CustomerRead, dependencies=[Depends(require_role("admin"))], tags=["hierarchy"])
-async def create_customer(customer_in: CustomerCreate, db: AsyncSession = Depends(get_db)):
-    return await crud_customer.create(db, customer_in)
+async def create_customer(
+    customer_in: CustomerCreate,
+    user: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+):
+    _require_tenant_user(user)
+    return await crud_customer.create(db, customer_in, tenant_id=user.tenant_id)
 
 
 @router.patch("/customers/{customer_id}", response_model=CustomerRead, dependencies=[Depends(require_role("admin"))], tags=["hierarchy"])
-async def update_customer(customer_id: str, customer_in: CustomerCreate, db: AsyncSession = Depends(get_db)):
+async def update_customer(
+    customer_id: str,
+    customer_in: CustomerCreate,
+    user: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+):
     customer = await crud_customer.get(db, customer_id)
     if not customer:
         raise NotFoundError(detail="Müşteri bulunamadı.")
+    if _tenant_mismatch(user, customer.tenant_id):
+        raise HTTPException(status_code=403, detail="Bu müşteri üzerinde yetkiniz yok.")
     return await crud_customer.update(db, db_obj=customer, obj_in=customer_in)
 
 
 @router.delete("/customers/{customer_id}", status_code=status.HTTP_204_NO_CONTENT, response_model=None, response_class=Response, dependencies=[Depends(require_role("admin"))], tags=["hierarchy"])
-async def delete_customer(customer_id: str, db: AsyncSession = Depends(get_db)) -> None:
+async def delete_customer(
+    customer_id: str,
+    user: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> None:
     customer = await crud_customer.get(db, customer_id)
     if not customer:
         raise NotFoundError(detail="Müşteri bulunamadı.")
+    if _tenant_mismatch(user, customer.tenant_id):
+        raise HTTPException(status_code=403, detail="Bu müşteri üzerinde yetkiniz yok.")
     await crud_customer.delete(db, customer)
 
 
 @router.get("/regions/{customer_id}", response_model=list[RegionRead], tags=["hierarchy"])
 async def list_regions_by_customer(
     customer_id: str,
+    user:        User         = Depends(get_current_user),
     db:          AsyncSession = Depends(get_db),
 ):
     """Bir müşterinin bölgelerini getirir."""
-    result = await db.execute(select(Region).where(Region.customer_id == customer_id))
+    customer = await crud_customer.get(db, customer_id)
+    if not customer:
+        raise NotFoundError(detail="Müşteri bulunamadı.")
+    if _tenant_mismatch(user, customer.tenant_id):
+        raise HTTPException(status_code=403, detail="Bu müşteri üzerinde yetkiniz yok.")
+    result = await db.execute(
+        select(Region).where(Region.customer_id == customer_id, Region.tenant_id == customer.tenant_id)
+    )
     return list(result.scalars())
 
 
 @router.post("/regions", response_model=RegionRead, dependencies=[Depends(require_role("admin"))], tags=["hierarchy"])
-async def create_region(region_in: RegionCreate, db: AsyncSession = Depends(get_db)):
+async def create_region(
+    region_in: RegionCreate,
+    user: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+):
     customer = await crud_customer.get(db, region_in.customer_id)
     if not customer:
         raise NotFoundError(detail="Müşteri bulunamadı.")
-    return await crud_region.create(db, region_in)
+    if _tenant_mismatch(user, customer.tenant_id):
+        raise HTTPException(status_code=403, detail="Bu müşteri üzerinde yetkiniz yok.")
+    return await crud_region.create(db, region_in, tenant_id=customer.tenant_id)
 
 
 @router.patch("/regions/{region_id}", response_model=RegionRead, dependencies=[Depends(require_role("admin"))], tags=["hierarchy"])
-async def update_region(region_id: str, region_in: RegionUpdate, db: AsyncSession = Depends(get_db)):
+async def update_region(
+    region_id: str,
+    region_in: RegionUpdate,
+    user: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+):
     region = await crud_region.get(db, region_id)
     if not region:
         raise NotFoundError(detail="Bölge bulunamadı.")
+    if _tenant_mismatch(user, region.tenant_id):
+        raise HTTPException(status_code=403, detail="Bu bölge üzerinde yetkiniz yok.")
     return await crud_region.update(db, db_obj=region, obj_in=region_in)
 
 
 @router.delete("/regions/{region_id}", status_code=status.HTTP_204_NO_CONTENT, response_model=None, response_class=Response, dependencies=[Depends(require_role("admin"))], tags=["hierarchy"])
-async def delete_region(region_id: str, db: AsyncSession = Depends(get_db)) -> None:
+async def delete_region(
+    region_id: str,
+    user: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> None:
     region = await crud_region.get(db, region_id)
     if not region:
         raise NotFoundError(detail="Bölge bulunamadı.")
+    if _tenant_mismatch(user, region.tenant_id):
+        raise HTTPException(status_code=403, detail="Bu bölge üzerinde yetkiniz yok.")
     await crud_region.delete(db, region)
 
 
 @router.get("/branches/{region_id}", response_model=list[BranchRead], tags=["hierarchy"])
 async def list_branches_by_region(
     region_id: str,
+    user:      User         = Depends(get_current_user),
     db:        AsyncSession = Depends(get_db),
 ):
     """Bir bölgenin şubelerini getirir."""
-    result = await db.execute(select(Branch).where(Branch.region_id == region_id))
+    region = await crud_region.get(db, region_id)
+    if not region:
+        raise NotFoundError(detail="Bölge bulunamadı.")
+    if _tenant_mismatch(user, region.tenant_id):
+        raise HTTPException(status_code=403, detail="Bu bölge üzerinde yetkiniz yok.")
+    result = await db.execute(
+        select(Branch).where(Branch.region_id == region_id, Branch.tenant_id == region.tenant_id)
+    )
     return list(result.scalars())
 
 
 @router.post("/branches", response_model=BranchRead, dependencies=[Depends(require_role("admin"))], tags=["hierarchy"])
-async def create_branch(branch_in: BranchCreate, db: AsyncSession = Depends(get_db)):
+async def create_branch(
+    branch_in: BranchCreate,
+    user: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+):
     region = await crud_region.get(db, branch_in.region_id)
     if not region:
         raise NotFoundError(detail="Bölge bulunamadı.")
-    return await crud_branch.create(db, branch_in)
+    if _tenant_mismatch(user, region.tenant_id):
+        raise HTTPException(status_code=403, detail="Bu bölge üzerinde yetkiniz yok.")
+    return await crud_branch.create(db, branch_in, tenant_id=region.tenant_id)
 
 
 @router.patch("/branches/{branch_id}", response_model=BranchRead, dependencies=[Depends(require_role("admin"))], tags=["hierarchy"])
-async def update_branch(branch_id: str, branch_in: BranchUpdate, db: AsyncSession = Depends(get_db)):
+async def update_branch(
+    branch_id: str,
+    branch_in: BranchUpdate,
+    user: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+):
     branch = await crud_branch.get(db, branch_id)
     if not branch:
         raise NotFoundError(detail="Şube bulunamadı.")
+    if _tenant_mismatch(user, branch.tenant_id):
+        raise HTTPException(status_code=403, detail="Bu şube üzerinde yetkiniz yok.")
     return await crud_branch.update(db, db_obj=branch, obj_in=branch_in)
 
 
 @router.delete("/branches/{branch_id}", status_code=status.HTTP_204_NO_CONTENT, response_model=None, response_class=Response, dependencies=[Depends(require_role("admin"))], tags=["hierarchy"])
-async def delete_branch(branch_id: str, db: AsyncSession = Depends(get_db)) -> None:
+async def delete_branch(
+    branch_id: str,
+    user: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> None:
     branch = await crud_branch.get(db, branch_id)
     if not branch:
         raise NotFoundError(detail="Şube bulunamadı.")
+    if _tenant_mismatch(user, branch.tenant_id):
+        raise HTTPException(status_code=403, detail="Bu şube üzerinde yetkiniz yok.")
     await crud_branch.delete(db, branch)
 
 
@@ -215,16 +315,20 @@ async def list_projects(
     Diğer roller yalnızca kendisine ProjectAssignment ile atanmış projeleri görür.
     Query parametreleri ile filtreleme desteği vardır.
     """
-    if "admin" not in (user.default_role or ""):
+    if not is_platform_admin(user):
+        _require_tenant_user(user)
+        query = select(Project).where(Project.tenant_id == user.tenant_id)
+    else:
+        query = select(Project)
+
+    if not _has_admin_role(user):
         # Saha mühendisi / müşteri kullanıcısı → sadece atanmış projeler
         assignment_subq = (
             select(ProjectAssignment.project_id)
             .where(ProjectAssignment.user_id == user.id)
             .subquery()
         )
-        query = select(Project).where(Project.id.in_(assignment_subq))
-    else:
-        query = select(Project)
+        query = query.where(Project.id.in_(assignment_subq))
 
     if status:
         query = query.where(Project.status == status)
@@ -247,6 +351,7 @@ async def list_projects(
 )
 async def create_project(
     project_in: ProjectCreate,
+    user:       User         = Depends(require_role("admin")),
     db:         AsyncSession = Depends(get_db),
 ) -> ProjectRead:
     """
@@ -257,13 +362,28 @@ async def create_project(
     branch = await crud_branch.get(db, project_in.branch_id)
     if not branch:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Şube bulunamadı.")
+    if _tenant_mismatch(user, branch.tenant_id):
+        raise HTTPException(status_code=403, detail="Bu şube üzerinde yetkiniz yok.")
 
     # Bölge şubeye ait mi?
     region = await crud_region.get(db, branch.region_id)
-    if not region or region.customer_id != project_in.customer_id:
+    if not region or region.customer_id != project_in.customer_id or region.id != project_in.region_id:
         raise HTTPException(status_code=400, detail="Bölge / müşteri uyumsuzluğu.")
+    if str(region.tenant_id) != str(branch.tenant_id):
+        raise HTTPException(status_code=400, detail="Hiyerarşi tenant bilgisi tutarsız.")
 
-    created = await crud_project.create(db, project_in)
+    customer = await crud_customer.get(db, project_in.customer_id)
+    if not customer:
+        raise NotFoundError(detail="Müşteri bulunamadı.")
+    if str(customer.tenant_id) != str(branch.tenant_id):
+        raise HTTPException(status_code=400, detail="Hiyerarşi tenant bilgisi tutarsız.")
+
+    created = await crud_project.create(
+        db,
+        project_in,
+        scope_codes=json.dumps(project_in.scope_codes or []),
+        tenant_id=branch.tenant_id,
+    )
     return _to_project_read(created)
 
 
@@ -281,7 +401,10 @@ async def get_project(
     if not project:
         raise NotFoundError(detail="Proje bulunamadı.")
 
-    if "admin" not in (user.default_role or ""):
+    if _tenant_mismatch(user, project.tenant_id):
+        raise HTTPException(status_code=403, detail="Bu projeye erişim yetkiniz yok.")
+
+    if not _has_admin_role(user):
         assignment = await db.execute(
             select(ProjectAssignment)
             .where(
@@ -306,7 +429,14 @@ async def update_project(
     project = await crud_project.get(db, project_id)
     if not project:
         raise NotFoundError(detail="Proje bulunamadı.")
-    updated = await crud_project.update(db, db_obj=project, obj_in=project_in)
+    if _tenant_mismatch(user, project.tenant_id):
+        raise HTTPException(status_code=403, detail="Bu proje üzerinde yetkiniz yok.")
+    update_payload = project_in.model_dump(exclude_unset=True)
+    if "scope_codes" in update_payload and update_payload["scope_codes"] is not None:
+        update_payload["scope_codes"] = json.dumps(update_payload["scope_codes"])
+
+    obj_in = SimpleNamespace(model_dump=lambda exclude_unset=True: update_payload)
+    updated = await crud_project.update(db, db_obj=project, obj_in=obj_in)
     return _to_project_read(updated)
 
 
@@ -325,6 +455,8 @@ async def delete_project(
     project = await crud_project.get(db, project_id)
     if not project:
         raise NotFoundError(detail="Proje bulunamadı.")
+    if _tenant_mismatch(user, project.tenant_id):
+        raise HTTPException(status_code=403, detail="Bu proje üzerinde yetkiniz yok.")
     await crud_project.delete(db, project)
 
 
@@ -342,15 +474,20 @@ async def delete_project(
 async def assign_user_to_project(
     project_id: str,
     assignment: ProjectAssignmentCreate,
+    admin:      User         = Depends(require_role("admin")),
     db:         AsyncSession = Depends(get_db),
 ) -> ProjectAssignment:
     """Bir kullanıcıyı (saha mühendisi / taşeron) projeye atar."""
     project = await crud_project.get(db, project_id)
     if not project:
         raise NotFoundError(detail="Proje bulunamadı.")
+    if _tenant_mismatch(admin, project.tenant_id):
+        raise HTTPException(status_code=403, detail="Bu proje üzerinde yetkiniz yok.")
     user = await db.get(User, assignment.user_id)
     if not user:
         raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı.")
+    if _tenant_mismatch(admin, user.tenant_id) or str(user.tenant_id) != str(project.tenant_id):
+        raise HTTPException(status_code=403, detail="Kullanıcı tenant kapsamı proje ile uyumlu değil.")
     return await crud_assignment.create(db, assignment, project_id=project_id)
 
 
@@ -368,7 +505,13 @@ async def list_assignments(
     Projeye atanmış tüm ekip/taşeron listesini döner.
     Yönetici her projenin atamalarını görür, diğer roller sadece kendi projelerini.
     """
-    if "admin" not in (user.default_role or ""):
+    project = await crud_project.get(db, project_id)
+    if not project:
+        raise NotFoundError(detail="Proje bulunamadı.")
+    if _tenant_mismatch(user, project.tenant_id):
+        raise HTTPException(status_code=403, detail="Bu projeye erişim yetkiniz yok.")
+
+    if not _has_admin_role(user):
         # Kendi atanıp atanmadığını doğrula
         own_assignment = await db.execute(
             select(ProjectAssignment)

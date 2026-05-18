@@ -139,11 +139,30 @@ export interface paths {
          */
         get: operations["list_customers_api_v1_projects_customers_get"];
         put?: never;
-        post?: never;
+        /** Create Customer */
+        post: operations["create_customer_api_v1_projects_customers_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/customers/{customer_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Customer */
+        delete: operations["delete_customer_api_v1_projects_customers__customer_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Customer */
+        patch: operations["update_customer_api_v1_projects_customers__customer_id__patch"];
         trace?: never;
     };
     "/api/v1/projects/regions/{customer_id}": {
@@ -166,6 +185,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/regions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Region */
+        post: operations["create_region_api_v1_projects_regions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/regions/{region_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Region */
+        delete: operations["delete_region_api_v1_projects_regions__region_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Region */
+        patch: operations["update_region_api_v1_projects_regions__region_id__patch"];
+        trace?: never;
+    };
     "/api/v1/projects/branches/{region_id}": {
         parameters: {
             query?: never;
@@ -184,6 +238,41 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/branches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Branch */
+        post: operations["create_branch_api_v1_projects_branches_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/branches/{branch_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Branch */
+        delete: operations["delete_branch_api_v1_projects_branches__branch_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Branch */
+        patch: operations["update_branch_api_v1_projects_branches__branch_id__patch"];
         trace?: never;
     };
     "/api/v1/projects": {
@@ -632,6 +721,196 @@ export interface paths {
         patch: operations["update_document_api_v1_documents__doc_id__patch"];
         trace?: never;
     };
+    "/api/v1/platform/tenants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Tenants */
+        get: operations["list_tenants_api_v1_platform_tenants_get"];
+        put?: never;
+        /** Create Tenant */
+        post: operations["create_tenant_api_v1_platform_tenants_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/tenants/{tenant_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Tenant */
+        patch: operations["update_tenant_api_v1_platform_tenants__tenant_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/platform/tenants/{tenant_id}/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Tenant Settings */
+        get: operations["get_tenant_settings_api_v1_platform_tenants__tenant_id__settings_get"];
+        /** Upsert Tenant Settings */
+        put: operations["upsert_tenant_settings_api_v1_platform_tenants__tenant_id__settings_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/tenants/provision-admin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Provision Tenant Admin */
+        post: operations["provision_tenant_admin_api_v1_platform_tenants_provision_admin_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/tenants/{tenant_id}/admins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Tenant Admins */
+        get: operations["list_tenant_admins_api_v1_platform_tenants__tenant_id__admins_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/admin-users/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Tenant Admin User */
+        patch: operations["update_tenant_admin_user_api_v1_platform_admin_users__user_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/platform/tenants/{tenant_id}/reset-admin-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reset Tenant Admin Password */
+        post: operations["reset_tenant_admin_password_api_v1_platform_tenants__tenant_id__reset_admin_password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Plans */
+        get: operations["list_plans_api_v1_platform_plans_get"];
+        put?: never;
+        /** Create Plan */
+        post: operations["create_plan_api_v1_platform_plans_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/subscriptions/assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Assign Subscription */
+        post: operations["assign_subscription_api_v1_platform_subscriptions_assign_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/subscriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Subscriptions */
+        get: operations["list_subscriptions_api_v1_platform_subscriptions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Audit Logs */
+        get: operations["list_audit_logs_api_v1_platform_audit_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -681,17 +960,8 @@ export interface components {
              */
             file: string;
         };
-        /**
-         * Branch
-         * @description Şube / lokasyon — proje açılacak en düşük hiyerarşi birimi.
-         *     Örnek: X Süpermarket, Ankara Cankaya Şubesi
-         */
-        Branch: {
-            /**
-             * Id
-             * Format: uuid
-             */
-            id?: string;
+        /** BranchCreate */
+        BranchCreate: {
             /**
              * Region Id
              * Format: uuid
@@ -703,20 +973,49 @@ export interface components {
             code?: string | null;
             /** Address */
             address?: string | null;
-            /** Latitude */
-            latitude?: number | null;
-            /** Longitude */
-            longitude?: number | null;
+        };
+        /** BranchRead */
+        BranchRead: {
             /**
-             * Ready For Field
-             * @default false
+             * Id
+             * Format: uuid
              */
-            ready_for_field: boolean;
+            id: string;
             /**
-             * Created At
-             * Format: date-time
+             * Region Id
+             * Format: uuid
              */
-            created_at?: string;
+            region_id: string;
+            /** Name */
+            name: string;
+            /** Code */
+            code: string | null;
+            /** Address */
+            address: string | null;
+        };
+        /** BranchUpdate */
+        BranchUpdate: {
+            /** Region Id */
+            region_id?: string | null;
+            /** Name */
+            name?: string | null;
+            /** Code */
+            code?: string | null;
+            /** Address */
+            address?: string | null;
+        };
+        /** CustomerCreate */
+        CustomerCreate: {
+            /** Name */
+            name: string;
+            /** Tax No */
+            tax_no?: string | null;
+            /** Contact Email */
+            contact_email?: string | null;
+            /** Contact Phone */
+            contact_phone?: string | null;
+            /** Address */
+            address?: string | null;
         };
         /** CustomerRead */
         CustomerRead: {
@@ -1251,6 +1550,131 @@ export interface components {
              */
             created_at: string;
         };
+        /** PlatformAuditRead */
+        PlatformAuditRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Actor User Id
+             * Format: uuid
+             */
+            actor_user_id: string;
+            /** Action */
+            action: string;
+            /** Tenant Id */
+            tenant_id: string | null;
+            /** Target User Id */
+            target_user_id: string | null;
+            /** Details */
+            details: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** PlatformPlanCreate */
+        PlatformPlanCreate: {
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /**
+             * Max Users
+             * @default 10
+             */
+            max_users: number;
+            /**
+             * Storage Limit Gb
+             * @default 5
+             */
+            storage_limit_gb: number;
+            /**
+             * Modules
+             * @default []
+             */
+            modules: string[];
+        };
+        /** PlatformPlanRead */
+        PlatformPlanRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Max Users */
+            max_users: number;
+            /** Storage Limit Gb */
+            storage_limit_gb: number;
+            /** Modules */
+            modules: string[];
+            /** Is Active */
+            is_active: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** PlatformSubscriptionAssignRequest */
+        PlatformSubscriptionAssignRequest: {
+            /**
+             * Tenant Id
+             * Format: uuid
+             */
+            tenant_id: string;
+            /**
+             * Plan Id
+             * Format: uuid
+             */
+            plan_id: string;
+            /**
+             * Status
+             * @default active
+             */
+            status: string;
+            /** Ends At */
+            ends_at?: string | null;
+        };
+        /** PlatformSubscriptionRead */
+        PlatformSubscriptionRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Tenant Id
+             * Format: uuid
+             */
+            tenant_id: string;
+            /**
+             * Plan Id
+             * Format: uuid
+             */
+            plan_id: string;
+            /** Status */
+            status: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /** Ends At */
+            ends_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /** ProjectAssignmentCreate */
         ProjectAssignmentCreate: {
             /**
@@ -1419,18 +1843,8 @@ export interface components {
             /** Contract Value */
             contract_value?: number | null;
         };
-        /**
-         * Region
-         * @description Bölge (ör. İstanbul Bölgesi). Bir bölge birden fazla müşteriye ait OLMAMALI.
-         *     → customer_id NULL KAHRAMAN olabilir, çünkü bölge müşteriye özel değildir.
-         *     Burada tercihen her bölge bir müşteriye bağlı kabul edilir.
-         */
-        Region: {
-            /**
-             * Id
-             * Format: uuid
-             */
-            id?: string;
+        /** RegionCreate */
+        RegionCreate: {
             /**
              * Customer Id
              * Format: uuid
@@ -1442,11 +1856,36 @@ export interface components {
             code?: string | null;
             /** City */
             city: string;
+        };
+        /** RegionRead */
+        RegionRead: {
             /**
-             * Created At
-             * Format: date-time
+             * Id
+             * Format: uuid
              */
-            created_at?: string;
+            id: string;
+            /**
+             * Customer Id
+             * Format: uuid
+             */
+            customer_id: string;
+            /** Name */
+            name: string;
+            /** Code */
+            code: string | null;
+            /** City */
+            city: string;
+        };
+        /** RegionUpdate */
+        RegionUpdate: {
+            /** Customer Id */
+            customer_id?: string | null;
+            /** Name */
+            name?: string | null;
+            /** Code */
+            code?: string | null;
+            /** City */
+            city?: string | null;
         };
         /** StockRead */
         StockRead: {
@@ -1469,6 +1908,152 @@ export interface components {
             updated_at: string;
             /** Updated By */
             updated_by: string | null;
+        };
+        /** TenantAdminProvisionRequest */
+        TenantAdminProvisionRequest: {
+            /**
+             * Tenant Id
+             * Format: uuid
+             */
+            tenant_id: string;
+            /**
+             * Email
+             * Format: email
+             */
+            email: string;
+            /** Full Name */
+            full_name: string;
+            /** Temporary Password */
+            temporary_password: string;
+        };
+        /** TenantAdminRead */
+        TenantAdminRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Tenant Id */
+            tenant_id: string | null;
+            /** Email */
+            email: string;
+            /** Full Name */
+            full_name: string;
+            /** Phone */
+            phone: string | null;
+            /** Discipline */
+            discipline: string | null;
+            /** Discipline Only */
+            discipline_only: boolean;
+            /** Is Active */
+            is_active: boolean;
+            /**
+             * Force Password Change
+             * @default false
+             */
+            force_password_change: boolean;
+        };
+        /** TenantAdminResetRequest */
+        TenantAdminResetRequest: {
+            /** Temporary Password */
+            temporary_password: string;
+            /**
+             * Force Password Change
+             * @default true
+             */
+            force_password_change: boolean;
+        };
+        /** TenantAdminUpdateRequest */
+        TenantAdminUpdateRequest: {
+            /** Is Active */
+            is_active?: boolean | null;
+            /** Force Password Change */
+            force_password_change?: boolean | null;
+        };
+        /** TenantCreate */
+        TenantCreate: {
+            /** Name */
+            name: string;
+            /** Code */
+            code: string;
+            /** Logo Url */
+            logo_url?: string | null;
+        };
+        /** TenantRead */
+        TenantRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Code */
+            code: string;
+            /** Logo Url */
+            logo_url: string | null;
+            /** Status */
+            status: string;
+            /** Is Active */
+            is_active: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** TenantSettingsRead */
+        TenantSettingsRead: {
+            /** Tax No */
+            tax_no?: string | null;
+            /** Sector */
+            sector?: string | null;
+            /** Country */
+            country?: string | null;
+            /** Theme Color */
+            theme_color?: string | null;
+            /** Domain */
+            domain?: string | null;
+            /** Subdomain */
+            subdomain?: string | null;
+            /**
+             * Tenant Id
+             * Format: uuid
+             */
+            tenant_id: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** TenantSettingsUpsert */
+        TenantSettingsUpsert: {
+            /** Tax No */
+            tax_no?: string | null;
+            /** Sector */
+            sector?: string | null;
+            /** Country */
+            country?: string | null;
+            /** Theme Color */
+            theme_color?: string | null;
+            /** Domain */
+            domain?: string | null;
+            /** Subdomain */
+            subdomain?: string | null;
+        };
+        /** TenantUpdate */
+        TenantUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Code */
+            code?: string | null;
+            /** Logo Url */
+            logo_url?: string | null;
+            /** Status */
+            status?: string | null;
+            /** Is Active */
+            is_active?: boolean | null;
         };
         /** Token */
         Token: {
@@ -1545,6 +2130,8 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Tenant Id */
+            tenant_id: string | null;
             /** Email */
             email: string;
             /** Full Name */
@@ -1947,6 +2534,103 @@ export interface operations {
             };
         };
     };
+    create_customer_api_v1_projects_customers_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_customer_api_v1_projects_customers__customer_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                customer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_customer_api_v1_projects_customers__customer_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                customer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_regions_by_customer_api_v1_projects_regions__customer_id__get: {
         parameters: {
             query?: never;
@@ -1964,7 +2648,104 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Region"][];
+                    "application/json": components["schemas"]["RegionRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_region_api_v1_projects_regions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegionRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_region_api_v1_projects_regions__region_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                region_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_region_api_v1_projects_regions__region_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                region_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegionUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegionRead"];
                 };
             };
             /** @description Validation Error */
@@ -1995,7 +2776,104 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Branch"][];
+                    "application/json": components["schemas"]["BranchRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_branch_api_v1_projects_branches_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BranchCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BranchRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_branch_api_v1_projects_branches__branch_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                branch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_branch_api_v1_projects_branches__branch_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                branch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BranchUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BranchRead"];
                 };
             };
             /** @description Validation Error */
@@ -3238,6 +4116,443 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DocumentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_tenants_api_v1_platform_tenants_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantRead"][];
+                };
+            };
+        };
+    };
+    create_tenant_api_v1_platform_tenants_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TenantCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_tenant_api_v1_platform_tenants__tenant_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TenantUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_tenant_settings_api_v1_platform_tenants__tenant_id__settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantSettingsRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upsert_tenant_settings_api_v1_platform_tenants__tenant_id__settings_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TenantSettingsUpsert"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantSettingsRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    provision_tenant_admin_api_v1_platform_tenants_provision_admin_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TenantAdminProvisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_tenant_admins_api_v1_platform_tenants__tenant_id__admins_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantAdminRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_tenant_admin_user_api_v1_platform_admin_users__user_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TenantAdminUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantAdminRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reset_tenant_admin_password_api_v1_platform_tenants__tenant_id__reset_admin_password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TenantAdminResetRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantAdminRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_plans_api_v1_platform_plans_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformPlanRead"][];
+                };
+            };
+        };
+    };
+    create_plan_api_v1_platform_plans_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformPlanCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformPlanRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    assign_subscription_api_v1_platform_subscriptions_assign_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformSubscriptionAssignRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformSubscriptionRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_subscriptions_api_v1_platform_subscriptions_get: {
+        parameters: {
+            query?: {
+                tenant_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformSubscriptionRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_audit_logs_api_v1_platform_audit_get: {
+        parameters: {
+            query?: {
+                tenant_id?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformAuditRead"][];
                 };
             };
             /** @description Validation Error */

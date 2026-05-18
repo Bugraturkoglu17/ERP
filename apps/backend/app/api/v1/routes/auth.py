@@ -13,9 +13,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.dependencies import get_current_user
-from app.core.security import create_access_token, create_refresh_token, hash_password, verify_password
-from app.db.models import User
+from app.core.dependencies import get_current_user, is_platform_admin
+from app.core.security import create_access_token, create_refresh_token, get_user_permissions, get_user_roles, hash_password, verify_password
+from app.db.models import User, UserRole, Role, UserSecurityPolicy
 from app.db.schemas import Token, TokenRefresh, UserRead
 
 router = APIRouter()
@@ -38,11 +38,15 @@ async def login(
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Hesabınız pasif durumda.")
 
-    roles:       list[str] = []
-    permissions: list[str] = []
+    policy = await db.get(UserSecurityPolicy, user.id)
+    if policy and policy.force_password_change:
+        raise HTTPException(status_code=403, detail="Parolanız sıfırlandı. Giriş öncesi parola yenileme gerekli.")
+
+    roles       = await get_user_roles(db, user.id)
+    permissions = await get_user_permissions(db, user.id)
 
     access_token  = create_access_token(
-        sub=str(user.id), roles=roles, permissions=permissions
+        sub=str(user.id), roles=roles, permissions=permissions, tenant_id=str(user.tenant_id) if user.tenant_id else None
     )
     refresh_token = create_refresh_token(sub=str(user.id))
 
@@ -71,10 +75,15 @@ async def refresh_token(
     if not user or not user.is_active:
         raise HTTPException(status_code=401, detail="Kullanıcı bulunamadı.")
 
-    roles       = []
-    permissions = []
+    roles       = await get_user_roles(db, user.id)
+    permissions = await get_user_permissions(db, user.id)
 
-    access_token  = create_access_token(sub=str(user.id), roles=roles, permissions=permissions)
+    access_token  = create_access_token(
+        sub=str(user.id),
+        roles=roles,
+        permissions=permissions,
+        tenant_id=str(user.tenant_id) if user.tenant_id else None,
+    )
     refresh_token = create_refresh_token(sub=str(user.id))
 
     return Token(
@@ -105,7 +114,11 @@ async def list_users(
     if "admin" not in (user.default_role or ""):
         raise HTTPException(status_code=403, detail="Kullanıcıları listeleme yetkiniz yok.")
         
-    result = await db.execute(select(User).order_by(User.created_at.desc()))
+    query = select(User).order_by(User.created_at.desc())
+    if not is_platform_admin(user):
+        query = query.where(User.tenant_id == user.tenant_id)
+
+    result = await db.execute(query)
     return list(result.scalars())
 
 
@@ -119,21 +132,34 @@ async def create_user(
     if "admin" not in (admin.default_role or ""):
         raise HTTPException(status_code=403, detail="Kullanıcı oluşturma yetkiniz yok.")
 
+    requested_roles = user_in.roles or ["saha_muhendisi"]
+    if "platform_admin" in requested_roles and not is_platform_admin(admin):
+        raise HTTPException(status_code=403, detail="platform_admin rolü yalnızca platform yöneticisi tarafından atanabilir.")
+
     existing = await db.execute(select(User).where(User.email == user_in.email))
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Bu e-posta adresiyle kayıtlı bir kullanıcı zaten var.")
 
     db_user = User(
         email=user_in.email,
+        tenant_id=admin.tenant_id,
         hashed_password=hash_password(user_in.password),
         full_name=user_in.full_name,
         phone=user_in.phone,
-        default_role=user_in.roles[0] if user_in.roles else "saha_muhendisi",
+        default_role=requested_roles[0],
         discipline=user_in.discipline,
         discipline_only=user_in.discipline_only,
         is_active=True,
     )
     db.add(db_user)
+    await db.flush()
+
+    for role_name in requested_roles:
+        role_result = await db.execute(select(Role).where(Role.name == role_name))
+        role = role_result.scalar_one_or_none()
+        if role:
+            db.add(UserRole(user_id=db_user.id, role_id=role.id))
+
     await db.commit()
     await db.refresh(db_user)
     return db_user
@@ -153,6 +179,8 @@ async def update_user_details(
     user = await db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı.")
+    if not is_platform_admin(admin) and user.tenant_id != admin.tenant_id:
+        raise HTTPException(status_code=403, detail="Bu kullanıcı tenant kapsamınız dışında.")
 
     if user_in.full_name is not None:
         user.full_name = user_in.full_name
@@ -182,6 +210,8 @@ async def delete_user_account(
     user = await db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı.")
+    if not is_platform_admin(admin) and user.tenant_id != admin.tenant_id:
+        raise HTTPException(status_code=403, detail="Bu kullanıcı tenant kapsamınız dışında.")
     
     user.is_active = False
     db.add(user)

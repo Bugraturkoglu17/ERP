@@ -18,6 +18,10 @@ from app.core.database import get_db as database_get_db
 from app.core.security import decode_token
 from app.db.models import User, RolePermission
 
+
+def is_platform_admin(user: User) -> bool:
+    return "platform_admin" in (user.default_role or "")
+
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="/api/v1/auth/login",
     auto_error=False,     # isteğe bağlı: optional auth endpoint'leri için
@@ -70,6 +74,27 @@ async def get_current_user(
         raise HTTPException(status_code=401, detail="Token içeriği geçersiz.")
 
     return await _get_user_by_sub(db, sub)
+
+
+async def get_current_tenant_id(
+    token: str = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db),
+) -> uuid.UUID | None:
+    if not token:
+        raise HTTPException(status_code=401, detail="Kimlik doğrulama gerekli.")
+    try:
+        payload = decode_token(token)
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="Geçersiz token.")
+
+    user = await _get_user_by_sub(db, payload["sub"])
+    if is_platform_admin(user):
+        return None
+
+    tenant_id = payload.get("tenant_id") or (str(user.tenant_id) if user.tenant_id else None)
+    if not tenant_id:
+        raise HTTPException(status_code=403, detail="Tenant bağlamı bulunamadı.")
+    return uuid.UUID(str(tenant_id))
 
 
 async def get_current_active_user(

@@ -14,19 +14,21 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 from sqlalchemy.engine import Engine
+from sqlmodel import SQLModel
 
 # ── Proje kök dizinini sys.path'e ekleyerek import'ları yapılandır ────────────
 sys.path.insert(0, ".")          # apps/backend dizininden çalıştırılıyor
 
 from app.core.config import settings  # noqa: E402  — DATABASE_URL
-from app.db.models     import Base    # noqa: E402  — SQLModel metadata
+from app.db import models as _models  # noqa: E402,F401 - ensure model import side effects
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
 
 # Veritabanı URL'sini Pydantic Settings'den al (INI dosyasındakini ezer)
-config.set_main_option("sqlalchemy.url", str(settings.DATABASE_URL))
+db_url = str(settings.DATABASE_URL).replace("+asyncpg", "+psycopg2")
+config.set_main_option("sqlalchemy.url", db_url)
 
 # Interpret the config file for Python logging.
 if config.config_file_name is not None:
@@ -34,7 +36,7 @@ if config.config_file_name is not None:
 
 # Target metadata for 'autogenerate' support
 # SQLModel modellerinin tüm tablo tanımlamaları burada toplanır.
-target_metadata = Base.metadata
+target_metadata = SQLModel.metadata
 
 
 def run_migrations_offline() -> None:

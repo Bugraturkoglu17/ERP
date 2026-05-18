@@ -80,6 +80,13 @@ class ExpenseCategory(str, Enum):
     MISCELLANEOUS   = "miscellaneous" # Diğer
 
 
+class TenantStatus(str, Enum):
+    TRIAL = "trial"
+    ACTIVE = "active"
+    SUSPENDED = "suspended"
+    ARCHIVED = "archived"
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 #  2 · RBAC  —  Kullanıcılar, Roller, İzinler
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -159,6 +166,7 @@ class User(SQLModel, table=True):
     __tablename__ = "users"
 
     id:                UUID          = Field(default_factory=uuid4, primary_key=True)
+    tenant_id:         Optional[UUID] = Field(foreign_key="tenants.id", default=None, index=True)
     email:             str           = Field(max_length=255, unique=True, index=True)
     hashed_password:   str
     full_name:         str           = Field(max_length=200)
@@ -188,6 +196,22 @@ class User(SQLModel, table=True):
     )
 
 
+class Tenant(SQLModel, table=True):
+    """Platform tenant (firma) kaydı."""
+
+    __tablename__ = "tenants"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    name: str = Field(max_length=180, unique=True, index=True)
+    code: str = Field(max_length=64, unique=True, index=True)
+    logo_url: Optional[str] = Field(default=None, max_length=500)
+    status: TenantStatus = Field(default=TenantStatus.TRIAL, index=True)
+    is_active: bool = Field(default=True)
+    created_at: datetime = Field(default_factory=utc_now, nullable=False)
+
+    users: List["User"] = Relationship()
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 #  3 · MÜŞTERİ / LOKASYON HİYERARŞİSİ
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -201,6 +225,7 @@ class Customer(SQLModel, table=True):
     __tablename__ = "customers"
 
     id:            UUID          = Field(default_factory=uuid4, primary_key=True)
+    tenant_id:     Optional[UUID] = Field(foreign_key="tenants.id", default=None, index=True)
     name:          str           = Field(max_length=200, index=True)
     tax_no:        Optional[str] = Field(default=None, max_length=30)  # Vergi no
     contact_email: Optional[str] = Field(default=None, max_length=255)
@@ -224,6 +249,7 @@ class Region(SQLModel, table=True):
     __tablename__ = "regions"
 
     id:          UUID          = Field(default_factory=uuid4, primary_key=True)
+    tenant_id:   Optional[UUID] = Field(foreign_key="tenants.id", default=None, index=True)
     customer_id: UUID          = Field(foreign_key="customers.id", index=True)
     name:        str           = Field(max_length=100, index=True)
     code:        Optional[str] = Field(default=None, max_length=20, index=True)
@@ -244,6 +270,7 @@ class Branch(SQLModel, table=True):
     __tablename__ = "branches"
 
     id:          UUID          = Field(default_factory=uuid4, primary_key=True)
+    tenant_id:   Optional[UUID] = Field(foreign_key="tenants.id", default=None, index=True)
     region_id:   UUID          = Field(foreign_key="regions.id", index=True)
     name:        str           = Field(max_length=200, index=True)
     code:        Optional[str] = Field(default=None, max_length=30, index=True)
@@ -273,6 +300,7 @@ class Project(SQLModel, table=True):
     __tablename__ = "projects"
 
     id:          UUID        = Field(default_factory=uuid4, primary_key=True)
+    tenant_id:   Optional[UUID] = Field(foreign_key="tenants.id", default=None, index=True)
     # ── Hiyerarşi ──────────────────────────────────────────
     customer_id: UUID       = Field(foreign_key="customers.id", index=True)
     region_id:   UUID       = Field(foreign_key="regions.id", index=True)
@@ -715,3 +743,61 @@ class Payment(SQLModel, table=True):
     created_at:        datetime     = Field(
         default_factory=utc_now, nullable=False
     )
+
+
+class PlatformTenantSettings(SQLModel, table=True):
+    __tablename__ = "platform_tenant_settings"
+
+    tenant_id: UUID = Field(foreign_key="tenants.id", primary_key=True)
+    tax_no: Optional[str] = Field(default=None, max_length=32)
+    sector: Optional[str] = Field(default=None, max_length=120)
+    country: Optional[str] = Field(default=None, max_length=80)
+    theme_color: Optional[str] = Field(default=None, max_length=16)
+    domain: Optional[str] = Field(default=None, max_length=255)
+    subdomain: Optional[str] = Field(default=None, max_length=120)
+    updated_at: datetime = Field(default_factory=utc_now, sa_column_kwargs={"onupdate": utc_now})
+
+
+class PlatformPlan(SQLModel, table=True):
+    __tablename__ = "platform_plans"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    code: str = Field(max_length=64, unique=True, index=True)
+    name: str = Field(max_length=120)
+    max_users: int = Field(default=10, ge=1)
+    storage_limit_gb: int = Field(default=5, ge=1)
+    modules: str = Field(default="[]", description="JSON array")
+    is_active: bool = Field(default=True)
+    created_at: datetime = Field(default_factory=utc_now, nullable=False)
+
+
+class PlatformSubscription(SQLModel, table=True):
+    __tablename__ = "platform_subscriptions"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    tenant_id: UUID = Field(foreign_key="tenants.id", index=True)
+    plan_id: UUID = Field(foreign_key="platform_plans.id", index=True)
+    status: str = Field(default="trial", max_length=32, index=True)
+    starts_at: datetime = Field(default_factory=utc_now)
+    ends_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=utc_now, nullable=False)
+
+
+class PlatformAdminAction(SQLModel, table=True):
+    __tablename__ = "platform_admin_actions"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    actor_user_id: UUID = Field(foreign_key="users.id", index=True)
+    action: str = Field(max_length=120, index=True)
+    tenant_id: Optional[UUID] = Field(foreign_key="tenants.id", default=None, index=True)
+    target_user_id: Optional[UUID] = Field(foreign_key="users.id", default=None, index=True)
+    details: Optional[str] = Field(default=None, max_length=2000)
+    created_at: datetime = Field(default_factory=utc_now, nullable=False, index=True)
+
+
+class UserSecurityPolicy(SQLModel, table=True):
+    __tablename__ = "user_security_policies"
+
+    user_id: UUID = Field(foreign_key="users.id", primary_key=True)
+    force_password_change: bool = Field(default=False)
+    updated_at: datetime = Field(default_factory=utc_now, sa_column_kwargs={"onupdate": utc_now})
