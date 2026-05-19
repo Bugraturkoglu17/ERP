@@ -58,6 +58,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/complete-password-reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Complete Password Reset */
+        post: operations["complete_password_reset_api_v1_auth_complete_password_reset_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/me": {
         parameters: {
             query?: never;
@@ -71,6 +88,57 @@ export interface paths {
          */
         get: operations["get_me_api_v1_auth_me_get"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/tenant-context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Tenant Context */
+        get: operations["get_tenant_context_api_v1_auth_tenant_context_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/tenant-context/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Tenant Context Settings */
+        put: operations["update_tenant_context_settings_api_v1_auth_tenant_context_settings_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/tenant-context/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Tenant Context Profile */
+        put: operations["update_tenant_context_profile_api_v1_auth_tenant_context_profile_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1004,6 +1072,18 @@ export interface components {
             /** Address */
             address?: string | null;
         };
+        /** CompletePasswordResetRequest */
+        CompletePasswordResetRequest: {
+            /**
+             * Email
+             * Format: email
+             */
+            email: string;
+            /** Temporary Password */
+            temporary_password: string;
+            /** New Password */
+            new_password: string;
+        };
         /** CustomerCreate */
         CustomerCreate: {
             /** Name */
@@ -1499,6 +1579,11 @@ export interface components {
             /** Is Active */
             is_active?: boolean | null;
         };
+        /** MessageResponse */
+        MessageResponse: {
+            /** Message */
+            message: string;
+        };
         /** PaymentCreate */
         PaymentCreate: {
             /** Invoice Id */
@@ -1970,12 +2055,45 @@ export interface components {
             /** Force Password Change */
             force_password_change?: boolean | null;
         };
+        /** TenantContextRead */
+        TenantContextRead: {
+            /**
+             * Tenant Id
+             * Format: uuid
+             */
+            tenant_id: string;
+            /** Tenant Name */
+            tenant_name: string;
+            /** Tenant Code */
+            tenant_code: string;
+            /** Logo Url */
+            logo_url?: string | null;
+            /** Tax No */
+            tax_no?: string | null;
+            /** Sector */
+            sector?: string | null;
+            /** Country */
+            country?: string | null;
+            /** Theme Color */
+            theme_color?: string | null;
+            /** Domain */
+            domain?: string | null;
+            /** Subdomain */
+            subdomain?: string | null;
+        };
         /** TenantCreate */
         TenantCreate: {
             /** Name */
             name: string;
             /** Code */
             code: string;
+            /** Logo Url */
+            logo_url?: string | null;
+        };
+        /** TenantProfileUpdate */
+        TenantProfileUpdate: {
+            /** Tenant Name */
+            tenant_name?: string | null;
             /** Logo Url */
             logo_url?: string | null;
         };
@@ -2377,6 +2495,39 @@ export interface operations {
             };
         };
     };
+    complete_password_reset_api_v1_auth_complete_password_reset_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompletePasswordResetRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_me_api_v1_auth_me_get: {
         parameters: {
             query?: never;
@@ -2393,6 +2544,92 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserRead"];
+                };
+            };
+        };
+    };
+    get_tenant_context_api_v1_auth_tenant_context_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantContextRead"];
+                };
+            };
+        };
+    };
+    update_tenant_context_settings_api_v1_auth_tenant_context_settings_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TenantSettingsUpsert"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantContextRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_tenant_context_profile_api_v1_auth_tenant_context_profile_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TenantProfileUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantContextRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

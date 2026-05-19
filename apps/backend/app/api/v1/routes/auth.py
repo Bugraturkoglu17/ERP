@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from typing import Any
 
@@ -15,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, is_platform_admin
 from app.core.security import create_access_token, create_refresh_token, get_user_permissions, get_user_roles, hash_password, verify_password
-from app.db.models import PlatformTenantSettings, Role, Tenant, User, UserRole, UserSecurityPolicy
+from app.db.models import PlatformTenantSettings, Role, Tenant, TenantEmailMode, User, UserRole, UserSecurityPolicy
 from app.db.schemas import CompletePasswordResetRequest, MessageResponse, TenantContextRead, TenantProfileUpdate, TenantSettingsUpsert, Token, TokenRefresh, UserRead
 
 router = APIRouter()
@@ -148,6 +149,13 @@ async def get_tenant_context(
         theme_color=settings.theme_color if settings else None,
         domain=settings.domain if settings else None,
         subdomain=settings.subdomain if settings else None,
+        email_mode=settings.email_mode if settings else TenantEmailMode.PLATFORM,
+        from_name=settings.from_name if settings else None,
+        from_email=settings.from_email if settings else None,
+        reply_to=settings.reply_to if settings else None,
+        email_domain_verified=settings.email_domain_verified if settings else False,
+        email_provider_identity_id=settings.email_provider_identity_id if settings else None,
+        email_branding=json.loads(settings.email_branding) if settings and settings.email_branding else None,
     )
 
 
@@ -169,6 +177,9 @@ async def update_tenant_context_settings(
         settings = PlatformTenantSettings(tenant_id=tenant.id)
 
     for key, value in payload.model_dump(exclude_unset=True).items():
+        if key == "email_branding":
+            setattr(settings, key, json.dumps(value, ensure_ascii=False) if value is not None else None)
+            continue
         setattr(settings, key, value)
 
     db.add(settings)
@@ -186,6 +197,13 @@ async def update_tenant_context_settings(
         theme_color=settings.theme_color,
         domain=settings.domain,
         subdomain=settings.subdomain,
+        email_mode=settings.email_mode,
+        from_name=settings.from_name,
+        from_email=settings.from_email,
+        reply_to=settings.reply_to,
+        email_domain_verified=settings.email_domain_verified,
+        email_provider_identity_id=settings.email_provider_identity_id,
+        email_branding=json.loads(settings.email_branding) if settings.email_branding else None,
     )
 
 
@@ -226,6 +244,13 @@ async def update_tenant_context_profile(
         theme_color=settings.theme_color if settings else None,
         domain=settings.domain if settings else None,
         subdomain=settings.subdomain if settings else None,
+        email_mode=settings.email_mode if settings else TenantEmailMode.PLATFORM,
+        from_name=settings.from_name if settings else None,
+        from_email=settings.from_email if settings else None,
+        reply_to=settings.reply_to if settings else None,
+        email_domain_verified=settings.email_domain_verified if settings else False,
+        email_provider_identity_id=settings.email_provider_identity_id if settings else None,
+        email_branding=json.loads(settings.email_branding) if settings and settings.email_branding else None,
     )
 
 

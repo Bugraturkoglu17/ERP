@@ -23,7 +23,6 @@ import { fetchTenantContext, saveTenantContext, type TenantContext } from "@/lib
 
 type SettingsState = {
   companyName: string;
-  logoUrl: string;
   taxNumber: string;
   contactEmail: string;
   contactPhone: string;
@@ -50,7 +49,6 @@ type SettingsState = {
 
 const DEFAULTS: SettingsState = {
   companyName: "",
-  logoUrl: "",
   taxNumber: "",
   contactEmail: "",
   contactPhone: "",
@@ -87,7 +85,6 @@ export default function SettingsPage() {
       setSettings((prev) => ({
         ...prev,
         companyName: ctx.tenant_name || prev.companyName,
-        logoUrl: ctx.logo_url || "",
         taxNumber: ctx.tax_no || "",
         contactEmail: ctx.domain ? `info@${ctx.domain}` : prev.contactEmail,
         invoicePrefix: ctx.subdomain || prev.invoicePrefix,
@@ -120,7 +117,6 @@ export default function SettingsPage() {
       const [profile, ctx] = await Promise.all([
         apiPut<TenantContext>("/auth/tenant-context/profile", {
           tenant_name: settings.companyName.trim(),
-          logo_url: settings.logoUrl.trim() || null,
         }),
         apiPut<TenantContext>("/auth/tenant-context/settings", {
           tax_no: settings.taxNumber.trim() || null,
@@ -169,7 +165,6 @@ export default function SettingsPage() {
             <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2"><Building2 className="h-4 w-4" /> Kurumsal Bilgiler</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <input className="w-full rounded-xl border border-slate-200 p-2.5 text-sm" placeholder="Firma adı" value={settings.companyName} onChange={(e) => update("companyName", e.target.value)} />
-              <input className="w-full rounded-xl border border-slate-200 p-2.5 text-sm" placeholder="Logo URL" value={settings.logoUrl} onChange={(e) => update("logoUrl", e.target.value)} />
               <input className="w-full rounded-xl border border-slate-200 p-2.5 text-sm" placeholder="Vergi numarası" value={settings.taxNumber} onChange={(e) => update("taxNumber", e.target.value)} />
               <input className="w-full rounded-xl border border-slate-200 p-2.5 text-sm" placeholder="E-posta" value={settings.contactEmail} onChange={(e) => update("contactEmail", e.target.value)} />
               <input className="w-full rounded-xl border border-slate-200 p-2.5 text-sm" placeholder="Telefon" value={settings.contactPhone} onChange={(e) => update("contactPhone", e.target.value)} />

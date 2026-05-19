@@ -176,7 +176,7 @@ async def upsert_tenant_settings(
     payload: TenantSettingsUpsert,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
-) -> PlatformTenantSettings:
+) -> TenantSettingsRead:
     _ensure_platform_admin(user)
 
     tenant = await db.get(Tenant, tenant_id)
@@ -188,13 +188,32 @@ async def upsert_tenant_settings(
         settings = PlatformTenantSettings(tenant_id=tenant_id)
 
     for key, value in payload.model_dump(exclude_unset=True).items():
+        if key == "email_branding":
+            setattr(settings, key, json.dumps(value, ensure_ascii=False) if value is not None else None)
+            continue
         setattr(settings, key, value)
 
     db.add(settings)
     await _log_action(db, user, "tenant.settings.upsert", tenant_id=tenant_id, details=payload.model_dump(exclude_unset=True))
     await db.commit()
     await db.refresh(settings)
-    return settings
+    return TenantSettingsRead(
+        tenant_id=settings.tenant_id,
+        tax_no=settings.tax_no,
+        sector=settings.sector,
+        country=settings.country,
+        theme_color=settings.theme_color,
+        domain=settings.domain,
+        subdomain=settings.subdomain,
+        email_mode=settings.email_mode,
+        from_name=settings.from_name,
+        from_email=settings.from_email,
+        reply_to=settings.reply_to,
+        email_domain_verified=settings.email_domain_verified,
+        email_provider_identity_id=settings.email_provider_identity_id,
+        email_branding=json.loads(settings.email_branding) if settings.email_branding else None,
+        updated_at=settings.updated_at,
+    )
 
 
 @router.get("/tenants/{tenant_id}/settings", response_model=TenantSettingsRead, tags=["platform"])
@@ -202,7 +221,7 @@ async def get_tenant_settings(
     tenant_id: UUID,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
-) -> PlatformTenantSettings:
+) -> TenantSettingsRead:
     _ensure_platform_admin(user)
 
     tenant = await db.get(Tenant, tenant_id)
@@ -211,13 +230,45 @@ async def get_tenant_settings(
 
     settings = await db.get(PlatformTenantSettings, tenant_id)
     if settings:
-        return settings
+        return TenantSettingsRead(
+            tenant_id=settings.tenant_id,
+            tax_no=settings.tax_no,
+            sector=settings.sector,
+            country=settings.country,
+            theme_color=settings.theme_color,
+            domain=settings.domain,
+            subdomain=settings.subdomain,
+            email_mode=settings.email_mode,
+            from_name=settings.from_name,
+            from_email=settings.from_email,
+            reply_to=settings.reply_to,
+            email_domain_verified=settings.email_domain_verified,
+            email_provider_identity_id=settings.email_provider_identity_id,
+            email_branding=json.loads(settings.email_branding) if settings.email_branding else None,
+            updated_at=settings.updated_at,
+        )
 
     settings = PlatformTenantSettings(tenant_id=tenant_id)
     db.add(settings)
     await db.commit()
     await db.refresh(settings)
-    return settings
+    return TenantSettingsRead(
+        tenant_id=settings.tenant_id,
+        tax_no=settings.tax_no,
+        sector=settings.sector,
+        country=settings.country,
+        theme_color=settings.theme_color,
+        domain=settings.domain,
+        subdomain=settings.subdomain,
+        email_mode=settings.email_mode,
+        from_name=settings.from_name,
+        from_email=settings.from_email,
+        reply_to=settings.reply_to,
+        email_domain_verified=settings.email_domain_verified,
+        email_provider_identity_id=settings.email_provider_identity_id,
+        email_branding=json.loads(settings.email_branding) if settings.email_branding else None,
+        updated_at=settings.updated_at,
+    )
 
 
 @router.post("/tenants/provision-admin", response_model=UserRead, status_code=status.HTTP_201_CREATED, tags=["platform"])
@@ -313,6 +364,13 @@ async def update_tenant_admin_user(
         raise HTTPException(status_code=400, detail="Yalnız tenant admin kullanıcıları güncellenebilir.")
 
     changes = payload.model_dump(exclude_unset=True)
+    if payload.full_name is not None:
+        full_name = payload.full_name.strip()
+        if not full_name:
+            raise HTTPException(status_code=400, detail="Ad soyad boş olamaz.")
+        admin_user.full_name = full_name
+        changes["full_name"] = full_name
+
     if payload.is_active is not None:
         admin_user.is_active = payload.is_active
         db.add(admin_user)

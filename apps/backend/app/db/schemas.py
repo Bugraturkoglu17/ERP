@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr
 from app.db.models import (
     WarehouseType,
     InventoryTransactionType,
+    TenantEmailMode,
 )
 
 
@@ -53,6 +54,13 @@ class TenantContextRead(BaseModel):
     theme_color: str | None = None
     domain: str | None = None
     subdomain: str | None = None
+    email_mode: TenantEmailMode = TenantEmailMode.PLATFORM
+    from_name: str | None = None
+    from_email: str | None = None
+    reply_to: str | None = None
+    email_domain_verified: bool = False
+    email_provider_identity_id: str | None = None
+    email_branding: dict[str, Any] | None = None
 
 
 class TenantProfileUpdate(BaseModel):
@@ -130,6 +138,13 @@ class TenantSettingsUpsert(BaseModel):
     theme_color: str | None = None
     domain: str | None = None
     subdomain: str | None = None
+    email_mode: TenantEmailMode | None = None
+    from_name: str | None = None
+    from_email: str | None = None
+    reply_to: str | None = None
+    email_domain_verified: bool | None = None
+    email_provider_identity_id: str | None = None
+    email_branding: dict[str, Any] | None = None
 
 
 class TenantSettingsRead(TenantSettingsUpsert):
@@ -148,6 +163,7 @@ class TenantAdminResetRequest(BaseModel):
 
 
 class TenantAdminUpdateRequest(BaseModel):
+    full_name: str | None = None
     is_active: bool | None = None
     force_password_change: bool | None = None
 

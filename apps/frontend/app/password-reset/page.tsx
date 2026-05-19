@@ -1,11 +1,11 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, Suspense, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import axios from "axios";
 import { buildApiUrl } from "@/lib/api";
 
-export default function PasswordResetPage() {
+function PasswordResetPageContent() {
   const searchParams = useSearchParams();
   const initialEmail = useMemo(() => searchParams.get("email") || "", [searchParams]);
 
@@ -135,5 +135,13 @@ export default function PasswordResetPage() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function PasswordResetPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-50" />}>
+      <PasswordResetPageContent />
+    </Suspense>
   );
 }

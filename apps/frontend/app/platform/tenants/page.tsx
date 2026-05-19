@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { apiGet, apiPatch, apiPost, apiPut } from "@/lib/api";
 import { getTokenPayloadFromStorage, isPlatformAdmin } from "@/lib/auth";
@@ -42,6 +42,17 @@ type FirmaAyar = {
   theme_color?: string | null;
   domain?: string | null;
   subdomain?: string | null;
+  email_mode?: "platform" | "tenant_domain" | null;
+  from_name?: string | null;
+  from_email?: string | null;
+  reply_to?: string | null;
+  email_domain_verified?: boolean | null;
+  email_provider_identity_id?: string | null;
+  email_branding?: {
+    logo_url?: string;
+    color?: string;
+    footer?: string;
+  } | null;
   updated_at: string;
 };
 
@@ -159,7 +170,7 @@ function ConfirmModal({ state, onClose }: { state: ConfirmState; onClose: () => 
   );
 }
 
-export default function PlatformTenantsPage() {
+function PlatformTenantsPageContent() {
   const searchParams = useSearchParams();
   const [tab, setTab] = useState<TabKey>("firmalar");
   const [authorized, setAuthorized] = useState(false);
@@ -175,9 +186,36 @@ export default function PlatformTenantsPage() {
   const [lisanslar, setLisanslar] = useState<Lisans[]>([]);
   const [audit, setAudit] = useState<Audit[]>([]);
 
-  const [firmaForm, setFirmaForm] = useState({ name: "", code: "", logo_url: "" });
+  const [firmaForm, setFirmaForm] = useState({
+    name: "",
+    code: "",
+    logo_url: "",
+    tax_no: "",
+    sector: "",
+    country: "",
+    theme_color: "",
+    domain: "",
+    subdomain: "",
+  });
+  const [firmaDuzenleForm, setFirmaDuzenleForm] = useState({ name: "", code: "", logo_url: "" });
   const [yasamForm, setYasamForm] = useState({ status: "trial", is_active: true, reason: "" });
-  const [ayarForm, setAyarForm] = useState({ tax_no: "", sector: "", country: "", theme_color: "", domain: "", subdomain: "" });
+  const [ayarForm, setAyarForm] = useState({
+    tax_no: "",
+    sector: "",
+    country: "",
+    theme_color: "",
+    domain: "",
+    subdomain: "",
+    email_mode: "platform" as "platform" | "tenant_domain",
+    from_name: "",
+    from_email: "",
+    reply_to: "",
+    email_domain_verified: false,
+    email_provider_identity_id: "",
+    branding_logo_url: "",
+    branding_color: "",
+    branding_footer: "",
+  });
   const [yoneticiForm, setYoneticiForm] = useState({ full_name: "", email: "", temporary_password: "" });
   const [resetForm, setResetForm] = useState({ temporary_password: "", force_password_change: true, reason: "" });
   const [planForm, setPlanForm] = useState({ code: "", name: "", max_users: 10, storage_limit_gb: 5, modules: "projects,inventory,finance" });
@@ -190,6 +228,9 @@ export default function PlatformTenantsPage() {
 
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState<ConfirmState>({ open: false, title: "", detail: "", action: async () => {} });
+  const [firmaSection, setFirmaSection] = useState<"manage" | "create">("manage");
+  const [editingAdminId, setEditingAdminId] = useState("");
+  const [editingAdminForm, setEditingAdminForm] = useState({ full_name: "", force_password_change: false, is_active: true });
 
   const [toasts, setToasts] = useState<Array<{ id: number; type: "ok" | "err"; text: string }>>([]);
   const toastCounterRef = useRef(1);
@@ -275,6 +316,15 @@ export default function PlatformTenantsPage() {
       theme_color: ayar?.theme_color || "",
       domain: ayar?.domain || "",
       subdomain: ayar?.subdomain || "",
+      email_mode: (ayar?.email_mode as "platform" | "tenant_domain") || "platform",
+      from_name: ayar?.from_name || "",
+      from_email: ayar?.from_email || "",
+      reply_to: ayar?.reply_to || "",
+      email_domain_verified: Boolean(ayar?.email_domain_verified),
+      email_provider_identity_id: ayar?.email_provider_identity_id || "",
+      branding_logo_url: ayar?.email_branding?.logo_url || "",
+      branding_color: ayar?.email_branding?.color || "",
+      branding_footer: ayar?.email_branding?.footer || "",
     });
     setFirmaYoneticileri(Array.isArray(yoneticiler) ? yoneticiler : []);
     setLisanslar(Array.isArray(abonelik) ? abonelik : []);
@@ -323,16 +373,50 @@ export default function PlatformTenantsPage() {
     })();
   }, [selectedFirmaId]);
 
+  useEffect(() => {
+    if (!selectedFirma) {
+      setFirmaDuzenleForm({ name: "", code: "", logo_url: "" });
+      setFirmaSection("create");
+      return;
+    }
+    setFirmaSection("manage");
+    setFirmaDuzenleForm({
+      name: selectedFirma.name || "",
+      code: selectedFirma.code || "",
+      logo_url: selectedFirma.logo_url || "",
+    });
+  }, [selectedFirma]);
+
   const createFirma = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
     try {
-      await apiPost("/platform/tenants", {
+      const created = await apiPost<Firma>("/platform/tenants", {
         name: firmaForm.name.trim(),
         code: firmaForm.code.trim().toLowerCase(),
         logo_url: firmaForm.logo_url.trim() || null,
       });
-      setFirmaForm({ name: "", code: "", logo_url: "" });
+      if (created?.id) {
+        await apiPut(`/platform/tenants/${created.id}/settings`, {
+          tax_no: firmaForm.tax_no.trim() || null,
+          sector: firmaForm.sector.trim() || null,
+          country: firmaForm.country.trim() || null,
+          theme_color: firmaForm.theme_color.trim() || null,
+          domain: firmaForm.domain.trim() || null,
+          subdomain: firmaForm.subdomain.trim() || null,
+        });
+      }
+      setFirmaForm({
+        name: "",
+        code: "",
+        logo_url: "",
+        tax_no: "",
+        sector: "",
+        country: "",
+        theme_color: "",
+        domain: "",
+        subdomain: "",
+      });
       await loadCore();
       pushToast("ok", "Firma oluşturuldu.");
     } catch (err: any) {
@@ -359,17 +443,48 @@ export default function PlatformTenantsPage() {
     }
   };
 
-  const saveAyar = async (e: FormEvent) => {
+  const saveFirmaVeAyar = async (e: FormEvent) => {
     e.preventDefault();
     if (!selectedFirmaId) return;
+    const name = firmaDuzenleForm.name.trim();
+    const code = firmaDuzenleForm.code.trim().toLowerCase();
+    if (!name || !code) {
+      pushToast("err", "Firma adı ve kodu zorunludur.");
+      return;
+    }
     setBusy(true);
     try {
-      await apiPut(`/platform/tenants/${selectedFirmaId}/settings`, ayarForm);
+      await Promise.all([
+        apiPatch(`/platform/tenants/${selectedFirmaId}`, {
+          name,
+          code,
+          logo_url: firmaDuzenleForm.logo_url.trim() || null,
+        }),
+        apiPut(`/platform/tenants/${selectedFirmaId}/settings`, {
+          tax_no: ayarForm.tax_no,
+          sector: ayarForm.sector,
+          country: ayarForm.country,
+          theme_color: ayarForm.theme_color,
+          domain: ayarForm.domain,
+          subdomain: ayarForm.subdomain,
+          email_mode: ayarForm.email_mode,
+          from_name: ayarForm.from_name || null,
+          from_email: ayarForm.from_email || null,
+          reply_to: ayarForm.reply_to || null,
+          email_domain_verified: ayarForm.email_domain_verified,
+          email_provider_identity_id: ayarForm.email_provider_identity_id || null,
+          email_branding: {
+            logo_url: ayarForm.branding_logo_url || undefined,
+            color: ayarForm.branding_color || undefined,
+            footer: ayarForm.branding_footer || undefined,
+          },
+        }),
+      ]);
       await loadFirmaScope(selectedFirmaId);
       await loadCore();
-      pushToast("ok", "Firma ayarları kaydedildi.");
+      pushToast("ok", "Firma bilgileri ve ayarları kaydedildi.");
     } catch (err: any) {
-      pushToast("err", err?.response?.data?.detail || "Ayarlar kaydedilemedi.");
+      pushToast("err", err?.response?.data?.detail || "Firma kaydedilemedi.");
     } finally {
       setBusy(false);
     }
@@ -417,7 +532,10 @@ export default function PlatformTenantsPage() {
     }
   };
 
-  const updateYonetici = async (admin: FirmaYoneticisi, payload: { is_active?: boolean; force_password_change?: boolean }) => {
+  const updateYonetici = async (
+    admin: FirmaYoneticisi,
+    payload: { full_name?: string; is_active?: boolean; force_password_change?: boolean },
+  ) => {
     setBusy(true);
     try {
       await apiPatch(`/platform/admin-users/${admin.id}`, payload);
@@ -429,6 +547,47 @@ export default function PlatformTenantsPage() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const removeFirma = async () => {
+    if (!selectedFirmaId) return;
+    setBusy(true);
+    try {
+      await apiPatch(`/platform/tenants/${selectedFirmaId}`, {
+        status: "archived",
+        is_active: false,
+      });
+      await loadCore();
+      await loadFirmaScope(selectedFirmaId);
+      pushToast("ok", "Firma pasife alındı ve arşive taşındı.");
+    } catch (err: any) {
+      pushToast("err", err?.response?.data?.detail || "Firma kaldırma işlemi başarısız.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const openYoneticiDuzenle = (admin: FirmaYoneticisi) => {
+    setEditingAdminId(admin.id);
+    setEditingAdminForm({
+      full_name: admin.full_name,
+      force_password_change: admin.force_password_change,
+      is_active: admin.is_active,
+    });
+  };
+
+  const saveYoneticiDuzenle = async (admin: FirmaYoneticisi) => {
+    const fullName = editingAdminForm.full_name.trim();
+    if (!fullName) {
+      pushToast("err", "Ad soyad boş bırakılamaz.");
+      return;
+    }
+    await updateYonetici(admin, {
+      full_name: fullName,
+      is_active: editingAdminForm.is_active,
+      force_password_change: editingAdminForm.force_password_change,
+    });
+    setEditingAdminId("");
   };
 
   const createPlan = async (e: FormEvent) => {
@@ -588,55 +747,130 @@ export default function PlatformTenantsPage() {
         </div>
 
         {tab === "firmalar" && (
-          <div className="grid gap-5 lg:col-span-2 lg:grid-cols-2">
-            <form onSubmit={createFirma} className="rounded-2xl border border-slate-200 bg-white p-4">
-              <h3 className="mb-3 flex items-center gap-2 text-sm font-bold"><PlusCircle className="h-4 w-4" /> Yeni Firma</h3>
-              <div className="space-y-2">
-                <input className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="Firma adı" value={firmaForm.name} onChange={(e) => setFirmaForm((p) => ({ ...p, name: e.target.value }))} required />
-                <input className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="Kısa kod (or: akme)" pattern="[a-z0-9-]{2,32}" value={firmaForm.code} onChange={(e) => setFirmaForm((p) => ({ ...p, code: e.target.value }))} required />
-                <input className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="Logo URL" value={firmaForm.logo_url} onChange={(e) => setFirmaForm((p) => ({ ...p, logo_url: e.target.value }))} />
-                <button disabled={busy} className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white"><Building2 className="h-4 w-4" /> Oluştur</button>
-              </div>
-            </form>
-
-            <div className="rounded-2xl border border-slate-200 bg-white p-4">
-              <h3 className="mb-3 flex items-center gap-2 text-sm font-bold"><Lock className="h-4 w-4" /> Firma Yaşam Döngüsü</h3>
-              <div className="space-y-2">
-                <select className="w-full rounded-lg border px-3 py-2 text-sm" value={yasamForm.status} onChange={(e) => setYasamForm((p) => ({ ...p, status: e.target.value }))}>
-                  <option value="trial">Deneme</option>
-                  <option value="active">Aktif</option>
-                  <option value="suspended">Askıya Al</option>
-                  <option value="archived">Arşive Al</option>
-                </select>
-                <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={yasamForm.is_active} onChange={(e) => setYasamForm((p) => ({ ...p, is_active: e.target.checked }))} /> Oturum Açabilsin</label>
-                <input className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="Neden (audit için)" value={yasamForm.reason} onChange={(e) => setYasamForm((p) => ({ ...p, reason: e.target.value }))} />
+          <div className="space-y-4 lg:col-span-2">
+            <div className="rounded-2xl border border-slate-200 bg-white p-3">
+              <div className="grid gap-2 md:grid-cols-2">
                 <button
-                  onClick={() => setConfirm({
-                    open: true,
-                    title: "Firma yaşam döngüsü güncellenecek",
-                    detail: "Bu işlem giriş yetkilerini etkileyebilir.",
-                    action: async () => patchFirmaYasam(),
-                  })}
-                  disabled={!selectedFirmaId || busy}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-amber-600 px-3 py-2 text-sm font-medium text-white"
+                  onClick={() => setFirmaSection("manage")}
+                  className={`rounded-lg px-3 py-2 text-sm font-semibold ${firmaSection === "manage" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700"}`}
                 >
-                  <Save className="h-4 w-4" /> Güncelle
+                  Seçili Firma Yönetimi
+                </button>
+                <button
+                  onClick={() => setFirmaSection("create")}
+                  className={`rounded-lg px-3 py-2 text-sm font-semibold ${firmaSection === "create" ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-700"}`}
+                >
+                  Yeni Firma Ekle
                 </button>
               </div>
             </div>
 
-            <form onSubmit={saveAyar} className="rounded-2xl border border-slate-200 bg-white p-4 lg:col-span-2">
-              <h3 className="mb-3 text-sm font-bold">Firma Ayarları</h3>
-              <div className="grid gap-2 md:grid-cols-3">
-                <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Vergi No" value={ayarForm.tax_no} onChange={(e) => setAyarForm((p) => ({ ...p, tax_no: e.target.value }))} />
-                <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Sektör" value={ayarForm.sector} onChange={(e) => setAyarForm((p) => ({ ...p, sector: e.target.value }))} />
-                <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Ülke" value={ayarForm.country} onChange={(e) => setAyarForm((p) => ({ ...p, country: e.target.value }))} />
-                <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Tema rengi (#0f172a)" pattern="^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$" value={ayarForm.theme_color} onChange={(e) => setAyarForm((p) => ({ ...p, theme_color: e.target.value }))} />
-                <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Domain (or: firma.com)" value={ayarForm.domain} onChange={(e) => setAyarForm((p) => ({ ...p, domain: e.target.value }))} />
-                <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Subdomain (or: akme)" value={ayarForm.subdomain} onChange={(e) => setAyarForm((p) => ({ ...p, subdomain: e.target.value }))} />
-              </div>
-              <button disabled={!selectedFirmaId || busy} className="mt-3 inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white"><Save className="h-4 w-4" /> Kaydet</button>
-            </form>
+            {firmaSection === "create" && (
+              <form onSubmit={createFirma} className="rounded-2xl border border-slate-200 bg-white p-4">
+                <h3 className="mb-3 flex items-center gap-2 text-sm font-bold"><PlusCircle className="h-4 w-4" /> Yeni Firma</h3>
+                <div className="grid gap-2 md:grid-cols-3">
+                  <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Firma adı" value={firmaForm.name} onChange={(e) => setFirmaForm((p) => ({ ...p, name: e.target.value }))} required />
+                  <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Kısa kod (or: akme)" pattern="[a-z0-9-]{2,32}" value={firmaForm.code} onChange={(e) => setFirmaForm((p) => ({ ...p, code: e.target.value }))} required />
+                  <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Logo URL" value={firmaForm.logo_url} onChange={(e) => setFirmaForm((p) => ({ ...p, logo_url: e.target.value }))} />
+                  <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Vergi No" value={firmaForm.tax_no} onChange={(e) => setFirmaForm((p) => ({ ...p, tax_no: e.target.value }))} />
+                  <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Sektör" value={firmaForm.sector} onChange={(e) => setFirmaForm((p) => ({ ...p, sector: e.target.value }))} />
+                  <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Ülke" value={firmaForm.country} onChange={(e) => setFirmaForm((p) => ({ ...p, country: e.target.value }))} />
+                  <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Tema rengi (#0f172a)" pattern="^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$" value={firmaForm.theme_color} onChange={(e) => setFirmaForm((p) => ({ ...p, theme_color: e.target.value }))} />
+                  <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Domain (or: firma.com)" value={firmaForm.domain} onChange={(e) => setFirmaForm((p) => ({ ...p, domain: e.target.value }))} />
+                  <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Subdomain (or: akme)" value={firmaForm.subdomain} onChange={(e) => setFirmaForm((p) => ({ ...p, subdomain: e.target.value }))} />
+                </div>
+                <button disabled={busy} className="mt-3 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white"><Building2 className="h-4 w-4" /> Firma Oluştur</button>
+              </form>
+            )}
+
+            {firmaSection === "manage" && (
+              <>
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <h3 className="mb-3 flex items-center gap-2 text-sm font-bold"><Lock className="h-4 w-4" /> Firma Yaşam Döngüsü</h3>
+                  <div className="space-y-2">
+                    <select className="w-full rounded-lg border px-3 py-2 text-sm" value={yasamForm.status} onChange={(e) => setYasamForm((p) => ({ ...p, status: e.target.value }))}>
+                      <option value="trial">Deneme</option>
+                      <option value="active">Aktif</option>
+                      <option value="suspended">Askıya Al</option>
+                      <option value="archived">Arşive Al</option>
+                    </select>
+                    <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={yasamForm.is_active} onChange={(e) => setYasamForm((p) => ({ ...p, is_active: e.target.checked }))} /> Oturum Açabilsin</label>
+                    <input className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="Neden (audit için)" value={yasamForm.reason} onChange={(e) => setYasamForm((p) => ({ ...p, reason: e.target.value }))} />
+                    <button
+                      onClick={() => setConfirm({
+                        open: true,
+                        title: "Firma yaşam döngüsü güncellenecek",
+                        detail: "Bu işlem giriş yetkilerini etkileyebilir.",
+                        action: async () => patchFirmaYasam(),
+                      })}
+                      disabled={!selectedFirmaId || busy}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-amber-600 px-3 py-2 text-sm font-medium text-white"
+                    >
+                      <Save className="h-4 w-4" /> Güncelle
+                    </button>
+                    <div>
+                      <button
+                        type="button"
+                        disabled={!selectedFirmaId || busy}
+                        onClick={() =>
+                          setConfirm({
+                            open: true,
+                            title: "Firmayı kaldır (arşivle)",
+                            detail: "Bu işlem firmayı pasife alır ve durumunu arşive çeker. Veri silinmez.",
+                            action: async () => removeFirma(),
+                          })
+                        }
+                        className="rounded-lg bg-rose-600 px-3 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-rose-300"
+                      >
+                        Pasife Al (Arşivle)
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <form onSubmit={saveFirmaVeAyar} className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <h3 className="mb-3 text-sm font-bold">Firma Bilgileri ve Ayarları</h3>
+                  <div className="grid gap-2 md:grid-cols-3">
+                    <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Firma adı" value={firmaDuzenleForm.name} onChange={(e) => setFirmaDuzenleForm((p) => ({ ...p, name: e.target.value }))} required />
+                    <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Kısa kod (or: akme)" pattern="[a-z0-9-]{2,32}" value={firmaDuzenleForm.code} onChange={(e) => setFirmaDuzenleForm((p) => ({ ...p, code: e.target.value }))} required />
+                    <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Logo URL" value={firmaDuzenleForm.logo_url} onChange={(e) => setFirmaDuzenleForm((p) => ({ ...p, logo_url: e.target.value }))} />
+                    <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Vergi No" value={ayarForm.tax_no} onChange={(e) => setAyarForm((p) => ({ ...p, tax_no: e.target.value }))} />
+                    <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Sektör" value={ayarForm.sector} onChange={(e) => setAyarForm((p) => ({ ...p, sector: e.target.value }))} />
+                    <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Ülke" value={ayarForm.country} onChange={(e) => setAyarForm((p) => ({ ...p, country: e.target.value }))} />
+                    <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Tema rengi (#0f172a)" pattern="^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$" value={ayarForm.theme_color} onChange={(e) => setAyarForm((p) => ({ ...p, theme_color: e.target.value }))} />
+                    <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Domain (or: firma.com)" value={ayarForm.domain} onChange={(e) => setAyarForm((p) => ({ ...p, domain: e.target.value }))} />
+                    <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Subdomain (or: akme)" value={ayarForm.subdomain} onChange={(e) => setAyarForm((p) => ({ ...p, subdomain: e.target.value }))} />
+                  </div>
+
+                  <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <h4 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-700">Mail Gönderim Kimliği</h4>
+                    <div className="grid gap-2 md:grid-cols-3">
+                      <select className="rounded-lg border px-3 py-2 text-sm" value={ayarForm.email_mode} onChange={(e) => setAyarForm((p) => ({ ...p, email_mode: e.target.value as "platform" | "tenant_domain" }))}>
+                        <option value="platform">Platform (önerilen başlangıç)</option>
+                        <option value="tenant_domain">Firma domain (white-label)</option>
+                      </select>
+                      <input className="rounded-lg border px-3 py-2 text-sm" placeholder="From Name (örn: Akme ERP)" value={ayarForm.from_name} onChange={(e) => setAyarForm((p) => ({ ...p, from_name: e.target.value }))} />
+                      <input className="rounded-lg border px-3 py-2 text-sm" placeholder="From Email (örn: bildirim@firma.com)" type="email" value={ayarForm.from_email} onChange={(e) => setAyarForm((p) => ({ ...p, from_email: e.target.value }))} />
+                      <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Reply-To (örn: destek@firma.com)" type="email" value={ayarForm.reply_to} onChange={(e) => setAyarForm((p) => ({ ...p, reply_to: e.target.value }))} />
+                      <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Provider Identity ID" value={ayarForm.email_provider_identity_id} onChange={(e) => setAyarForm((p) => ({ ...p, email_provider_identity_id: e.target.value }))} />
+                      <label className="flex items-center gap-2 rounded-lg border bg-white px-3 py-2 text-sm">
+                        <input type="checkbox" checked={ayarForm.email_domain_verified} onChange={(e) => setAyarForm((p) => ({ ...p, email_domain_verified: e.target.checked }))} />
+                        Domain doğrulandı
+                      </label>
+                    </div>
+
+                    <h4 className="mb-2 mt-3 text-xs font-bold uppercase tracking-wide text-slate-700">Mail Branding</h4>
+                    <div className="grid gap-2 md:grid-cols-3">
+                      <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Brand Logo URL" value={ayarForm.branding_logo_url} onChange={(e) => setAyarForm((p) => ({ ...p, branding_logo_url: e.target.value }))} />
+                      <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Brand Renk (#0f172a)" pattern="^$|^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$" value={ayarForm.branding_color} onChange={(e) => setAyarForm((p) => ({ ...p, branding_color: e.target.value }))} />
+                      <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Footer metni" value={ayarForm.branding_footer} onChange={(e) => setAyarForm((p) => ({ ...p, branding_footer: e.target.value }))} />
+                    </div>
+                  </div>
+
+                  <button disabled={!selectedFirmaId || busy} className="mt-3 inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white"><Save className="h-4 w-4" /> Tümünü Kaydet</button>
+                </form>
+              </>
+            )}
           </div>
         )}
 
@@ -688,6 +922,12 @@ export default function PlatformTenantsPage() {
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <button
+                        onClick={() => openYoneticiDuzenle(admin)}
+                        className="rounded-md border border-slate-300 px-2.5 py-1.5 text-xs text-slate-700"
+                      >
+                        Düzenle
+                      </button>
+                      <button
                         onClick={() =>
                           setConfirm({
                             open: true,
@@ -706,7 +946,63 @@ export default function PlatformTenantsPage() {
                       >
                         Parola Değişimi: {admin.force_password_change ? "Zorunlu" : "Serbest"}
                       </button>
+                      <button
+                        onClick={() =>
+                          setConfirm({
+                            open: true,
+                            title: "Yöneticiyi kaldır",
+                            detail: "Bu işlem kullanıcıyı pasife alır ve girişini engeller.",
+                            action: async () => updateYonetici(admin, { is_active: false }),
+                          })
+                        }
+                        disabled={!admin.is_active}
+                        className="rounded-md bg-rose-600 px-2.5 py-1.5 text-xs text-white disabled:cursor-not-allowed disabled:bg-rose-300"
+                      >
+                        Kaldır
+                      </button>
                     </div>
+                    {editingAdminId === admin.id && (
+                      <div className="mt-2 w-full rounded-lg border border-slate-200 bg-slate-50 p-3">
+                        <div className="grid gap-2 md:grid-cols-2">
+                          <input
+                            className="rounded-lg border px-3 py-2 text-sm"
+                            placeholder="Ad Soyad"
+                            value={editingAdminForm.full_name}
+                            onChange={(e) => setEditingAdminForm((p) => ({ ...p, full_name: e.target.value }))}
+                          />
+                          <label className="flex items-center gap-2 rounded-lg border bg-white px-3 py-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={editingAdminForm.force_password_change}
+                              onChange={(e) => setEditingAdminForm((p) => ({ ...p, force_password_change: e.target.checked }))}
+                            />
+                            İlk girişte parola değişimi zorunlu
+                          </label>
+                          <label className="flex items-center gap-2 rounded-lg border bg-white px-3 py-2 text-sm md:col-span-2">
+                            <input
+                              type="checkbox"
+                              checked={editingAdminForm.is_active}
+                              onChange={(e) => setEditingAdminForm((p) => ({ ...p, is_active: e.target.checked }))}
+                            />
+                            Kullanıcı aktif
+                          </label>
+                        </div>
+                        <div className="mt-2 flex justify-end gap-2">
+                          <button
+                            onClick={() => setEditingAdminId("")}
+                            className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700"
+                          >
+                            Vazgeç
+                          </button>
+                          <button
+                            onClick={() => saveYoneticiDuzenle(admin)}
+                            className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white"
+                          >
+                            Kaydet
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -813,5 +1109,13 @@ export default function PlatformTenantsPage() {
         )}
       </section>
     </div>
+  );
+}
+
+export default function PlatformTenantsPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-[380px] items-center justify-center"><div className="h-10 w-10 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" /></div>}>
+      <PlatformTenantsPageContent />
+    </Suspense>
   );
 }

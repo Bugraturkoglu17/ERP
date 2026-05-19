@@ -52,6 +52,13 @@ class Settings(BaseSettings):
     CELERY_WORKERS: int = 4
     AUTO_CREATE_SCHEMA: bool = True
 
+    # ── Email (Resend) ───────────────────────────────────────────────────────
+    RESEND_API_KEY: str = ""
+    EMAIL_PROVIDER: str = "resend"
+    EMAIL_FROM_DEFAULT: str = "noreply@golabstek.com"
+    EMAIL_FROM_NAME_DEFAULT: str = "GOLABS ERP"
+    EMAIL_REPLY_TO_DEFAULT: Optional[str] = None
+
     @property
     def is_production(self) -> bool:
         return self.ENV == "production"

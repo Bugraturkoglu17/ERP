@@ -87,6 +87,11 @@ class TenantStatus(str, Enum):
     ARCHIVED = "archived"
 
 
+class TenantEmailMode(str, Enum):
+    PLATFORM = "platform"
+    TENANT_DOMAIN = "tenant_domain"
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 #  2 · RBAC  —  Kullanıcılar, Roller, İzinler
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -755,7 +760,28 @@ class PlatformTenantSettings(SQLModel, table=True):
     theme_color: Optional[str] = Field(default=None, max_length=16)
     domain: Optional[str] = Field(default=None, max_length=255)
     subdomain: Optional[str] = Field(default=None, max_length=120)
+    email_mode: TenantEmailMode = Field(default=TenantEmailMode.PLATFORM)
+    from_name: Optional[str] = Field(default=None, max_length=180)
+    from_email: Optional[str] = Field(default=None, max_length=255)
+    reply_to: Optional[str] = Field(default=None, max_length=255)
+    email_domain_verified: bool = Field(default=False)
+    email_provider_identity_id: Optional[str] = Field(default=None, max_length=255)
+    email_branding: Optional[str] = Field(default=None, description="JSON object")
     updated_at: datetime = Field(default_factory=utc_now, sa_column_kwargs={"onupdate": utc_now})
+
+
+class OutboundEmailAudit(SQLModel, table=True):
+    __tablename__ = "outbound_email_audits"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    tenant_id: UUID = Field(foreign_key="tenants.id", index=True)
+    template: str = Field(max_length=120, index=True)
+    recipient_count: int = Field(default=1, ge=1)
+    provider: str = Field(default="resend", max_length=40)
+    provider_message_id: Optional[str] = Field(default=None, max_length=255, index=True)
+    status: str = Field(default="queued", max_length=40, index=True)
+    error_message: Optional[str] = Field(default=None, max_length=2000)
+    created_at: datetime = Field(default_factory=utc_now, nullable=False, index=True)
 
 
 class PlatformPlan(SQLModel, table=True):
