@@ -1,93 +1,165 @@
-# mekanik-erp
+# Sismik Mekanik ERP
 
+Sismik Mekanik ERP is a modular construction ERP platform for managing multi-branch field operations across **projects, documents/drawings, inventory, finance, and role-based access**.
 
+The product direction is built around a practical hierarchy for chain-store projects:
 
-## Getting started
+`Customer -> Region -> Branch -> Project`
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+This model reduces coordination friction between headquarters, field teams, warehouse, and finance operations.
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+## Tech Stack
 
-## Add your files
+- **Frontend:** Next.js (App Router), TypeScript, Tailwind CSS
+- **Backend:** FastAPI, SQLModel/SQLAlchemy 2.0
+- **Database:** PostgreSQL
+- **Queue/Cache:** Redis + Celery
+- **Object Storage:** OCI Object Storage (S3-compatible via boto3)
+- **Infra:** Docker Compose
 
-* [Create](https://docs.gitlab.com/user/project/repository/web_editor/#create-a-file) or [upload](https://docs.gitlab.com/user/project/repository/web_editor/#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+---
 
+## Repository Structure
+
+```text
+apps/
+  backend/        # FastAPI API, models, schemas, business logic
+  frontend/       # Next.js UI
+infrastructure/
+  docker-compose.yml
+  init-scripts/
+README.md
+CHANGELOG.md
 ```
-cd existing_repo
-git remote add origin https://gitlab.com/golabs-group/mekanik-erp.git
-git branch -M main
-git push -uf origin main
+
+---
+
+## Core Modules
+
+- **Auth & RBAC**
+  - JWT auth, role-scoped navigation, and route protection.
+  - Discipline-aware access boundaries for admin, field, and warehouse roles.
+- **Projects & Site Management**
+  - `Customer -> Region -> Branch -> Project` hierarchy.
+  - Project cards with scope, schedule, and assignment context.
+  - Status lifecycle support for discovery, proposal, execution, progress-payment, and delivery phases.
+- **Documents & Drawing Management**
+  - Project-based foldering and revision/version history.
+  - Upload + signed URL download flows over OCI object storage.
+  - Field-friendly access to the latest revision of drawing packages.
+- **Inventory & Warehouse Management**
+  - Multi-warehouse structure (central, return/scrap, and site-virtual warehouses).
+  - Stock movements and transfer records between project and central warehouses.
+  - Material/warehouse CRUD with history-preserving soft-delete patterns.
+- **Finance, Progress Payment, and Profitability**
+  - Invoice/expense endpoints and profitability data foundations.
+  - Progress-payment oriented workflows to support period summaries and cashflow follow-up.
+- **Platform Tenant Administration**
+  - Multi-tenant administration routes and frontend tenant management view.
+  - Baseline tenant migration and bootstrap support for platform-level setup.
+
+---
+
+## Quick Start (Docker)
+
+### 1) Prerequisites
+
+- Docker + Docker Compose
+
+### 2) Start services
+
+From project root:
+
+```bash
+docker compose -f infrastructure/docker-compose.yml up -d --build
 ```
 
-## Integrate with your tools
+### 3) Service endpoints
 
-* [Set up project integrations](https://gitlab.com/golabs-group/mekanik-erp/-/settings/integrations)
+- API: `http://localhost:8000`
+- API docs: `http://localhost:8000/api/docs`
+- Frontend (if started locally): `http://localhost:3000`
+- pgAdmin (optional profile): `http://localhost:5050`
 
-## Collaborate with your team
+---
 
-* [Invite team members and collaborators](https://docs.gitlab.com/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/user/project/merge_requests/creating_merge_requests/)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/user/project/issues/managing_issues/#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+## Local Development
 
-## Test and Deploy
+### Backend
 
-Use the built-in continuous integration in GitLab.
+```bash
+cd apps/backend
+python -m venv .venv
+# Windows
+.venv\Scripts\activate
+# macOS/Linux
+# source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
 
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/topics/autodevops/requirements/)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ci/environments/protected_environments/)
+### Frontend
 
-***
+```bash
+cd apps/frontend
+npm install
+npm run dev
+```
 
-# Editing this README
+Environment variable for frontend:
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+```
 
-## Suggestions for a good README
+---
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+## Important Integration Notes
 
-## Name
-Choose a self-explaining name for your project.
+### Documents versioning schema
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+If your DB was created before `parent_id` support, ensure:
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+```sql
+ALTER TABLE documents ADD COLUMN parent_id UUID REFERENCES documents(id);
+CREATE INDEX ix_documents_parent_id ON documents (parent_id);
+```
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+### Multipart upload with Axios
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+`FormData` requests must not be forced into JSON headers. Use multipart-aware request config in frontend API helper.
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+---
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+## API Overview
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+Base URL: `/api/v1`
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+Key route groups:
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+- `/auth/*`
+- `/platform/*`
+- `/projects/*`
+- `/inventory/*`
+- `/documents/*`
+- `/finance/*`
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+OpenAPI JSON:
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+```text
+GET /api/v1/openapi.json
+```
+
+---
+
+## Development Standards
+
+- Keep route structure flat and predictable under `apps/frontend/app/*`.
+- Avoid committing runtime artifacts (`__pycache__`, build outputs, local binaries).
+- Prefer soft-delete where business history must be preserved.
+
+---
 
 ## License
-For open source projects, say how it is licensed.
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+Internal / Proprietary (Sismik Mekanik).

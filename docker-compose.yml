@@ -30,6 +30,9 @@ services:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-sismik_erp}
       - REDIS_URL=redis://redis:6379/0
       - ENV=development
+      - AUTO_MIGRATE=true
+      - AUTO_MIGRATE_WAIT_SECONDS=90
+      - AUTO_BOOTSTRAP_PLATFORM_ADMIN=false
     ports:
       - "8000:8000"
     depends_on:
@@ -47,6 +50,7 @@ services:
     environment:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-sismik_erp}
       - REDIS_URL=redis://redis:6379/0
+      - AUTO_MIGRATE=false
     depends_on:
       - db
       - redis

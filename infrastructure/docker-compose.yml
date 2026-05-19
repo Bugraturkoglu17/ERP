@@ -81,6 +81,9 @@ services:
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
       ENV: ${ENV:-development}
+      AUTO_MIGRATE: "true"
+      AUTO_MIGRATE_WAIT_SECONDS: "90"
+      AUTO_BOOTSTRAP_PLATFORM_ADMIN: "false"
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
       - ../apps/backend:/app:cached
@@ -107,6 +110,7 @@ services:
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
       ENV: ${ENV:-development}
+      AUTO_MIGRATE: "false"
     command: celery -A app.core.workers.celery_app worker --loglevel=info --concurrency=${CELERY_WORKERS:-4}
     volumes:
       - ../apps/backend:/app:cached
@@ -126,6 +130,7 @@ services:
       REDIS_URL: redis://:${REDIS_PASSWORD:-change_me_redis}@redis:6379/0
       SECRET_KEY: ${SECRET_KEY:-change_me_secret_key_min_32_chars}
       ENV: ${ENV:-development}
+      AUTO_MIGRATE: "false"
     command: celery -A app.core.workers.celery_app beat --loglevel=info
     volumes:
       - ../apps/backend:/app:cached
