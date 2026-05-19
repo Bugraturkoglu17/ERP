@@ -36,7 +36,9 @@ class Settings(BaseSettings):
     CORS_ORIGINS: list[str] = [
         "http://localhost:3000",
         "https://sismikmekanik.com.tr",
+        "https://mekanik-erp.vercel.app",
     ]
+    CORS_ORIGIN_REGEX: str = r"https://.*\.vercel\.app"
 
     # ── Object Storage (OCI S3-compatible) ───────────────────────────────────
     AWS_ACCESS_KEY_ID:     str          = ""

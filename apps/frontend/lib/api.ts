@@ -4,9 +4,19 @@ const API_PREFIX = '/api/v1';
 
 const stripTrailingSlashes = (value: string) => value.replace(/\/+$/, '');
 
+const createDefaultBaseUrl = () => {
+  if (typeof window !== 'undefined') {
+    return `${window.location.origin}${API_PREFIX}`;
+  }
+
+  return process.env.NODE_ENV === 'production'
+    ? API_PREFIX
+    : `http://localhost:8000${API_PREFIX}`;
+};
+
 const createBaseUrl = () => {
   const rawBaseUrl = stripTrailingSlashes(process.env.NEXT_PUBLIC_API_URL || '');
-  if (!rawBaseUrl) return `http://localhost:8000${API_PREFIX}`;
+  if (!rawBaseUrl) return createDefaultBaseUrl();
   return rawBaseUrl.endsWith(API_PREFIX) ? rawBaseUrl : `${rawBaseUrl}${API_PREFIX}`;
 };
 
