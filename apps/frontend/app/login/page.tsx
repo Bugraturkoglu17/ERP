@@ -33,6 +33,11 @@ export default function LoginPage() {
       window.location.href = "/";
     } catch (err: any) {
       const errorMessage = err.response?.data?.detail;
+      if (typeof errorMessage === "string" && errorMessage.includes("parola yenileme gerekli")) {
+        const resetEmail = encodeURIComponent(email.trim());
+        window.location.href = `/password-reset?email=${resetEmail}`;
+        return;
+      }
       if (Array.isArray(errorMessage)) {
         setError(errorMessage.map((e: any) => e.msg).join(", "));
       } else if (typeof errorMessage === 'object' && errorMessage !== null) {

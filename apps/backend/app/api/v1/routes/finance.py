@@ -13,9 +13,10 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.dependencies import get_current_user, is_platform_admin
 from app.core.exceptions import NotFoundError
 from app.db.crud import CRUDBase
-from app.db.models import Customer, Expense, ExpenseCategory, Invoice, Project, InvoiceItem, Payment, InvoiceStatus
+from app.db.models import Customer, Expense, ExpenseCategory, Invoice, Project, InvoiceItem, Payment, InvoiceStatus, User
 from app.db.schemas import (
     InvoiceRead,
     InvoiceCreate,
@@ -37,12 +38,19 @@ crud_expense = CRUDBase(Expense)
 async def get_project_profitability(
     project_id: UUID,
     db:         AsyncSession = Depends(get_db),
+    user:       User = Depends(get_current_user),
 ) -> dict:
     """
     Tek bir proje için maliyet / gelir / net kâr döner.
     Maliyet → Expenses + gelen malzeme maliyetleri
     Gelir   → Kesilen faturaların toplamı
     """
+    project = await db.get(Project, project_id)
+    if not project:
+        raise NotFoundError(detail="Proje bulunamadı.")
+    if not is_platform_admin(user) and str(project.tenant_id) != str(user.tenant_id):
+        raise HTTPException(status_code=403, detail="Bu proje firma kapsamınız dışında.")
+
     # ── Gelir ──────────────────────────────────────────────────────────────
     revenue_row = (
         await db.execute(
@@ -86,8 +94,12 @@ async def get_invoice_calendar(
     skip:        int             = 0,
     limit:       int             = 100,
     db:          AsyncSession    = Depends(get_db),
+    user:        User            = Depends(get_current_user),
 ) -> dict:
-    query = select(Invoice)
+    query = select(Invoice).join(Customer, Invoice.customer_id == Customer.id)
+
+    if not is_platform_admin(user):
+        query = query.where(Customer.tenant_id == user.tenant_id)
 
     if from_date:
         query = query.where(Invoice.issue_date >= from_date)
@@ -114,15 +126,28 @@ async def list_invoices(
     db:   AsyncSession = Depends(get_db),
     skip: int          = 0,
     limit: int         = 100,
+    user: User         = Depends(get_current_user),
 ):
-    return (await crud_invoice.get_multi(db, skip=skip, limit=limit))
+    query = select(Invoice).join(Customer, Invoice.customer_id == Customer.id)
+    if not is_platform_admin(user):
+        query = query.where(Customer.tenant_id == user.tenant_id)
+    result = await db.execute(query.order_by(Invoice.issue_date.desc()).offset(skip).limit(limit))
+    return list(result.scalars())
 
 
 @router.get("/invoices/{invoice_id}", response_model=InvoiceRead)
-async def get_invoice(invoice_id: str, db: AsyncSession = Depends(get_db)):
+async def get_invoice(
+    invoice_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
     inv = await crud_invoice.get(db, invoice_id)
     if not inv:
         raise NotFoundError(detail="Fatura bulunamadı.")
+    if not is_platform_admin(user):
+        customer = await db.get(Customer, inv.customer_id)
+        if not customer or str(customer.tenant_id) != str(user.tenant_id):
+            raise HTTPException(status_code=403, detail="Bu fatura firma kapsamınız dışında.")
     return inv
 
 
@@ -132,7 +157,20 @@ async def get_invoice(invoice_id: str, db: AsyncSession = Depends(get_db)):
 async def create_invoice(
     invoice_in: InvoiceCreate,
     db:         AsyncSession = Depends(get_db),
+    user:       User = Depends(get_current_user),
 ) -> Invoice:
+    customer = await db.get(Customer, invoice_in.customer_id)
+    if not customer:
+        raise NotFoundError(detail="Müşteri bulunamadı.")
+    if not is_platform_admin(user) and str(customer.tenant_id) != str(user.tenant_id):
+        raise HTTPException(status_code=403, detail="Bu müşteri firma kapsamınız dışında.")
+
+    if invoice_in.project_id:
+        project = await db.get(Project, invoice_in.project_id)
+        if not project:
+            raise NotFoundError(detail="Proje bulunamadı.")
+        if str(project.tenant_id) != str(customer.tenant_id):
+            raise HTTPException(status_code=400, detail="Proje ve müşteri aynı firmaya ait olmalıdır.")
     issue_date = invoice_in.issue_date
     if issue_date and issue_date.tzinfo is not None:
         issue_date = issue_date.replace(tzinfo=None)
@@ -178,8 +216,11 @@ async def create_invoice(
 async def list_expenses(
     project_id: UUID | None = None,
     db:         AsyncSession = Depends(get_db),
+    user:       User = Depends(get_current_user),
 ) -> list[Expense]:
-    query = select(Expense)
+    query = select(Expense).join(Project, Expense.project_id == Project.id)
+    if not is_platform_admin(user):
+        query = query.where(Project.tenant_id == user.tenant_id)
     if project_id:
         query = query.where(Expense.project_id == project_id)
     query = query.order_by(Expense.expense_date.desc())
@@ -191,7 +232,14 @@ async def list_expenses(
 async def create_expense(
     expense_in: ExpenseCreate,
     db:         AsyncSession = Depends(get_db),
+    user:       User = Depends(get_current_user),
 ) -> Expense:
+    project = await db.get(Project, expense_in.project_id)
+    if not project:
+        raise NotFoundError(detail="Proje bulunamadı.")
+    if not is_platform_admin(user) and str(project.tenant_id) != str(user.tenant_id):
+        raise HTTPException(status_code=403, detail="Bu proje firma kapsamınız dışında.")
+
     exp_date = expense_in.expense_date
     if exp_date and exp_date.tzinfo is not None:
         exp_date = exp_date.replace(tzinfo=None)
@@ -216,8 +264,11 @@ async def create_expense(
 async def list_payments(
     invoice_id: UUID | None = None,
     db:         AsyncSession = Depends(get_db),
+    user:       User = Depends(get_current_user),
 ) -> list[Payment]:
-    query = select(Payment)
+    query = select(Payment).outerjoin(Invoice, Payment.invoice_id == Invoice.id).outerjoin(Customer, Invoice.customer_id == Customer.id)
+    if not is_platform_admin(user):
+        query = query.where(Customer.tenant_id == user.tenant_id)
     if invoice_id:
         query = query.where(Payment.invoice_id == invoice_id)
     query = query.order_by(Payment.payment_date.desc())
@@ -229,6 +280,7 @@ async def list_payments(
 async def create_payment(
     payment_in: PaymentCreate,
     db:         AsyncSession = Depends(get_db),
+    user:       User = Depends(get_current_user),
 ) -> Payment:
     pay_date = payment_in.payment_date
     if pay_date and pay_date.tzinfo is not None:
@@ -247,14 +299,20 @@ async def create_payment(
 
     if payment_in.invoice_id:
         inv = await db.get(Invoice, payment_in.invoice_id)
-        if inv:
-            inv.paid_amount = (inv.paid_amount or Decimal(0)) + Decimal(str(payment_in.amount))
-            if inv.paid_amount >= inv.grand_total:
-                inv.status = InvoiceStatus.PAID
-                inv.paid_at = payment_in.payment_date
-            else:
-                inv.status = InvoiceStatus.APPROVED
-            db.add(inv)
+        if not inv:
+            raise NotFoundError(detail="Fatura bulunamadı.")
+        customer = await db.get(Customer, inv.customer_id)
+        if not customer:
+            raise NotFoundError(detail="Müşteri bulunamadı.")
+        if not is_platform_admin(user) and str(customer.tenant_id) != str(user.tenant_id):
+            raise HTTPException(status_code=403, detail="Bu fatura firma kapsamınız dışında.")
+        inv.paid_amount = (inv.paid_amount or Decimal(0)) + Decimal(str(payment_in.amount))
+        if inv.paid_amount >= inv.grand_total:
+            inv.status = InvoiceStatus.PAID
+            inv.paid_at = payment_in.payment_date
+        else:
+            inv.status = InvoiceStatus.APPROVED
+        db.add(inv)
 
     await db.commit()
     await db.refresh(pay)

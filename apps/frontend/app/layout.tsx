@@ -2,11 +2,22 @@
 
 import "./globals.css";
 import { Menu } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Sidebar } from "@/components/layout/sidebar";
+import { fetchTenantContext } from "@/lib/tenant-context";
 
 function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [title, setTitle] = useState("Yönetim Paneli");
+
+  useEffect(() => {
+    (async () => {
+      const ctx = await fetchTenantContext();
+      if (ctx?.tenant_name) {
+        setTitle(`${ctx.tenant_name} ERP Paneli`);
+      }
+    })();
+  }, []);
 
   return (
     <body className="flex min-h-screen bg-slate-50 text-slate-900">
@@ -23,7 +34,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
               <Menu className="h-4 w-4" />
             </button>
             <h1 className="truncate text-sm font-semibold text-slate-800 sm:text-base lg:text-lg">
-              Sismik Mekanik Yonetim Paneli
+              {title}
             </h1>
           </div>
           <div className="flex items-center gap-3 sm:gap-4">

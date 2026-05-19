@@ -56,8 +56,15 @@ export const NAV_ITEMS: NavItem[] = [
     allowedRoles: ["admin"],
   },
   {
+    label: "Platform Dashboard",
+    href: "/platform",
+    icon: LayoutDashboard,
+    allowedRoles: ["platform_admin"],
+    platformNav: true,
+  },
+  {
     label: "Platform Firma",
-    href: "/platform/tenants",
+    href: "/platform/firmalar",
     icon: Building2,
     allowedRoles: ["platform_admin"],
     platformNav: true,

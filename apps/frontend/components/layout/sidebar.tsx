@@ -7,6 +7,8 @@ import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { getVisibleNavItems } from "@/lib/navigation";
 import { getRoles, getTokenPayloadFromStorage } from "@/lib/auth";
+import { fetchTenantContext } from "@/lib/tenant-context";
+import { apiGet } from "@/lib/api";
 
 type SidebarProps = {
   mobileOpen?: boolean;
@@ -16,10 +18,29 @@ type SidebarProps = {
 export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
   const pathname = usePathname();
   const [roles, setRoles] = useState<string[]>([]);
+  const [tenantName, setTenantName] = useState("Firma");
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [fullName, setFullName] = useState("Kullanıcı");
 
   useEffect(() => {
     const payload = getTokenPayloadFromStorage();
     setRoles(getRoles(payload));
+
+    (async () => {
+      const [ctx, me] = await Promise.all([
+        fetchTenantContext(),
+        apiGet<{ full_name: string }>("/auth/me").catch(() => null),
+      ]);
+      if (ctx?.tenant_name) {
+        setTenantName(ctx.tenant_name);
+      }
+      if (ctx?.logo_url) {
+        setLogoUrl(ctx.logo_url);
+      }
+      if (me?.full_name) {
+        setFullName(me.full_name);
+      }
+    })();
   }, []);
 
   const navItems = getVisibleNavItems(roles);
@@ -47,11 +68,11 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
         )}
       >
       <div className="p-6 flex items-center gap-3">
-        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
-          S
+        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold overflow-hidden">
+          {logoUrl ? <img src={logoUrl} alt="Firma logosu" className="h-full w-full object-cover" /> : tenantName.slice(0, 1).toUpperCase()}
         </div>
         <span className="text-xl font-bold text-white tracking-tight">
-          Sismik ERP
+          {tenantName} ERP
         </span>
         <button
           type="button"
@@ -92,7 +113,7 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
             JD
           </div>
           <div className="flex-1 overflow-hidden">
-            <p className="text-sm font-medium text-white truncate">John Doe</p>
+              <p className="text-sm font-medium text-white truncate">{fullName}</p>
             <p className="text-xs text-slate-500 truncate">Yönetici</p>
           </div>
         </div>

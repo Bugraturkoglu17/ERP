@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { apiGet, apiPatch, apiPost, apiPut } from "@/lib/api";
 import { getTokenPayloadFromStorage, isPlatformAdmin } from "@/lib/auth";
 import {
@@ -159,6 +160,7 @@ function ConfirmModal({ state, onClose }: { state: ConfirmState; onClose: () => 
 }
 
 export default function PlatformTenantsPage() {
+  const searchParams = useSearchParams();
   const [tab, setTab] = useState<TabKey>("firmalar");
   const [authorized, setAuthorized] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -190,9 +192,11 @@ export default function PlatformTenantsPage() {
   const [confirm, setConfirm] = useState<ConfirmState>({ open: false, title: "", detail: "", action: async () => {} });
 
   const [toasts, setToasts] = useState<Array<{ id: number; type: "ok" | "err"; text: string }>>([]);
+  const toastCounterRef = useRef(1);
 
   const pushToast = (type: "ok" | "err", text: string) => {
-    const id = Date.now() + Math.floor(Math.random() * 1000);
+    const id = toastCounterRef.current;
+    toastCounterRef.current += 1;
     setToasts((prev) => [...prev, { id, type, text }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -275,6 +279,13 @@ export default function PlatformTenantsPage() {
     setFirmaYoneticileri(Array.isArray(yoneticiler) ? yoneticiler : []);
     setLisanslar(Array.isArray(abonelik) ? abonelik : []);
   };
+
+  useEffect(() => {
+    const tabParam = searchParams.get("tab");
+    if (tabParam && TABS.includes(tabParam as TabKey)) {
+      setTab(tabParam as TabKey);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const payload = getTokenPayloadFromStorage();

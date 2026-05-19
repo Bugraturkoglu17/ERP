@@ -10,18 +10,21 @@ from datetime import datetime
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy import select, func
+from sqlalchemy import select, func, exists, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 
 from app.core.database import get_db
+from app.core.dependencies import get_current_user, is_platform_admin
 from app.core.exceptions import NotFoundError, ConflictError
 from app.db.models import (
     InventoryTransaction,
     InventoryTransactionType,
     LowStockAlert,
     Material,
+    Project,
     Stock,
+    User,
     Warehouse,
     WarehouseType,
 )
@@ -44,6 +47,21 @@ from app.db.schemas import (
 router = APIRouter()
 
 
+def _same_tenant(user: User, tenant_id: object) -> bool:
+    return str(user.tenant_id) == str(tenant_id)
+
+
+async def _warehouse_in_scope(db: AsyncSession, user: User, warehouse: Warehouse) -> bool:
+    if is_platform_admin(user):
+        return True
+    if warehouse.project_id is None:
+        return False
+    project = await db.get(Project, warehouse.project_id)
+    if not project:
+        return False
+    return _same_tenant(user, project.tenant_id)
+
+
 # ═════════════════════════════════════════════════════════════════════════════
 #  DEPOLAR (Warehouses)
 # ═════════════════════════════════════════════════════════════════════════════
@@ -57,7 +75,15 @@ router = APIRouter()
 async def create_warehouse(
     body:      WarehouseCreate,
     db:        AsyncSession = Depends(get_db),
+    user:      User = Depends(get_current_user),
 ) -> Warehouse:
+    if not is_platform_admin(user):
+        if body.project_id is None:
+            raise HTTPException(status_code=403, detail="Firma kullanıcıları yalnızca projeye bağlı depo oluşturabilir.")
+        project = await db.get(Project, body.project_id)
+        if not project or not _same_tenant(user, project.tenant_id):
+            raise HTTPException(status_code=403, detail="Bu proje firma kapsamınız dışında.")
+
     warehouse = Warehouse(**body.model_dump())
     db.add(warehouse)
     try:
@@ -81,8 +107,11 @@ async def list_warehouses(
     skip:        int                      = 0,
     limit:       int                      = 100,
     db:          AsyncSession             = Depends(get_db),
+    user:        User                     = Depends(get_current_user),
 ) -> list[Warehouse]:
     query = select(Warehouse)
+    if not is_platform_admin(user):
+        query = query.join(Project, Warehouse.project_id == Project.id).where(Project.tenant_id == user.tenant_id)
     if type is not None:
         query = query.where(Warehouse.type == type)
     if project_id is not None:
@@ -102,10 +131,13 @@ async def list_warehouses(
 async def get_warehouse(
     warehouse_id: uuid.UUID,
     db:           AsyncSession = Depends(get_db),
+    user:         User = Depends(get_current_user),
 ) -> Warehouse:
     warehouse = await db.get(Warehouse, warehouse_id)
     if not warehouse:
         raise NotFoundError(detail="Depo bulunamadı.")
+    if not await _warehouse_in_scope(db, user, warehouse):
+        raise HTTPException(status_code=403, detail="Bu depo firma kapsamınız dışında.")
     return warehouse
 
 
@@ -118,10 +150,13 @@ async def update_warehouse(
     warehouse_id: uuid.UUID,
     body:         WarehouseUpdate,
     db:           AsyncSession = Depends(get_db),
+    user:         User = Depends(get_current_user),
 ) -> Warehouse:
     warehouse = await db.get(Warehouse, warehouse_id)
     if not warehouse:
         raise NotFoundError(detail="Depo bulunamadı.")
+    if not await _warehouse_in_scope(db, user, warehouse):
+        raise HTTPException(status_code=403, detail="Bu depo firma kapsamınız dışında.")
     for key, value in body.model_dump(exclude_unset=True).items():
         setattr(warehouse, key, value)
     try:
@@ -140,6 +175,7 @@ async def update_warehouse(
 async def delete_warehouse(
     warehouse_id: str,
     db:           AsyncSession = Depends(get_db),
+    user:         User = Depends(get_current_user),
 ) -> Warehouse:
     try:
         uid = uuid.UUID(warehouse_id)
@@ -148,6 +184,8 @@ async def delete_warehouse(
     warehouse = await db.get(Warehouse, uid)
     if not warehouse:
         raise NotFoundError(detail="Depo bulunamadı.")
+    if not await _warehouse_in_scope(db, user, warehouse):
+        raise HTTPException(status_code=403, detail="Bu depo firma kapsamınız dışında.")
     warehouse.is_active = False
     await db.commit()
     await db.refresh(warehouse)
@@ -167,7 +205,11 @@ async def delete_warehouse(
 async def create_material(
     body: MaterialCreateWithStock,
     db:   AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
 ) -> Material:
+    if not is_platform_admin(user):
+        raise HTTPException(status_code=403, detail="Malzeme kataloğu yönetimi yalnızca platform yöneticisi tarafından yapılabilir.")
+
     # ── 1 · Malzemeyi Oluştur ────────────────────────────────────────────────────
     mat_data = body.model_dump(exclude={"warehouse_id", "initial_quantity"})
     mat = Material(**mat_data)
@@ -234,8 +276,17 @@ async def list_materials(
     skip:         int              = 0,
     limit:        int              = 100,
     db:           AsyncSession     = Depends(get_db),
+    user:         User             = Depends(get_current_user),
 ) -> list[Material]:
     query = select(Material)
+    if not is_platform_admin(user):
+        query = (
+            query.join(Stock, Stock.material_id == Material.id)
+            .join(Warehouse, Warehouse.id == Stock.warehouse_id)
+            .join(Project, Project.id == Warehouse.project_id)
+            .where(Project.tenant_id == user.tenant_id)
+            .distinct()
+        )
     if active_only:
         query = query.where(Material.is_active == True)
     if search:
@@ -256,6 +307,7 @@ async def list_materials(
 async def get_material(
     material_id: str,
     db:          AsyncSession = Depends(get_db),
+    user:        User = Depends(get_current_user),
 ) -> Material:
     try:
         uid = uuid.UUID(material_id)
@@ -264,6 +316,17 @@ async def get_material(
     mat = await db.get(Material, uid)
     if not mat:
         raise NotFoundError(detail="Malzeme bulunamadı.")
+    if not is_platform_admin(user):
+        in_scope = await db.execute(
+            select(Material.id)
+            .join(Stock, Stock.material_id == Material.id)
+            .join(Warehouse, Warehouse.id == Stock.warehouse_id)
+            .join(Project, Project.id == Warehouse.project_id)
+            .where(Material.id == uid, Project.tenant_id == user.tenant_id)
+            .limit(1)
+        )
+        if not in_scope.scalar_one_or_none():
+            raise HTTPException(status_code=403, detail="Bu malzeme firma kapsamınız dışında.")
     return mat
 
 
@@ -276,7 +339,11 @@ async def update_material(
     material_id: str,
     body:         MaterialUpdate,
     db:           AsyncSession = Depends(get_db),
+    user:         User = Depends(get_current_user),
 ) -> Material:
+    if not is_platform_admin(user):
+        raise HTTPException(status_code=403, detail="Malzeme kataloğu güncellemesi yalnızca platform yöneticisi tarafından yapılabilir.")
+
     try:
         uid = uuid.UUID(material_id)
     except ValueError:
@@ -302,7 +369,11 @@ async def update_material(
 async def delete_material(
     material_id: str,
     db:          AsyncSession = Depends(get_db),
+    user:        User = Depends(get_current_user),
 ) -> Material:
+    if not is_platform_admin(user):
+        raise HTTPException(status_code=403, detail="Malzeme kataloğu silme yalnızca platform yöneticisi tarafından yapılabilir.")
+
     try:
         uid = uuid.UUID(material_id)
     except ValueError:
@@ -333,6 +404,7 @@ async def delete_material(
 async def get_warehouse_stock(
     warehouse_id: uuid.UUID,
     db:           AsyncSession = Depends(get_db),
+    user:         User = Depends(get_current_user),
     min_only:     bool          = Query(
         False, description="Sadece kritik stok altındaki malzemeleri göster"
     ),
@@ -340,6 +412,8 @@ async def get_warehouse_stock(
     warehouse = await db.get(Warehouse, warehouse_id)
     if not warehouse:
         raise NotFoundError(detail="Depo bulunamadı.")
+    if not await _warehouse_in_scope(db, user, warehouse):
+        raise HTTPException(status_code=403, detail="Bu depo firma kapsamınız dışında.")
 
     query = (
         select(
@@ -388,8 +462,11 @@ async def get_warehouse_stock(
 async def get_global_stock(
     material_id: uuid.UUID | None = None,
     db:          AsyncSession = Depends(get_db),
+    user:        User = Depends(get_current_user),
 ) -> list[Stock]:
-    query = select(Stock)
+    query = select(Stock).join(Warehouse, Warehouse.id == Stock.warehouse_id)
+    if not is_platform_admin(user):
+        query = query.join(Project, Project.id == Warehouse.project_id).where(Project.tenant_id == user.tenant_id)
     if material_id is not None:
         query = query.where(Stock.material_id == material_id)
     result = await db.execute(query.order_by(Stock.warehouse_id, Stock.material_id))
@@ -414,6 +491,7 @@ async def get_global_stock(
 async def transfer_stock(
     body: TransferRequest,
     db:   AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
 ) -> InventoryTransaction:
     material_id        = body.material_id
     from_warehouse_id  = body.from_warehouse_id
@@ -454,6 +532,9 @@ async def transfer_stock(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Hedef depo bulunamadı veya pasif.",
         )
+
+    if not await _warehouse_in_scope(db, user, from_wh) or not await _warehouse_in_scope(db, user, to_wh):
+        raise HTTPException(status_code=403, detail="Depo transferi firma kapsamınız dışında.")
 
     # ── 3 · Mevcut stok kayıtlarını bul /Bulunamadıysa oluştur ─────────────────
     # Kaynak stok
@@ -560,6 +641,7 @@ async def transfer_stock(
 async def create_transaction(
     body: InventoryTransactionCreate,
     db:   AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
 ) -> InventoryTransaction:
     tx_type = body.transaction_type
 
@@ -582,6 +664,8 @@ async def create_transaction(
         wh = await db.get(Warehouse, to_wh_id)
         if not wh or not wh.is_active:
             raise NotFoundError(detail="Hedef depo bulunamadı.")
+        if not await _warehouse_in_scope(db, user, wh):
+            raise HTTPException(status_code=403, detail="Hedef depo firma kapsamınız dışında.")
 
         stock_row = await db.execute(
             select(Stock).where(
@@ -605,6 +689,8 @@ async def create_transaction(
         wh = await db.get(Warehouse, from_wh_id)
         if not wh or not wh.is_active:
             raise NotFoundError(detail="Kaynak depo bulunamadı.")
+        if not await _warehouse_in_scope(db, user, wh):
+            raise HTTPException(status_code=403, detail="Kaynak depo firma kapsamınız dışında.")
 
         stock_row = await db.execute(
             select(Stock).where(
@@ -676,10 +762,25 @@ async def list_transactions(
     skip:               int              = 0,
     limit:              int              = 100,
     db:                 AsyncSession     = Depends(get_db),
+    user:               User             = Depends(get_current_user),
 ) -> list[InventoryTransaction]:
     query = select(InventoryTransaction).order_by(
         InventoryTransaction.performed_at.desc()
     )
+    if not is_platform_admin(user):
+        tenant_scope = (
+            select(1)
+            .select_from(Warehouse)
+            .join(Project, Project.id == Warehouse.project_id)
+            .where(
+                Project.tenant_id == user.tenant_id,
+                or_(
+                    Warehouse.id == InventoryTransaction.from_warehouse_id,
+                    Warehouse.id == InventoryTransaction.to_warehouse_id,
+                ),
+            )
+        )
+        query = query.where(exists(tenant_scope))
     if material_id:
         query = query.where(InventoryTransaction.material_id == material_id)
     if warehouse_id:
@@ -707,8 +808,18 @@ async def list_transactions(
 async def list_low_stock_alerts(
     notified: bool | None  = None,
     db:       AsyncSession = Depends(get_db),
+    user:     User = Depends(get_current_user),
 ) -> list[LowStockAlert]:
     query = select(LowStockAlert).order_by(LowStockAlert.created_at.desc())
+    if not is_platform_admin(user):
+        query = (
+            query.join(Material, Material.id == LowStockAlert.item_id)
+            .join(Stock, Stock.material_id == Material.id)
+            .join(Warehouse, Warehouse.id == Stock.warehouse_id)
+            .join(Project, Project.id == Warehouse.project_id)
+            .where(Project.tenant_id == user.tenant_id)
+            .distinct()
+        )
     if notified is not None:
         query = query.where(LowStockAlert.notified == notified)
     result = await db.execute(query)

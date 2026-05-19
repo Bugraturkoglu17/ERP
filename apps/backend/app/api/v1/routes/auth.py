@@ -15,8 +15,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, is_platform_admin
 from app.core.security import create_access_token, create_refresh_token, get_user_permissions, get_user_roles, hash_password, verify_password
-from app.db.models import User, UserRole, Role, UserSecurityPolicy
-from app.db.schemas import Token, TokenRefresh, UserRead
+from app.db.models import PlatformTenantSettings, Role, Tenant, User, UserRole, UserSecurityPolicy
+from app.db.schemas import CompletePasswordResetRequest, MessageResponse, TenantContextRead, TenantProfileUpdate, TenantSettingsUpsert, Token, TokenRefresh, UserRead
 
 router = APIRouter()
 
@@ -93,12 +93,140 @@ async def refresh_token(
     )
 
 
+@router.post("/complete-password-reset", response_model=MessageResponse, tags=["auth"])
+async def complete_password_reset(
+    payload: CompletePasswordResetRequest,
+    db: AsyncSession = Depends(get_db),
+) -> MessageResponse:
+    result = await db.execute(select(User).where(User.email == payload.email))
+    user = result.scalar_one_or_none()
+    if not user or not verify_password(payload.temporary_password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Geçersiz e-posta veya geçici parola.")
+
+    policy = await db.get(UserSecurityPolicy, user.id)
+    if not policy or not policy.force_password_change:
+        raise HTTPException(status_code=400, detail="Bu kullanıcı için parola yenileme gerekli değil.")
+
+    user.hashed_password = hash_password(payload.new_password)
+    policy.force_password_change = False
+    db.add(user)
+    db.add(policy)
+    await db.commit()
+
+    return MessageResponse(message="Parolanız güncellendi. Giriş yapabilirsiniz.")
+
+
 @router.get("/me", response_model=UserRead, tags=["auth"])
 async def get_me(
     user: User = Depends(get_current_user),
 ) -> UserRead:
     """Token'ındaki kullanıcı profilini döner."""
     return UserRead.model_validate(user)
+
+
+@router.get("/tenant-context", response_model=TenantContextRead, tags=["auth"])
+async def get_tenant_context(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> TenantContextRead:
+    if not user.tenant_id:
+        raise HTTPException(status_code=400, detail="Bu kullanıcı bir firmaya bağlı değil.")
+
+    tenant = await db.get(Tenant, user.tenant_id)
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Firma bulunamadı.")
+
+    settings = await db.get(PlatformTenantSettings, tenant.id)
+    return TenantContextRead(
+        tenant_id=tenant.id,
+        tenant_name=tenant.name,
+        tenant_code=tenant.code,
+        logo_url=tenant.logo_url,
+        tax_no=settings.tax_no if settings else None,
+        sector=settings.sector if settings else None,
+        country=settings.country if settings else None,
+        theme_color=settings.theme_color if settings else None,
+        domain=settings.domain if settings else None,
+        subdomain=settings.subdomain if settings else None,
+    )
+
+
+@router.put("/tenant-context/settings", response_model=TenantContextRead, tags=["auth"])
+async def update_tenant_context_settings(
+    payload: TenantSettingsUpsert,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> TenantContextRead:
+    if not user.tenant_id:
+        raise HTTPException(status_code=400, detail="Bu kullanıcı bir firmaya bağlı değil.")
+
+    tenant = await db.get(Tenant, user.tenant_id)
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Firma bulunamadı.")
+
+    settings = await db.get(PlatformTenantSettings, tenant.id)
+    if not settings:
+        settings = PlatformTenantSettings(tenant_id=tenant.id)
+
+    for key, value in payload.model_dump(exclude_unset=True).items():
+        setattr(settings, key, value)
+
+    db.add(settings)
+    await db.commit()
+    await db.refresh(settings)
+
+    return TenantContextRead(
+        tenant_id=tenant.id,
+        tenant_name=tenant.name,
+        tenant_code=tenant.code,
+        logo_url=tenant.logo_url,
+        tax_no=settings.tax_no,
+        sector=settings.sector,
+        country=settings.country,
+        theme_color=settings.theme_color,
+        domain=settings.domain,
+        subdomain=settings.subdomain,
+    )
+
+
+@router.put("/tenant-context/profile", response_model=TenantContextRead, tags=["auth"])
+async def update_tenant_context_profile(
+    payload: TenantProfileUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> TenantContextRead:
+    if not user.tenant_id:
+        raise HTTPException(status_code=400, detail="Bu kullanıcı bir firmaya bağlı değil.")
+
+    tenant = await db.get(Tenant, user.tenant_id)
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Firma bulunamadı.")
+
+    if payload.tenant_name is not None:
+        normalized_name = payload.tenant_name.strip()
+        if not normalized_name:
+            raise HTTPException(status_code=400, detail="Firma adı boş olamaz.")
+        tenant.name = normalized_name
+    if payload.logo_url is not None:
+        tenant.logo_url = payload.logo_url.strip() or None
+
+    db.add(tenant)
+    await db.commit()
+    await db.refresh(tenant)
+
+    settings = await db.get(PlatformTenantSettings, tenant.id)
+    return TenantContextRead(
+        tenant_id=tenant.id,
+        tenant_name=tenant.name,
+        tenant_code=tenant.code,
+        logo_url=tenant.logo_url,
+        tax_no=settings.tax_no if settings else None,
+        sector=settings.sector if settings else None,
+        country=settings.country if settings else None,
+        theme_color=settings.theme_color if settings else None,
+        domain=settings.domain if settings else None,
+        subdomain=settings.subdomain if settings else None,
+    )
 
 
 # ── User CRUD for Admin & RBAC ───────────────────────────────────────────────

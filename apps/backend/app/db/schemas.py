@@ -32,6 +32,34 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class CompletePasswordResetRequest(BaseModel):
+    email: EmailStr
+    temporary_password: str
+    new_password: str
+
+
+class MessageResponse(BaseModel):
+    message: str
+
+
+class TenantContextRead(BaseModel):
+    tenant_id: UUID
+    tenant_name: str
+    tenant_code: str
+    logo_url: str | None = None
+    tax_no: str | None = None
+    sector: str | None = None
+    country: str | None = None
+    theme_color: str | None = None
+    domain: str | None = None
+    subdomain: str | None = None
+
+
+class TenantProfileUpdate(BaseModel):
+    tenant_name: str | None = None
+    logo_url: str | None = None
+
+
 # ── User ──────────────────────────────────────────────────────────────────────
 
 class UserCreate(BaseModel):

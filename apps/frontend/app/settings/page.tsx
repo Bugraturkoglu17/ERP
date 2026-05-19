@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Building2,
   Bell,
@@ -18,9 +18,12 @@ import {
   Users,
   CheckCircle2,
 } from "lucide-react";
+import { apiPut } from "@/lib/api";
+import { fetchTenantContext, saveTenantContext, type TenantContext } from "@/lib/tenant-context";
 
 type SettingsState = {
   companyName: string;
+  logoUrl: string;
   taxNumber: string;
   contactEmail: string;
   contactPhone: string;
@@ -46,7 +49,8 @@ type SettingsState = {
 };
 
 const DEFAULTS: SettingsState = {
-  companyName: "Sismik Mekanik",
+  companyName: "",
+  logoUrl: "",
   taxNumber: "",
   contactEmail: "",
   contactPhone: "",
@@ -76,6 +80,21 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<string | null>(null);
 
+  useEffect(() => {
+    (async () => {
+      const ctx = await fetchTenantContext(true);
+      if (!ctx) return;
+      setSettings((prev) => ({
+        ...prev,
+        companyName: ctx.tenant_name || prev.companyName,
+        logoUrl: ctx.logo_url || "",
+        taxNumber: ctx.tax_no || "",
+        contactEmail: ctx.domain ? `info@${ctx.domain}` : prev.contactEmail,
+        invoicePrefix: ctx.subdomain || prev.invoicePrefix,
+      }));
+    })();
+  }, []);
+
   const isValid = useMemo(() => {
     if (!settings.companyName.trim()) return false;
     if (!settings.contactEmail.includes("@")) return false;
@@ -97,10 +116,29 @@ export default function SettingsPage() {
       return;
     }
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 450));
-    setSaving(false);
-    setSavedAt(new Date().toLocaleString("tr-TR"));
-    alert("Ayarlar kaydedildi. API bağlantısı hazır olduğunda backend'e gönderilebilir.");
+    try {
+      const [profile, ctx] = await Promise.all([
+        apiPut<TenantContext>("/auth/tenant-context/profile", {
+          tenant_name: settings.companyName.trim(),
+          logo_url: settings.logoUrl.trim() || null,
+        }),
+        apiPut<TenantContext>("/auth/tenant-context/settings", {
+          tax_no: settings.taxNumber.trim() || null,
+          sector: null,
+          country: null,
+          domain: settings.contactEmail.includes("@") ? settings.contactEmail.split("@")[1] : null,
+          subdomain: settings.invoicePrefix.trim().toLowerCase() || null,
+          theme_color: null,
+        }),
+      ]);
+      saveTenantContext({ ...ctx, tenant_name: profile.tenant_name, logo_url: profile.logo_url });
+      setSavedAt(new Date().toLocaleString("tr-TR"));
+      alert("Firma ayarları kaydedildi.");
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || "Ayarlar kaydedilemedi.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   function handleReset() {
@@ -131,6 +169,7 @@ export default function SettingsPage() {
             <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2"><Building2 className="h-4 w-4" /> Kurumsal Bilgiler</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <input className="w-full rounded-xl border border-slate-200 p-2.5 text-sm" placeholder="Firma adı" value={settings.companyName} onChange={(e) => update("companyName", e.target.value)} />
+              <input className="w-full rounded-xl border border-slate-200 p-2.5 text-sm" placeholder="Logo URL" value={settings.logoUrl} onChange={(e) => update("logoUrl", e.target.value)} />
               <input className="w-full rounded-xl border border-slate-200 p-2.5 text-sm" placeholder="Vergi numarası" value={settings.taxNumber} onChange={(e) => update("taxNumber", e.target.value)} />
               <input className="w-full rounded-xl border border-slate-200 p-2.5 text-sm" placeholder="E-posta" value={settings.contactEmail} onChange={(e) => update("contactEmail", e.target.value)} />
               <input className="w-full rounded-xl border border-slate-200 p-2.5 text-sm" placeholder="Telefon" value={settings.contactPhone} onChange={(e) => update("contactPhone", e.target.value)} />
