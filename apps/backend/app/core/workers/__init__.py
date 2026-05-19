@@ -29,4 +29,5 @@ celery_app.conf.update(
     task_time_limit    = 30 * 60,   # 30 dakika max çalışma süresi
     worker_pool        = "threads", # ARM uyumluluğu için threads
     worker_prefetch_multiplier = 1,
+    broker_connection_retry_on_startup = True,
 )
