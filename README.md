@@ -57,6 +57,37 @@ CHANGELOG.md
 - **Platform Tenant Administration**
   - Multi-tenant administration routes and frontend tenant management view.
   - Baseline tenant migration and bootstrap support for platform-level setup.
+  - Tenant-scoped mail identity, notification preferences, and audit/dead-letter visibility.
+
+---
+
+## Notification & Email Flow
+
+- **Provider:** Resend
+- **Dispatch model:** API actions enqueue mail payloads; Celery worker performs delivery.
+- **Audit model:** Every attempt is recorded in `outbound_email_audits` with status lifecycle: `queued`, `sent`, `failed`, `skipped`.
+- **Failure handling:** Worker retries failed sends; max-retry failures are persisted to `outbound_email_dead_letters`.
+
+### Tenant mail policy
+
+- Tenant identity mode supports:
+  - `platform` (default/fallback sender)
+  - `tenant_domain` (used only when tenant domain is verified and `from_email` is valid)
+- Notification preferences are enforced before provider send:
+  - `email_notifications_enabled`
+  - `email_digest_mode` (`immediate` or `daily`)
+  - `email_opt_out_templates`
+
+When preferences block delivery, mail is marked as `skipped` (business flow still continues).
+
+### Current notification triggers
+
+- Platform admin provisioning and admin password reset
+- Tenant status updates
+- Project user assignment
+- Invoice creation
+- Invoice due-soon reminder (0-7 days)
+- Inventory low-stock alerts
 
 ---
 

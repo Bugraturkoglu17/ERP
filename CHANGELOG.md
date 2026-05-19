@@ -13,6 +13,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Platform bootstrap utility for admin setup (`apps/backend/app/bootstrap_admin.py`).
 - Frontend tenant management page (`apps/frontend/app/platform/tenants/page.tsx`).
 - Frontend auth helper additions for platform/admin workflows (`apps/frontend/lib/auth.ts`).
+- Tenant-aware email notification rollout migration with outbound dead-letter support (`apps/backend/alembic/versions/20260519_02_notification_rollout.py`).
+- Email template set for platform and module notifications (`apps/backend/app/core/email_templates.py`).
 
 ### Changed
 - API surface updated for platform/project/auth integration and dependency handling:
@@ -23,12 +25,20 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Backend schema/model layer expanded to support tenant-aware structures:
   - `apps/backend/app/db/models.py`
   - `apps/backend/app/db/schemas.py`
+- Tenant mail settings now support notification preferences (`email_notifications_enabled`, `email_digest_mode`, `email_opt_out_templates`) and tenant identity fallback rules.
+- Mail dispatch moved to async Celery queue with audit-first flow (`queued/sent/failed/skipped`) and retry-aware dead-letter persistence.
+- Module notifications wired to core flows:
+  - Project assignment (`project_assignment`)
+  - Invoice creation and near-due reminders (`invoice_created`, `invoice_due_soon`)
+  - Inventory low stock alerts (`inventory_low_stock`)
+- Platform admin password reset now supports targeted admin selection via `admin_user_id` (instead of implicit first-admin reset).
 - Frontend navigation and sidebar updated to expose platform admin flows:
   - `apps/frontend/components/layout/sidebar.tsx`
   - `apps/frontend/lib/navigation.ts`
 - Frontend API and generated types updated for new endpoints:
   - `apps/frontend/lib/api.ts`
   - `apps/frontend/types/api.ts`
+- Platform tenants UI reset form updated to select a specific tenant admin before password reset.
 
 ### Fixed
 - Frontend production build type-safety fixes across finance, inventory, login, and projects pages.
