@@ -27,7 +27,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     supervisor \
     && rm -rf /var/lib/apt/lists/*
 
-RUN groupadd -r app && useradd -r -g app -d /app -s /usr/sbin/nologin app
+RUN groupadd -r app && useradd -r -g app -d /home/app -m -s /usr/sbin/nologin app
 
 # Copy installed deps from builder
 COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
@@ -36,7 +36,7 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 COPY . .
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-RUN chown -R app:app /app
+RUN mkdir -p /home/app/.postgresql && chown -R app:app /app /home/app
 
 RUN chmod +x /app/entrypoint.sh
 
