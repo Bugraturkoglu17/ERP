@@ -20,6 +20,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database         import get_db
 from app.core.dependencies     import get_current_user, is_platform_admin, require_role
+from app.core.email_templates import project_assignment_mail
+from app.core.emailing import enqueue_tenant_email
 from app.core.exceptions       import NotFoundError
 from app.db.crud               import CRUDBase
 from app.db.models import (
@@ -488,7 +490,27 @@ async def assign_user_to_project(
         raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı.")
     if _tenant_mismatch(admin, user.tenant_id) or str(user.tenant_id) != str(project.tenant_id):
         raise HTTPException(status_code=403, detail="Kullanıcı tenant kapsamı proje ile uyumlu değil.")
-    return await crud_assignment.create(db, assignment, project_id=project_id)
+    created_assignment = await crud_assignment.create(db, assignment, project_id=project_id)
+
+    if user.email:
+        customer = await db.get(Customer, project.customer_id)
+        if customer:
+            mail = project_assignment_mail(
+                tenant=customer,
+                project_name=project.name,
+                assignee_name=user.full_name,
+                assigned_by=admin.full_name,
+            )
+            enqueue_tenant_email(
+                tenant_id=project.tenant_id,
+                template=mail.template,
+                to=[user.email],
+                subject=mail.subject,
+                text=mail.text,
+                html=mail.html,
+            )
+
+    return created_assignment
 
 
 @router.get(

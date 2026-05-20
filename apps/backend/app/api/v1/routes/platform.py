@@ -9,6 +9,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, is_platform_admin
+from app.core.email_templates import (
+    tenant_admin_password_reset_mail,
+    tenant_admin_provisioned_mail,
+    tenant_status_changed_mail,
+)
+from app.core.emailing import enqueue_tenant_email
 from app.core.security import hash_password
 from app.db.models import (
     PlatformAdminAction,
@@ -41,6 +47,18 @@ from app.db.schemas import (
 )
 
 router = APIRouter()
+
+
+def _parse_opt_out_templates(raw: str | None) -> list[str]:
+    if not raw:
+        return []
+    try:
+        parsed = json.loads(raw)
+        if isinstance(parsed, list):
+            return [str(item) for item in parsed]
+    except json.JSONDecodeError:
+        return []
+    return []
 
 
 VALID_TENANT_STATUSES = {"trial", "active", "suspended", "archived"}
@@ -137,7 +155,6 @@ async def update_tenant(
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant bulunamadı.")
 
-    old_status = tenant.status.value if tenant.status else None
     changed: dict[str, object] = {}
 
     if payload.name is not None:
@@ -167,38 +184,26 @@ async def update_tenant(
     db.add(tenant)
     await _log_action(db, user, "tenant.update", tenant_id=tenant.id, details=changed)
 
-    if "status" in changed and old_status != tenant.status.value:
-        try:
-            from app.db.models import PlatformTenantSettings, User
-            from app.core.email_templates import get_tenant_status_email_template, build_branding_dict
-            from app.core.workers.tasks import send_tenant_email_async
-            
-            admins_result = await db.execute(
-                select(User).where(User.tenant_id == tenant.id, User.default_role == "admin", User.is_active == True)
+    should_notify_status_change = payload.status is not None or payload.is_active is not None
+    if should_notify_status_change:
+        admin_rows = await db.execute(
+            select(User).where(User.tenant_id == tenant.id, User.default_role == "admin", User.is_active.is_(True))
+        )
+        recipients = [u.email for u in admin_rows.scalars().all() if u.email]
+        if recipients:
+            mail = tenant_status_changed_mail(
+                tenant=tenant,
+                status=tenant.status.value,
+                is_active=tenant.is_active,
             )
-            admins = list(admins_result.scalars())
-            
-            tenant_settings = await db.get(PlatformTenantSettings, tenant.id)
-            branding = build_branding_dict(tenant_settings, tenant.name, tenant.logo_url)
-            
-            for admin_user in admins:
-                subject, text_content, html_content = get_tenant_status_email_template(
-                    tenant_name=tenant.name,
-                    full_name=admin_user.full_name,
-                    old_status=old_status,
-                    new_status=tenant.status.value,
-                    branding=branding,
-                )
-                send_tenant_email_async.delay(
-                    tenant_id=str(tenant.id),
-                    template="tenant_status_change",
-                    to=[admin_user.email],
-                    subject=subject,
-                    text=text_content,
-                    html=html_content,
-                )
-        except Exception:
-            pass
+            enqueue_tenant_email(
+                tenant_id=tenant.id,
+                template=mail.template,
+                to=recipients,
+                subject=mail.subject,
+                text=mail.text,
+                html=mail.html,
+            )
 
     await db.commit()
     await db.refresh(tenant)
@@ -226,6 +231,9 @@ async def upsert_tenant_settings(
         if key == "email_branding":
             setattr(settings, key, json.dumps(value, ensure_ascii=False) if value is not None else None)
             continue
+        if key == "email_opt_out_templates":
+            setattr(settings, key, json.dumps(value or [], ensure_ascii=False))
+            continue
         setattr(settings, key, value)
 
     db.add(settings)
@@ -247,6 +255,9 @@ async def upsert_tenant_settings(
         email_domain_verified=settings.email_domain_verified,
         email_provider_identity_id=settings.email_provider_identity_id,
         email_branding=json.loads(settings.email_branding) if settings.email_branding else None,
+        email_notifications_enabled=settings.email_notifications_enabled,
+        email_digest_mode=settings.email_digest_mode,
+        email_opt_out_templates=_parse_opt_out_templates(settings.email_opt_out_templates),
         updated_at=settings.updated_at,
     )
 
@@ -280,6 +291,9 @@ async def get_tenant_settings(
             email_domain_verified=settings.email_domain_verified,
             email_provider_identity_id=settings.email_provider_identity_id,
             email_branding=json.loads(settings.email_branding) if settings.email_branding else None,
+            email_notifications_enabled=settings.email_notifications_enabled,
+            email_digest_mode=settings.email_digest_mode,
+            email_opt_out_templates=_parse_opt_out_templates(settings.email_opt_out_templates),
             updated_at=settings.updated_at,
         )
 
@@ -302,6 +316,9 @@ async def get_tenant_settings(
         email_domain_verified=settings.email_domain_verified,
         email_provider_identity_id=settings.email_provider_identity_id,
         email_branding=json.loads(settings.email_branding) if settings.email_branding else None,
+        email_notifications_enabled=settings.email_notifications_enabled,
+        email_digest_mode=settings.email_digest_mode,
+        email_opt_out_templates=_parse_opt_out_templates(settings.email_opt_out_templates),
         updated_at=settings.updated_at,
     )
 
@@ -354,32 +371,19 @@ async def provision_tenant_admin(
         details={"email": normalized_email},
     )
 
-    try:
-        from app.db.models import PlatformTenantSettings
-        from app.core.email_templates import get_provision_email_template, build_branding_dict
-        from app.core.workers.tasks import send_tenant_email_async
-        
-        tenant_settings = await db.get(PlatformTenantSettings, tenant.id)
-        branding = build_branding_dict(tenant_settings, tenant.name, tenant.logo_url)
-        
-        subject, text_content, html_content = get_provision_email_template(
-            tenant_name=tenant.name,
-            full_name=admin_user.full_name,
-            email=admin_user.email,
-            temporary_password=payload.temporary_password,
-            branding=branding,
-        )
-        
-        send_tenant_email_async.delay(
-            tenant_id=str(tenant.id),
-            template="platform_admin_provision",
-            to=[admin_user.email],
-            subject=subject,
-            text=text_content,
-            html=html_content,
-        )
-    except Exception:
-        pass
+    provision_mail = tenant_admin_provisioned_mail(
+        tenant=tenant,
+        full_name=admin_user.full_name,
+        temporary_password=payload.temporary_password,
+    )
+    enqueue_tenant_email(
+        tenant_id=tenant.id,
+        template=provision_mail.template,
+        to=[admin_user.email],
+        subject=provision_mail.subject,
+        text=provision_mail.text,
+        html=provision_mail.html,
+    )
 
     await db.commit()
     await db.refresh(admin_user)
@@ -474,13 +478,23 @@ async def reset_tenant_admin_password(
     if not tenant.is_active or tenant.status in {TenantStatus.SUSPENDED, TenantStatus.ARCHIVED}:
         raise HTTPException(status_code=400, detail="Pasif tenant için parola sıfırlanamaz.")
 
-    result = await db.execute(
-        select(User)
-        .where(User.tenant_id == tenant_id)
-        .where(User.default_role == "admin")
-        .order_by(User.created_at.asc())
-    )
-    admin_user = result.scalars().first()
+    admin_user: User | None = None
+    if payload.admin_user_id is not None:
+        candidate = await db.get(User, payload.admin_user_id)
+        if not candidate:
+            raise HTTPException(status_code=404, detail="Yönetici kullanıcı bulunamadı.")
+        if candidate.tenant_id != tenant_id or candidate.default_role != "admin":
+            raise HTTPException(status_code=400, detail="Seçilen kullanıcı bu firmanın yöneticisi değil.")
+        admin_user = candidate
+    else:
+        result = await db.execute(
+            select(User)
+            .where(User.tenant_id == tenant_id)
+            .where(User.default_role == "admin")
+            .order_by(User.created_at.asc())
+        )
+        admin_user = result.scalars().first()
+
     if not admin_user:
         raise HTTPException(status_code=404, detail="Tenant admin kullanıcısı bulunamadı.")
 
@@ -501,33 +515,19 @@ async def reset_tenant_admin_password(
         details={"force_password_change": payload.force_password_change},
     )
 
-    try:
-        from app.db.models import PlatformTenantSettings
-        from app.core.email_templates import get_password_reset_email_template, build_branding_dict
-        from app.core.workers.tasks import send_tenant_email_async
-        
-        tenant_settings = await db.get(PlatformTenantSettings, tenant.id)
-        branding = build_branding_dict(tenant_settings, tenant.name, tenant.logo_url)
-        
-        subject, text_content, html_content = get_password_reset_email_template(
-            tenant_name=tenant.name,
-            full_name=admin_user.full_name,
-            email=admin_user.email,
-            temporary_password=payload.temporary_password,
-            force_password_change=payload.force_password_change,
-            branding=branding,
-        )
-        
-        send_tenant_email_async.delay(
-            tenant_id=str(tenant.id),
-            template="platform_admin_password_reset",
-            to=[admin_user.email],
-            subject=subject,
-            text=text_content,
-            html=html_content,
-        )
-    except Exception:
-        pass
+    reset_mail = tenant_admin_password_reset_mail(
+        tenant=tenant,
+        full_name=admin_user.full_name,
+        temporary_password=payload.temporary_password,
+    )
+    enqueue_tenant_email(
+        tenant_id=tenant.id,
+        template=reset_mail.template,
+        to=[admin_user.email],
+        subject=reset_mail.subject,
+        text=reset_mail.text,
+        html=reset_mail.html,
+    )
 
     await db.commit()
     await db.refresh(admin_user)

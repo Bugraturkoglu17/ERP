@@ -14,6 +14,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, is_platform_admin
+from app.core.email_templates import invoice_created_mail, invoice_due_soon_mail
+from app.core.emailing import enqueue_tenant_email
 from app.core.exceptions import NotFoundError
 from app.db.crud import CRUDBase
 from app.db.models import Customer, Expense, ExpenseCategory, Invoice, Project, InvoiceItem, Payment, InvoiceStatus, User
@@ -30,6 +32,17 @@ router = APIRouter()
 
 crud_invoice = CRUDBase(Invoice)
 crud_expense = CRUDBase(Expense)
+
+
+async def _tenant_admin_emails(db: AsyncSession, tenant_id: UUID) -> list[str]:
+    result = await db.execute(
+        select(User.email).where(
+            User.tenant_id == tenant_id,
+            User.default_role == "admin",
+            User.is_active.is_(True),
+        )
+    )
+    return [email for email in result.scalars().all() if email]
 
 
 # ── Finance Dashboard — Karlılık Özeti ────────────────────────────────────────
@@ -207,6 +220,48 @@ async def create_invoice(
 
     await db.commit()
     await db.refresh(inv)
+
+    tenant_id = customer.tenant_id
+    recipients = await _tenant_admin_emails(db, tenant_id)
+    if recipients:
+        due_date_str = inv.due_date.date().isoformat() if inv.due_date else None
+        amount_str = f"{float(inv.grand_total):.2f} TRY"
+        created_mail = invoice_created_mail(
+            tenant=customer,
+            invoice_no=inv.invoice_no,
+            title=inv.title,
+            due_date=due_date_str,
+            amount=amount_str,
+        )
+        enqueue_tenant_email(
+            tenant_id=tenant_id,
+            template=created_mail.template,
+            to=recipients,
+            subject=created_mail.subject,
+            text=created_mail.text,
+            html=created_mail.html,
+        )
+
+        if inv.due_date:
+            now_date = datetime.now(timezone.utc).date()
+            days_left = (inv.due_date.date() - now_date).days
+            if 0 <= days_left <= 7:
+                due_mail = invoice_due_soon_mail(
+                    tenant=customer,
+                    invoice_no=inv.invoice_no,
+                    due_date=inv.due_date.date().isoformat(),
+                    days_left=days_left,
+                    amount=amount_str,
+                )
+                enqueue_tenant_email(
+                    tenant_id=tenant_id,
+                    template=due_mail.template,
+                    to=recipients,
+                    subject=due_mail.subject,
+                    text=due_mail.text,
+                    html=due_mail.html,
+                )
+
     return inv
 
 

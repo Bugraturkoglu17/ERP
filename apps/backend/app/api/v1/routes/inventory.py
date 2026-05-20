@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
@@ -16,6 +16,8 @@ from sqlalchemy.exc import IntegrityError
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, is_platform_admin
+from app.core.email_templates import low_stock_alert_mail
+from app.core.emailing import enqueue_tenant_email
 from app.core.exceptions import NotFoundError, ConflictError
 from app.db.models import (
     InventoryTransaction,
@@ -27,6 +29,7 @@ from app.db.models import (
     User,
     Warehouse,
     WarehouseType,
+    Tenant,
 )
 from app.db.schemas import (
     InventoryTransactionCreate,
@@ -45,6 +48,69 @@ from app.db.schemas import (
 )
 
 router = APIRouter()
+LOW_STOCK_ALERT_COOLDOWN_MINUTES = 180
+
+
+async def _tenant_admin_emails(db: AsyncSession, tenant_id: uuid.UUID) -> list[str]:
+    result = await db.execute(
+        select(User.email).where(
+            User.tenant_id == tenant_id,
+            User.default_role == "admin",
+            User.is_active.is_(True),
+        )
+    )
+    return [email for email in result.scalars().all() if email]
+
+
+async def _notify_low_stock_if_needed(
+    db: AsyncSession,
+    *,
+    warehouse: Warehouse,
+    material: Material,
+    quantity: Decimal,
+) -> None:
+    if warehouse.project_id is None:
+        return
+    project = await db.get(Project, warehouse.project_id)
+    if not project:
+        return
+    if quantity > material.min_stock_level:
+        return
+
+    recent_threshold = datetime.now(timezone.utc) - timedelta(minutes=LOW_STOCK_ALERT_COOLDOWN_MINUTES)
+    recent_alert = await db.execute(
+        select(LowStockAlert.id)
+        .where(LowStockAlert.item_id == material.id)
+        .where(LowStockAlert.created_at >= recent_threshold)
+        .order_by(LowStockAlert.created_at.desc())
+        .limit(1)
+    )
+    if recent_alert.scalar_one_or_none() is not None:
+        return
+
+    recipients = await _tenant_admin_emails(db, project.tenant_id)
+    if not recipients:
+        return
+
+    tenant = await db.get(Tenant, project.tenant_id)
+    if not tenant:
+        return
+
+    mail = low_stock_alert_mail(
+        tenant=tenant,
+        material_name=material.name,
+        sku=material.sku,
+        current_stock=float(quantity),
+        min_level=float(material.min_stock_level),
+    )
+    enqueue_tenant_email(
+        tenant_id=project.tenant_id,
+        template=mail.template,
+        to=recipients,
+        subject=mail.subject,
+        text=mail.text,
+        html=mail.html,
+    )
 
 
 def _same_tenant(user: User, tenant_id: object) -> bool:
@@ -620,6 +686,13 @@ async def transfer_stock(
             detail=f"Transfer işlemi başarısız: {exc}",
         )
 
+    await _notify_low_stock_if_needed(
+        db,
+        warehouse=from_wh,
+        material=material,
+        quantity=from_stock.quantity,
+    )
+
     return tx
 
 
@@ -746,6 +819,24 @@ async def create_transaction(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Hareket kaydedilemedi: {exc}",
         )
+
+    if tx_type in (InventoryTransactionType.OUT, InventoryTransactionType.ADJUSTMENT) and from_wh_id:
+        from_wh = await db.get(Warehouse, from_wh_id)
+        stock_row = await db.execute(
+            select(Stock).where(
+                Stock.warehouse_id == from_wh_id,
+                Stock.material_id == body.material_id,
+            )
+        )
+        latest_stock = stock_row.scalar_one_or_none()
+        material = await db.get(Material, body.material_id)
+        if from_wh and latest_stock and material:
+            await _notify_low_stock_if_needed(
+                db,
+                warehouse=from_wh,
+                material=material,
+                quantity=latest_stock.quantity,
+            )
 
     return tx
 

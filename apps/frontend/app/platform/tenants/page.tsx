@@ -217,7 +217,12 @@ function PlatformTenantsPageContent() {
     branding_footer: "",
   });
   const [yoneticiForm, setYoneticiForm] = useState({ full_name: "", email: "", temporary_password: "" });
-  const [resetForm, setResetForm] = useState({ temporary_password: "", force_password_change: true, reason: "" });
+  const [resetForm, setResetForm] = useState({
+    admin_user_id: "",
+    temporary_password: "",
+    force_password_change: true,
+    reason: "",
+  });
   const [planForm, setPlanForm] = useState({ code: "", name: "", max_users: 10, storage_limit_gb: 5, modules: "projects,inventory,finance" });
   const [atamaForm, setAtamaForm] = useState({ plan_id: "", status: "active", ends_at: "" });
 
@@ -387,6 +392,17 @@ function PlatformTenantsPageContent() {
     });
   }, [selectedFirma]);
 
+  useEffect(() => {
+    setResetForm((prev) => {
+      const currentValid = prev.admin_user_id && firmaYoneticileri.some((admin) => admin.id === prev.admin_user_id);
+      if (currentValid) return prev;
+      return {
+        ...prev,
+        admin_user_id: firmaYoneticileri[0]?.id || "",
+      };
+    });
+  }, [firmaYoneticileri]);
+
   const createFirma = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
@@ -518,10 +534,16 @@ function PlatformTenantsPageContent() {
     setBusy(true);
     try {
       await apiPost(`/platform/tenants/${selectedFirmaId}/reset-admin-password`, {
+        admin_user_id: resetForm.admin_user_id || null,
         temporary_password: resetForm.temporary_password,
         force_password_change: resetForm.force_password_change,
       });
-      setResetForm({ temporary_password: "", force_password_change: true, reason: "" });
+      setResetForm((prev) => ({
+        admin_user_id: prev.admin_user_id,
+        temporary_password: "",
+        force_password_change: true,
+        reason: "",
+      }));
       await loadFirmaScope(selectedFirmaId);
       await loadCore();
       pushToast("ok", "Yönetici şifresi sıfırlandı.");
@@ -895,6 +917,19 @@ function PlatformTenantsPageContent() {
             <form onSubmit={resetYoneticiParola} className="rounded-2xl border border-slate-200 bg-white p-4">
               <h3 className="mb-3 flex items-center gap-2 text-sm font-bold"><KeyRound className="h-4 w-4" /> Yönetici Şifre Sıfırla</h3>
               <div className="space-y-2">
+                <select
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                  value={resetForm.admin_user_id}
+                  onChange={(e) => setResetForm((p) => ({ ...p, admin_user_id: e.target.value }))}
+                  required
+                >
+                  <option value="">Yönetici seçin</option>
+                  {firmaYoneticileri.map((admin) => (
+                    <option key={admin.id} value={admin.id}>
+                      {admin.full_name} ({admin.email})
+                    </option>
+                  ))}
+                </select>
                 <div className="flex gap-2">
                   <input className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="Yeni geçici parola" type="text" value={resetForm.temporary_password} onChange={(e) => setResetForm((p) => ({ ...p, temporary_password: e.target.value }))} required />
                   <button type="button" onClick={() => setResetForm((p) => ({ ...p, temporary_password: randomPassword() }))} className="rounded-lg border border-slate-300 px-3 text-xs font-semibold">Üret</button>
@@ -902,7 +937,7 @@ function PlatformTenantsPageContent() {
                 <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={resetForm.force_password_change} onChange={(e) => setResetForm((p) => ({ ...p, force_password_change: e.target.checked }))} /> İlk girişte zorunlu değiştir</label>
                 <input className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="Neden (audit)" value={resetForm.reason} onChange={(e) => setResetForm((p) => ({ ...p, reason: e.target.value }))} />
                 <button
-                  disabled={!selectedFirmaId || busy}
+                  disabled={!selectedFirmaId || !resetForm.admin_user_id || busy}
                   className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-amber-600 px-3 py-2 text-sm font-medium text-white"
                 >
                   <RefreshCw className="h-4 w-4" /> Sıfırla
