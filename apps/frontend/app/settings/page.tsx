@@ -244,9 +244,43 @@ export default function SettingsPage() {
 
   // Kaydetme Fonksiyonu (Firma Ayarları)
   async function handleSave() {
-    if (!isValid) {
-      alert("Lütfen zorunlu alanları ve sayı aralıklarını kontrol edin.");
+    if (!settings.companyName.trim()) {
+      alert("Lütfen 'Firma Resmi Adı' alanını doldurun.");
       return;
+    }
+    if (!settings.contactEmail.trim() || !settings.contactEmail.includes("@")) {
+      alert("Lütfen geçerli bir 'İrtibat E-posta Adresi' girin (örn: info@firma.com).");
+      return;
+    }
+    if (settings.vatRate < 0 || settings.vatRate > 100) {
+      alert("Varsayılan KDV Oranı 0 ile 100 arasında olmalıdır.");
+      return;
+    }
+    if (settings.lowStockThreshold < 0) {
+      alert("Kritik Stok Uyarı Eşiği 0'dan küçük olamaz.");
+      return;
+    }
+    if (settings.defaultPaymentTermDays < 0) {
+      alert("Varsayılan Ödeme Vadesi 0'dan küçük olamaz.");
+      return;
+    }
+    if (settings.sessionTimeoutMinutes < 5) {
+      alert("Maksimum Oturum Zaman Aşımı en az 5 dakika olmalıdır.");
+      return;
+    }
+    if (settings.retentionDays < 30) {
+      alert("Yedek Saklama Süresi en az 30 gün olmalıdır.");
+      return;
+    }
+    if (settings.emailMode === "tenant_domain") {
+      if (settings.fromEmail && !settings.fromEmail.includes("@")) {
+        alert("Lütfen geçerli bir 'Gönderici E-postası' girin.");
+        return;
+      }
+      if (settings.replyTo && !settings.replyTo.includes("@")) {
+        alert("Lütfen geçerli bir 'Yanıt E-posta Adresi' girin.");
+        return;
+      }
     }
     setSaving(true);
     try {
@@ -1221,7 +1255,7 @@ export default function SettingsPage() {
             </button>
             <button
               onClick={handleSave}
-              disabled={saving || !isValid}
+              disabled={saving}
               className="corp-btn-primary disabled:opacity-50"
             >
               <Save className="h-4 w-4" /> {saving ? "Kaydediliyor..." : "Ayarları Kaydet"}
