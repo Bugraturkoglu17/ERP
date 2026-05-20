@@ -17,7 +17,13 @@ import {
   Layers,
   ChevronRight,
   Maximize2,
-  FileCheck
+  FileCheck,
+  Clock,
+  User,
+  Mail,
+  Info,
+  Calendar,
+  Hash
 } from "lucide-react";
 
 export default function DocumentsPage() {
@@ -32,6 +38,12 @@ export default function DocumentsPage() {
   // AutoCAD Preview simulation state
   const [previewDoc, setPreviewDoc] = useState<any>(null);
   const [previewZoom, setPreviewZoom] = useState(100);
+  const [cadLayers, setCadLayers] = useState({ pipes: true, ducts: true, hangers: true });
+
+  // Details Drawer & Versions State
+  const [selectedDocForDrawer, setSelectedDocForDrawer] = useState<any | null>(null);
+  const [versionsHistory, setVersionsHistory] = useState<any[]>([]);
+  const [versionsLoading, setVersionsLoading] = useState(false);
 
   // Upload Modal State
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -79,6 +91,21 @@ export default function DocumentsPage() {
       setDocuments([]);
     } finally {
       setDocsLoading(false);
+    }
+  }
+
+  async function handleOpenDrawer(doc: any) {
+    setSelectedDocForDrawer(doc);
+    setVersionsLoading(true);
+    setVersionsHistory([]);
+    try {
+      const versions = await apiGet(`/documents/${doc.id}/versions`);
+      setVersionsHistory(Array.isArray(versions) ? versions : []);
+    } catch (err) {
+      console.error("Versions fetch error:", err);
+      setVersionsHistory([]);
+    } finally {
+      setVersionsLoading(false);
     }
   }
 
@@ -169,53 +196,52 @@ export default function DocumentsPage() {
     return (
       <div className="flex items-center justify-center h-full min-h-[500px]">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-slate-500 font-medium">Projeler yükleniyor...</p>
+          <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">Projeler yükleniyor...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 max-w-[1600px] mx-auto">
+    <div className="space-y-6 max-w-[1600px] mx-auto p-6">
       {/* Header Panel */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-8 shadow-lg text-white">
+      <div className="bg-slate-900 rounded-xl p-8 shadow-sm border border-slate-800 text-white">
         <div className="relative z-10">
-          <h2 className="text-3xl font-extrabold tracking-tight">Doküman & AutoCAD Çizim Havuzu</h2>
-          <p className="text-slate-300 mt-2 text-sm max-w-2xl">
+          <h2 className="text-3xl font-black tracking-tighter">Doküman & AutoCAD Çizim Havuzu</h2>
+          <p className="text-slate-400 mt-2 text-sm max-w-2xl font-medium">
             Sismik Koruma, HVAC ve Yangın Tesisat şantiye çizimlerini, revizyon geçmişlerini ve hakediş belgelerini bulut altyapısında güvenle yönetin.
           </p>
         </div>
-        <div className="absolute right-0 bottom-0 top-0 w-1/3 bg-[radial-gradient(circle_at_bottom_right,_var(--tw-gradient-stops))] from-blue-500/10 via-transparent to-transparent opacity-60"></div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
         {/* Project Selector Panel */}
         <div className="xl:col-span-1 space-y-4">
-          <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm">
-            <h3 className="text-md font-bold text-slate-800 mb-3 flex items-center gap-2">
-              <Folder className="w-4 h-4 text-blue-500" /> Şantiye Projeleri
+          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+            <h3 className="text-sm font-black text-slate-800 mb-4 flex items-center gap-2 uppercase tracking-wider">
+              <Folder className="w-4 h-4 text-indigo-600" /> Şantiye Projeleri
             </h3>
             <div className="space-y-2 max-h-[550px] overflow-y-auto pr-1">
               {projects.map((proj) => (
                 <button
                   key={proj.id}
                   onClick={() => handleSelectProject(proj)}
-                  className={`w-full text-left p-4 rounded-xl border transition-all duration-200 flex flex-col gap-1.5 ${
+                  className={`w-full text-left p-4 rounded-lg border transition-all duration-150 flex flex-col gap-1.5 ${
                     selectedProject?.id === proj.id 
-                      ? "border-blue-500 bg-gradient-to-br from-blue-50 to-indigo-50/50 shadow-sm ring-1 ring-blue-500" 
-                      : "border-slate-100 hover:border-slate-300 bg-white hover:bg-slate-50/50"
+                      ? "border-indigo-600 bg-indigo-50 shadow-none" 
+                      : "border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50"
                   }`}
                 >
                   <div className="flex items-start justify-between w-full">
-                    <span className="font-semibold text-slate-900 text-sm line-clamp-1">{proj.name}</span>
-                    <ChevronRight className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${selectedProject?.id === proj.id ? "rotate-90 text-blue-500" : ""}`} />
+                    <span className="font-bold text-slate-900 text-sm line-clamp-1">{proj.name}</span>
+                    <ChevronRight className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${selectedProject?.id === proj.id ? "rotate-90 text-indigo-600" : ""}`} />
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 tracking-wider">
+                    <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-slate-200 text-slate-600 tracking-wider">
                       {proj.project_no || "PROJE-NO"}
                     </span>
-                    <span className="text-[10px] text-slate-400">
+                    <span className="text-[10px] text-slate-500 font-bold">
                       {proj.due_date ? new Date(proj.due_date).toLocaleDateString("tr") : "Tarih Belirtilmemiş"}
                     </span>
                   </div>
@@ -230,7 +256,7 @@ export default function DocumentsPage() {
           {selectedProject ? (
             <div className="space-y-6">
               {/* Toolbar & Filter */}
-              <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex flex-wrap items-center gap-3 flex-1">
                   {/* Search */}
                   <div className="relative max-w-xs w-full">
@@ -238,7 +264,7 @@ export default function DocumentsPage() {
                     <input 
                       type="text" 
                       placeholder="Çizim veya doküman ara..." 
-                      className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                      className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:border-indigo-600 outline-none transition-all font-bold"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                     />
@@ -248,7 +274,7 @@ export default function DocumentsPage() {
                   <select
                     value={selectedTypeFilter}
                     onChange={(e) => setSelectedTypeFilter(e.target.value)}
-                    className="p-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                    className="p-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-indigo-600 font-bold bg-white"
                   >
                     <option value="all">Tüm Dosya Tipleri</option>
                     <option value="contract">Sözleşmeler</option>
@@ -264,7 +290,7 @@ export default function DocumentsPage() {
 
                 <button 
                   onClick={() => setIsUploadModalOpen(true)}
-                  className="flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-md shadow-blue-500/10 transition-all transform hover:-translate-y-0.5 active:translate-y-0"
+                  className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-lg text-sm font-black transition-all uppercase tracking-wide"
                 >
                   <Plus className="w-4 h-4" /> Yeni Dosya Yükle
                 </button>
@@ -272,63 +298,119 @@ export default function DocumentsPage() {
 
               {/* AutoCAD Live Vector Previewer Module */}
               {previewDoc && (
-                <div className="bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden shadow-xl animate-in fade-in slide-in-from-top-4 duration-300">
-                  <div className="bg-slate-900 border-b border-slate-800 px-5 py-4 flex items-center justify-between">
+                <div className="bg-slate-950 rounded-xl border border-slate-800 overflow-hidden shadow-sm">
+                  <div className="bg-slate-900 border-b border-slate-800 px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 rounded bg-indigo-500/10 text-indigo-400">
+                      <div className="p-2 rounded bg-slate-800 text-indigo-400">
                         <Layers className="w-5 h-5" />
                       </div>
                       <div>
                         <h4 className="text-sm font-bold text-white tracking-wide">{previewDoc.original_name}</h4>
-                        <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-0.5">AutoCAD Vector Live View (Simüle Edilmiş)</p>
+                        <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-0.5 font-bold">AutoCAD Vector Live View (Simüle Edilmiş)</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center bg-slate-800 rounded-lg p-0.5 border border-slate-700">
-                        <button onClick={() => setPreviewZoom(Math.max(50, previewZoom - 25))} className="px-2 py-1 text-slate-400 hover:text-white text-xs font-semibold">-</button>
-                        <span className="px-2 text-xs font-mono text-slate-300">{previewZoom}%</span>
-                        <button onClick={() => setPreviewZoom(Math.min(200, previewZoom + 25))} className="px-2 py-1 text-slate-400 hover:text-white text-xs font-semibold">+</button>
+                    
+                    <div className="flex flex-wrap items-center gap-3">
+                      {/* Layer Toggles */}
+                      <div className="flex items-center gap-1.5 bg-slate-950 px-2 py-1 rounded border border-slate-800">
+                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest px-1">Katmanlar:</span>
+                        <button
+                          type="button"
+                          onClick={() => setCadLayers({ ...cadLayers, pipes: !cadLayers.pipes })}
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-all ${
+                            cadLayers.pipes 
+                              ? "bg-cyan-900/40 text-cyan-400 border-cyan-800" 
+                              : "bg-transparent text-slate-500 border-transparent hover:text-slate-400"
+                          }`}
+                        >
+                          Pipes (Boru)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCadLayers({ ...cadLayers, ducts: !cadLayers.ducts })}
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-all ${
+                            cadLayers.ducts 
+                              ? "bg-amber-900/40 text-amber-400 border-amber-800" 
+                              : "bg-transparent text-slate-500 border-transparent hover:text-slate-400"
+                          }`}
+                        >
+                          Ducts (Kanal)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCadLayers({ ...cadLayers, hangers: !cadLayers.hangers })}
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-all ${
+                            cadLayers.hangers 
+                              ? "bg-rose-900/40 text-rose-400 border-rose-800" 
+                              : "bg-transparent text-slate-500 border-transparent hover:text-slate-400"
+                          }`}
+                        >
+                          Hangers (Askı)
+                        </button>
                       </div>
-                      <button onClick={() => setPreviewDoc(null)} className="p-1 rounded bg-slate-800 text-slate-400 hover:text-white">
+
+                      <div className="flex items-center bg-slate-800 rounded p-0.5 border border-slate-700">
+                        <button type="button" onClick={() => setPreviewZoom(Math.max(50, previewZoom - 25))} className="px-2 py-1 text-slate-400 hover:text-white text-xs font-bold">-</button>
+                        <span className="px-2 text-xs font-mono text-slate-300 font-bold">{previewZoom}%</span>
+                        <button type="button" onClick={() => setPreviewZoom(Math.min(200, previewZoom + 25))} className="px-2 py-1 text-slate-400 hover:text-white text-xs font-bold">+</button>
+                      </div>
+                      
+                      <button type="button" onClick={() => setPreviewDoc(null)} className="p-1.5 rounded bg-slate-800 text-slate-400 hover:text-white transition-colors">
                         <X className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
                   <div className="relative h-[320px] bg-slate-950 flex items-center justify-center overflow-hidden border-b border-slate-800">
-                    {/* CAD Grid Map Drawing simulation */}
                     <div 
                       className="absolute inset-0 opacity-10 bg-[linear-gradient(to_right,#808080_1px,transparent_1px),linear-gradient(to_bottom,#808080_1px,transparent_1px)] bg-[size:24px_24px]"
                       style={{ transform: `scale(${previewZoom / 100})` }}
                     ></div>
-                    
-                    {/* AutoCAD mock elements */}
                     <div 
-                      className="w-[80%] h-[75%] border border-cyan-500/30 rounded relative flex items-center justify-center transition-all duration-300"
+                      className="w-[85%] h-[80%] border border-cyan-500/20 rounded relative flex items-center justify-center transition-all duration-300 bg-slate-950/85"
                       style={{ transform: `scale(${previewZoom / 100})` }}
                     >
-                      <span className="absolute top-2 left-2 text-[10px] font-mono text-cyan-400">LAYER: HVAC_VENTILATION_PIPE_01</span>
-                      <span className="absolute bottom-2 right-2 text-[10px] font-mono text-emerald-400">SCALE: 1/50 METRIC</span>
-                      <div className="w-[85%] h-[85%] flex items-center justify-center">
-                        <svg className="w-full h-full text-slate-700" viewBox="0 0 400 200">
-                          {/* Main grid line simulation */}
-                          <line x1="50" y1="30" x2="350" y2="30" stroke="rgba(6, 182, 212, 0.4)" strokeWidth="3" strokeDasharray="5,5" />
-                          <line x1="50" y1="170" x2="350" y2="170" stroke="rgba(6, 182, 212, 0.4)" strokeWidth="3" strokeDasharray="5,5" />
-                          {/* Mechanical circular elements */}
-                          <circle cx="100" cy="100" r="35" fill="none" stroke="rgba(244, 63, 94, 0.6)" strokeWidth="2" />
-                          <circle cx="200" cy="100" r="25" fill="none" stroke="rgba(16, 185, 129, 0.6)" strokeWidth="2" />
-                          <circle cx="300" cy="100" r="35" fill="none" stroke="rgba(244, 63, 94, 0.6)" strokeWidth="2" />
-                          {/* Piping connectors */}
-                          <path d="M 135 100 L 175 100" fill="none" stroke="rgba(251, 191, 36, 0.6)" strokeWidth="3" />
-                          <path d="M 225 100 L 265 100" fill="none" stroke="rgba(251, 191, 36, 0.6)" strokeWidth="3" />
-                          <text x="200" y="105" textAnchor="middle" fill="rgba(255, 255, 255, 0.5)" fontSize="9" fontFamily="monospace">DN125 AIR DUCT</text>
+                      <span className="absolute top-2 left-3 text-[9px] font-mono text-cyan-400 tracking-wider font-bold">VIEWPORT: {previewDoc.original_name.slice(-15)}</span>
+                      <span className="absolute bottom-2 right-3 text-[9px] font-mono text-emerald-400 tracking-wider font-bold">SCALE: 1/50 METRIC</span>
+                      <div className="w-[90%] h-[90%] flex items-center justify-center">
+                        <svg className="w-full h-full text-slate-800" viewBox="0 0 500 250">
+                          <g opacity="0.25">
+                            <rect x="10" y="10" width="480" height="230" fill="none" stroke="#475569" strokeWidth="1" strokeDasharray="4,4" />
+                            <line x1="10" y1="125" x2="490" y2="125" stroke="#475569" strokeWidth="1" strokeDasharray="8,8" />
+                            <line x1="250" y1="10" x2="250" y2="240" stroke="#475569" strokeWidth="1" strokeDasharray="8,8" />
+                          </g>
+                          {cadLayers.pipes && (
+                            <g className="transition-all duration-300">
+                              <path d="M 40 80 L 220 80 L 220 180 L 440 180" fill="none" stroke="#06b6d4" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+                              <path d="M 40 86 L 214 86 L 214 186 L 440 186" fill="none" stroke="#22d3ee" strokeWidth="1.2" strokeDasharray="3,3" />
+                            </g>
+                          )}
+                          {cadLayers.ducts && (
+                            <g className="transition-all duration-300">
+                              <rect x="60" y="110" width="140" height="30" fill="rgba(245, 158, 11, 0.08)" stroke="#f59e0b" strokeWidth="2.5" />
+                              <rect x="200" y="110" width="60" height="30" fill="rgba(245, 158, 11, 0.08)" stroke="#f59e0b" strokeWidth="2.5" />
+                              <path d="M 260 125 L 320 125 L 320 60 L 420 60" fill="none" stroke="#f59e0b" strokeWidth="8" strokeLinecap="square" />
+                            </g>
+                          )}
+                          {cadLayers.hangers && (
+                            <g className="transition-all duration-300">
+                              {cadLayers.pipes && (
+                                <>
+                                  <g stroke="#f43f5e" strokeWidth="2" fill="none">
+                                    <circle cx="100" cy="80" r="6" />
+                                    <path d="M 94 80 L 106 80 M 100 74 L 100 86" />
+                                  </g>
+                                </>
+                              )}
+                            </g>
+                          )}
                         </svg>
                       </div>
                     </div>
                   </div>
                   <div className="bg-slate-900 px-5 py-3 flex items-center justify-between text-xs text-slate-400 font-mono">
                     <span>Dosya ID: {previewDoc.id}</span>
-                    <span className="flex items-center gap-1.5 text-cyan-400">
-                      <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+                    <span className="flex items-center gap-1.5 text-cyan-400 font-bold">
+                      <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
                       CAD Rendered Successfully
                     </span>
                   </div>
@@ -336,28 +418,24 @@ export default function DocumentsPage() {
               )}
 
               {/* Documents Table */}
-              <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
-                    <thead className="bg-slate-50 border-b border-slate-100">
+                    <thead className="bg-slate-50 border-b border-slate-200">
                       <tr>
-                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Dosya Adı</th>
-                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Tasarım Tipi</th>
-                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Mevcut Sürüm</th>
-                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Revizyon Notu</th>
-                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Yükleme Tarihi</th>
-                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">İşlemler</th>
+                        <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-wider">Dosya Adı</th>
+                        <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-wider">Tasarım Tipi</th>
+                        <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-wider">Mevcut Sürüm</th>
+                        <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-wider">Revizyon Notu</th>
+                        <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-wider">Yükleyen Personel</th>
+                        <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-wider">Yükleme Tarihi</th>
+                        <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-wider text-right">İşlemler</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {docsLoading ? (
                         <tr>
-                          <td colSpan={6} className="px-6 py-12 text-center">
-                            <div className="flex flex-col items-center gap-2">
-                              <div className="w-8 h-8 border-3 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                              <span className="text-slate-400 text-sm">Dosyalar okunuyor...</span>
-                            </div>
-                          </td>
+                          <td colSpan={7} className="px-6 py-12 text-center text-slate-500 text-xs font-bold">Dosyalar okunuyor...</td>
                         </tr>
                       ) : filteredDocuments.map((doc) => {
                         const isCAD = doc.original_name.toLowerCase().endsWith(".dwg") || 
@@ -367,109 +445,48 @@ export default function DocumentsPage() {
                         const typeInfo = DOC_TYPES_LABELS[doc.doc_type] || DOC_TYPES_LABELS.other;
 
                         return (
-                          <tr key={doc.id} className="hover:bg-slate-50/50 transition-colors group">
+                          <tr key={doc.id} className="hover:bg-slate-50 transition-colors">
                             <td className="px-6 py-4">
                               <div className="flex items-center gap-3">
-                                <div className={`p-2 rounded-lg shrink-0 ${isCAD ? "bg-cyan-50 text-cyan-600" : "bg-indigo-50 text-indigo-600"}`}>
-                                  <FileText className="w-5 h-5" />
+                                <div className={`p-2 rounded ${isCAD ? "bg-cyan-100 text-cyan-700" : "bg-indigo-100 text-indigo-700"}`}>
+                                  <FileText className="w-4 h-4" />
                                 </div>
-                                <div className="max-w-[200px] md:max-w-sm">
-                                  <p className="font-semibold text-slate-900 text-sm truncate" title={doc.original_name}>
-                                    {doc.original_name}
-                                  </p>
-                                  <p className="text-[10px] text-slate-400 mt-0.5">
-                                    {(doc.file_size_bytes / 1024).toFixed(1)} KB
-                                  </p>
+                                <div>
+                                  <p className="font-bold text-slate-900 text-sm truncate">{doc.original_name}</p>
+                                  <p className="text-[10px] text-slate-400 font-bold">{(doc.file_size_bytes / 1024).toFixed(1)} KB</p>
                                 </div>
                               </div>
                             </td>
                             <td className="px-6 py-4">
-                              <span className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wider ${typeInfo.color} ${typeInfo.bg}`}>
+                              <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-black border uppercase ${typeInfo.color} ${typeInfo.bg}`}>
                                 {typeInfo.label}
                               </span>
                             </td>
                             <td className="px-6 py-4">
-                              <span className="inline-flex items-center gap-1 text-slate-700 bg-slate-100/80 px-2 py-0.5 rounded text-xs font-semibold">
-                                <Layers className="w-3 h-3 text-slate-500" /> v{doc.version}
-                              </span>
+                              <span className="inline-block px-2 py-0.5 rounded text-[10px] font-black uppercase bg-slate-100 border border-slate-200">v{doc.version}</span>
                             </td>
-                            <td className="px-6 py-4 text-xs text-slate-500 max-w-[200px] truncate" title={doc.revision_note || "Not yok"}>
-                              {doc.revision_note || <span className="text-slate-300 italic">Giriş yok</span>}
-                            </td>
-                            <td className="px-6 py-4 text-xs text-slate-500">
-                              {new Date(doc.created_at).toLocaleDateString("tr-TR", {
-                                year: "numeric",
-                                month: "short",
-                                day: "numeric",
-                                hour: "2-digit",
-                                minute: "2-digit"
-                              })}
-                            </td>
-                            <td className="px-6 py-4">
-                              <div className="flex items-center justify-end gap-1.5">
-                                {isCAD && (
-                                  <button
-                                    onClick={() => setPreviewDoc(doc)}
-                                    className="p-2 text-slate-500 hover:text-cyan-600 hover:bg-cyan-50 rounded-lg transition-colors"
-                                    title="AutoCAD Vector Önizleme"
-                                  >
-                                    <Eye className="w-4 h-4" />
-                                  </button>
-                                )}
-                                <button 
-                                  onClick={() => handleDownload(doc.id)}
-                                  className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                  title="Dosyayı İndir (OCI S3)"
-                                >
-                                  <Download className="w-4 h-4" />
-                                </button>
-                                <button 
-                                  onClick={() => {
-                                    setSelectedDocForVersion(doc);
-                                    setIsVersionModalOpen(true);
-                                  }}
-                                  className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                                  title="Yeni Sürüm/Revizyon Yükle"
-                                >
-                                  <FileUp className="w-4 h-4" />
-                                </button>
-                                <button 
-                                  onClick={() => handleDeleteDoc(doc.id)}
-                                  className="p-2 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                                  title="Arşive Kaldır"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
+                            <td className="px-6 py-4 text-xs font-medium text-slate-600">{doc.revision_note || "-"}</td>
+                            <td className="px-6 py-4 text-xs font-bold text-slate-700">{doc.uploaded_by_name || "Bilinmiyor"}</td>
+                            <td className="px-6 py-4 text-xs font-semibold text-slate-500">{new Date(doc.created_at).toLocaleDateString("tr-TR")}</td>
+                            <td className="px-6 py-4 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <button onClick={() => handleOpenDrawer(doc)} className="text-slate-400 hover:text-indigo-600"><Info className="w-4 h-4" /></button>
+                                <button onClick={() => handleDownload(doc.id)} className="text-slate-400 hover:text-blue-600"><Download className="w-4 h-4" /></button>
+                                <button onClick={() => handleDeleteDoc(doc.id)} className="text-slate-400 hover:text-rose-600"><Trash2 className="w-4 h-4" /></button>
                               </div>
                             </td>
                           </tr>
                         );
                       })}
-                      {!docsLoading && filteredDocuments.length === 0 && (
-                        <tr>
-                          <td colSpan={6} className="px-6 py-16 text-center text-slate-400 italic">
-                            <div className="flex flex-col items-center gap-2 max-w-sm mx-auto">
-                              <FileCheck className="w-10 h-10 text-slate-300 stroke-[1.5]" />
-                              <p className="font-semibold text-slate-700 text-sm">Dosya Bulunamadı</p>
-                              <p className="text-xs text-slate-400">Bu proje klasöründe aradığınız kriterlere uygun herhangi bir dosya bulunmamaktadır.</p>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
                     </tbody>
                   </table>
                 </div>
               </div>
             </div>
           ) : (
-            <div className="h-[450px] flex flex-col items-center justify-center bg-white rounded-2xl border-2 border-dashed border-slate-200 text-slate-400 p-12 text-center shadow-sm">
-              <div className="p-4 bg-slate-50 rounded-full mb-4">
-                <FileText className="w-10 h-10 text-slate-400 opacity-60" />
-              </div>
-              <h4 className="font-bold text-slate-700 mb-1">Şantiye Klasörü Seçilmedi</h4>
-              <p className="text-sm text-slate-400 max-w-sm">
-                Projelere ait teknik çizimleri, DWG AutoCAD planlarını ve hakediş belgelerini yönetmek için sol panelden bir şantiye seçiniz.
-              </p>
+            <div className="h-[450px] flex flex-col items-center justify-center bg-white rounded-xl border border-slate-200 p-12 text-center text-slate-400">
+              <Folder className="w-12 h-12 mb-4 opacity-50" />
+              <p className="font-bold text-slate-600">Şantiye Klasörü Seçilmedi</p>
             </div>
           )}
         </div>
@@ -477,26 +494,14 @@ export default function DocumentsPage() {
 
       {/* Upload Modal */}
       {isUploadModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-200">
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-              <div>
-                <h3 className="text-lg font-bold text-slate-900">Şantiyeye Dosya Yükle</h3>
-                <p className="text-xs text-slate-500 mt-0.5">{selectedProject?.name}</p>
-              </div>
-              <button onClick={() => setIsUploadModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100">
-                <X className="w-5 h-5" />
-              </button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 border border-slate-200">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="font-black text-lg uppercase text-slate-900">Dosya Yükle</h3>
+              <button onClick={() => setIsUploadModalOpen(false)}><X /></button>
             </div>
-            <form onSubmit={handleUploadSubmit} className="p-6 space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Belge / Çizim Türü</label>
-                <select 
-                  className="w-full p-2.5 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-white"
-                  value={uploadForm.doc_type}
-                  onChange={(e) => setUploadForm({...uploadForm, doc_type: e.target.value})}
-                  required
-                >
+            <form onSubmit={handleUploadSubmit} className="space-y-4">
+              <select className="w-full p-2 border border-slate-200 rounded-lg text-sm font-bold" value={uploadForm.doc_type} onChange={(e) => setUploadForm({...uploadForm, doc_type: e.target.value})}>
                   <option value="drawing_hvac">Havalandırma (HVAC) Çizimi</option>
                   <option value="drawing_fire">Yangın Söndürme Çizimi</option>
                   <option value="drawing_seismic">Sismik Koruma Çizimi</option>
@@ -505,105 +510,55 @@ export default function DocumentsPage() {
                   <option value="invoice_doc">Hakediş Belgesi (İcmal)</option>
                   <option value="field_report">Günlük Saha Raporu</option>
                   <option value="other">Diğer Teknik Belge</option>
-                </select>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Dosya Seçimi</label>
-                <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center hover:bg-slate-50 transition-colors cursor-pointer relative">
-                  <input 
-                    type="file" 
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    onChange={(e) => setUploadForm({...uploadForm, file: e.target.files?.[0] || null})}
-                    required
-                  />
-                  <div className="flex flex-col items-center gap-2">
-                    <Upload className="w-8 h-8 text-blue-500 animate-bounce" />
-                    <span className="text-sm font-semibold text-slate-700">
-                      {uploadForm.file ? uploadForm.file.name : "Tıklayın veya Dosya Sürükleyin"}
-                    </span>
-                    <span className="text-xs text-slate-400">PDF, DWG, DXF, PNG, XLSX (Maks: 50MB)</span>
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">İlk Versiyon Revizyon Notu</label>
-                <textarea 
-                  className="w-full p-2.5 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm"
-                  rows={3}
-                  placeholder="Örn: İlk keşif sonrası onaylanan mekanik havalandırma projesi."
-                  value={uploadForm.revision_note}
-                  onChange={(e) => setUploadForm({...uploadForm, revision_note: e.target.value})}
-                />
-              </div>
-              <button 
-                type="submit"
-                className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold shadow-md shadow-blue-500/10 transition-all"
-              >
-                Bulut Sistemine Yükle
-              </button>
+              </select>
+              <input type="file" className="w-full" onChange={(e) => setUploadForm({...uploadForm, file: e.target.files?.[0] || null})} />
+              <textarea className="w-full p-2 border border-slate-200 rounded-lg" placeholder="Not..." value={uploadForm.revision_note} onChange={(e) => setUploadForm({...uploadForm, revision_note: e.target.value})} />
+              <button type="submit" className="w-full bg-indigo-600 text-white p-2 rounded-lg font-black uppercase text-sm">Yükle</button>
             </form>
           </div>
         </div>
       )}
 
-      {/* Version Upload Modal */}
+      {/* Version Modal */}
       {isVersionModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-200">
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-              <div>
-                <h3 className="text-lg font-bold text-slate-900">Yeni Sürüm (Revizyon) Ekle</h3>
-                <p className="text-xs text-slate-500 mt-0.5">Versiyon yükseltme ve çizim güncelleme</p>
-              </div>
-              <button onClick={() => setIsVersionModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100">
-                <X className="w-5 h-5" />
-              </button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 border border-slate-200">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="font-black text-lg uppercase text-slate-900">Yeni Sürüm</h3>
+              <button onClick={() => setIsVersionModalOpen(false)}><X /></button>
             </div>
-            <form onSubmit={handleVersionSubmit} className="p-6 space-y-4">
-              <div className="p-4 bg-indigo-50/50 rounded-xl border border-indigo-100 flex flex-col gap-1">
-                <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider">Hedef Dosya</span>
-                <span className="text-sm font-bold text-slate-800 line-clamp-1">{selectedDocForVersion?.original_name}</span>
-                <span className="text-xs text-slate-500 font-medium">Güncel Versiyon: v{selectedDocForVersion?.version}</span>
-              </div>
-              
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Güncel Revize Dosya</label>
-                <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center hover:bg-slate-50 transition-colors cursor-pointer relative">
-                  <input 
-                    type="file" 
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    onChange={(e) => setVersionForm({...versionForm, file: e.target.files?.[0] || null})}
-                    required
-                  />
-                  <div className="flex flex-col items-center gap-2">
-                    <FileUp className="w-8 h-8 text-indigo-500 animate-bounce" />
-                    <span className="text-sm font-semibold text-slate-700">
-                      {versionForm.file ? versionForm.file.name : "Revize edilmiş dosyayı seçin"}
-                    </span>
-                    <span className="text-xs text-slate-400">PDF, DWG, DXF, PNG, XLSX</span>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Revizyon / Değişiklik Notu</label>
-                <textarea 
-                  className="w-full p-2.5 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm"
-                  rows={3}
-                  placeholder="Örn: Mimari asma tavan revizyonu nedeniyle sismik koruma askı hatları kaydırıldı."
-                  value={versionForm.revision_note}
-                  onChange={(e) => setVersionForm({...versionForm, revision_note: e.target.value})}
-                  required
-                />
-              </div>
-              
-              <button 
-                type="submit"
-                className="w-full py-3 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white rounded-xl font-bold shadow-md shadow-indigo-500/10 transition-all"
-              >
-                Yeni Revizyon Sürümünü v{Number(selectedDocForVersion?.version || 1) + 1} Olarak Kaydet
-              </button>
+            <form onSubmit={handleVersionSubmit} className="space-y-4">
+              <input type="file" className="w-full" onChange={(e) => setVersionForm({...versionForm, file: e.target.files?.[0] || null})} />
+              <textarea className="w-full p-2 border border-slate-200 rounded-lg" placeholder="Revizyon Notu..." value={versionForm.revision_note} onChange={(e) => setVersionForm({...versionForm, revision_note: e.target.value})} />
+              <button type="submit" className="w-full bg-indigo-600 text-white p-2 rounded-lg font-black uppercase text-sm">Kaydet</button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Document Detail Drawer */}
+      {selectedDocForDrawer && (
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/20" onClick={() => setSelectedDocForDrawer(null)}></div>
+          <div className="absolute right-0 top-0 bottom-0 w-full max-w-lg bg-white p-6 shadow-2xl overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="font-black text-lg uppercase">Dosya Detayları</h3>
+              <button onClick={() => setSelectedDocForDrawer(null)}><X /></button>
+            </div>
+            <div className="space-y-4">
+              <p className="font-bold text-slate-900">{selectedDocForDrawer.original_name}</p>
+              <div className="bg-slate-50 p-4 rounded-xl text-xs space-y-2">
+                <p>Versiyon: <span className="font-bold">v{selectedDocForDrawer.version}</span></p>
+                <p>Boyut: <span className="font-bold">{(selectedDocForDrawer.file_size_bytes / 1024).toFixed(1)} KB</span></p>
+              </div>
+              <h4 className="font-black uppercase text-sm mt-6">Versiyon Geçmişi</h4>
+              {versionsHistory.map((ver: any) => (
+                <div key={ver.id} className="border-b py-2 text-xs">
+                  <p className="font-bold">v{ver.version} - {new Date(ver.created_at).toLocaleDateString()}</p>
+                  <p className="text-slate-500">{ver.revision_note || "Not yok"}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}

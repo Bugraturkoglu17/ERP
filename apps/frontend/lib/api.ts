@@ -6,6 +6,9 @@ const stripTrailingSlashes = (value: string) => value.replace(/\/+$/, '');
 
 const createDefaultBaseUrl = () => {
   if (typeof window !== 'undefined') {
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      return `http://localhost:8000${API_PREFIX}`;
+    }
     return `${window.location.origin}${API_PREFIX}`;
   }
 
@@ -58,7 +61,10 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401 && typeof window !== 'undefined') {
       localStorage.removeItem('token');
-      window.location.href = '/login';
+      const pathname = window.location.pathname;
+      if (pathname !== '/login' && pathname !== '/password-reset') {
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }

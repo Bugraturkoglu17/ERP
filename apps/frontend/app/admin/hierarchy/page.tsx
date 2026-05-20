@@ -40,21 +40,30 @@ export default function HierarchyAdminPage() {
 
   async function createCustomer(e: React.FormEvent) {
     e.preventDefault();
-    await apiPost("/projects/customers", { name: customerName, tax_no: null, contact_email: null, contact_phone: null, address: null });
+    await apiPost("/projects/customers", { name: customerName });
     setCustomerName("");
     await loadAll();
   }
 
   async function createRegion(e: React.FormEvent) {
     e.preventDefault();
-    await apiPost("/projects/regions", regionForm);
+    const payload = {
+      ...regionForm,
+      code: regionForm.code.trim() || null,
+    };
+    await apiPost("/projects/regions", payload);
     setRegionForm({ customer_id: "", name: "", city: "", code: "" });
     await loadAll();
   }
 
   async function createBranch(e: React.FormEvent) {
     e.preventDefault();
-    await apiPost("/projects/branches", branchForm);
+    const payload = {
+      ...branchForm,
+      code: branchForm.code.trim() || null,
+      address: branchForm.address.trim() || null,
+    };
+    await apiPost("/projects/branches", payload);
     setBranchForm({ region_id: "", name: "", address: "", code: "" });
     await loadAll();
   }
@@ -62,7 +71,7 @@ export default function HierarchyAdminPage() {
   async function renameCustomer(id: string, current: string) {
     const name = prompt("Yeni müşteri adı", current);
     if (!name) return;
-    await apiPatch(`/projects/customers/${id}`, { name, tax_no: null, contact_email: null, contact_phone: null, address: null });
+    await apiPatch(`/projects/customers/${id}`, { name });
     await loadAll();
   }
 

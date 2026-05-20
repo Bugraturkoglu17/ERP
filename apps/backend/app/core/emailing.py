@@ -5,7 +5,7 @@ from email.utils import parseaddr
 from typing import Sequence
 
 import httpx
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db.models import OutboundEmailAudit, PlatformTenantSettings, TenantEmailMode
@@ -65,8 +65,8 @@ def resolve_tenant_email_identity(tenant_settings: PlatformTenantSettings | None
     )
 
 
-async def send_tenant_email(
-    db: AsyncSession,
+def send_tenant_email(
+    db: Session,
     *,
     tenant_id: str,
     tenant_settings: PlatformTenantSettings | None,
@@ -77,9 +77,24 @@ async def send_tenant_email(
     html: str | None = None,
 ) -> OutboundEmailAudit:
     identity = resolve_tenant_email_identity(tenant_settings)
-    recipients = [addr.strip().lower() for addr in to if addr and addr.strip()]
+    
+    # ── Akıllı Local Filtreleme ve Doğrulama ───────────────────────
+    recipients = []
+    for addr in to:
+        if addr and addr.strip():
+            email_normalized = addr.strip().lower()
+            recipients.append(email_normalized)
+
     if not recipients:
         raise ValueError("At least one recipient is required.")
+
+    valid_recipients = []
+    skipped_recipients = []
+    for addr in recipients:
+        if addr.endswith(".local") or addr.endswith(".internal") or "@" not in addr or "." not in addr:
+            skipped_recipients.append(addr)
+        else:
+            valid_recipients.append(addr)
 
     audit = OutboundEmailAudit(
         tenant_id=tenant_id,
@@ -89,25 +104,33 @@ async def send_tenant_email(
         status="queued",
     )
     db.add(audit)
-    await db.flush()
+    db.flush()
+
+    # Eğer geçerli alıcı yoksa (hepsi local ise), boşuna Resend API çağırma
+    if not valid_recipients:
+        audit.status = "failed"
+        audit.error_message = f"Skipped: All recipient emails are local/development domains. (Local: {', '.join(skipped_recipients)})"
+        db.add(audit)
+        db.commit()
+        return audit
 
     if settings.EMAIL_PROVIDER != "resend":
         audit.status = "failed"
         audit.error_message = f"Unsupported provider: {settings.EMAIL_PROVIDER}"
         db.add(audit)
-        await db.commit()
+        db.commit()
         return audit
 
     if not settings.RESEND_API_KEY:
         audit.status = "failed"
         audit.error_message = "RESEND_API_KEY is not configured."
         db.add(audit)
-        await db.commit()
+        db.commit()
         return audit
 
     payload: dict[str, object] = {
         "from": f"{identity.from_name} <{identity.from_email}>",
-        "to": recipients,
+        "to": valid_recipients,
         "subject": subject,
         "text": text,
     }
@@ -122,18 +145,21 @@ async def send_tenant_email(
     }
 
     try:
-        async with httpx.AsyncClient(timeout=20.0) as client:
-            response = await client.post("https://api.resend.com/emails", headers=headers, json=payload)
+        # Senkron HTTP POST isteği
+        with httpx.Client(timeout=20.0) as client:
+            response = client.post("https://api.resend.com/emails", headers=headers, json=payload)
         response.raise_for_status()
         response_data = response.json()
         audit.status = "sent"
         audit.provider_message_id = response_data.get("id")
         audit.error_message = None
+        if skipped_recipients:
+            audit.error_message = f"Note: Some local emails were skipped: {', '.join(skipped_recipients)}"
     except Exception as exc:
         audit.status = "failed"
         audit.error_message = str(exc)[:2000]
 
     db.add(audit)
-    await db.commit()
-    await db.refresh(audit)
+    db.commit()
+    db.refresh(audit)
     return audit

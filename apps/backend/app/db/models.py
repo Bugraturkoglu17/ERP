@@ -411,6 +411,8 @@ class Document(SQLModel, table=True):
     archived:        bool   = Field(default=False)
     # ── Yükleyen ───────────────────────────────────────────
     uploaded_by:     Optional[UUID] = Field(foreign_key="users.id", default=None)
+    uploaded_by_name:  Optional[str] = Field(default=None, sa_column=None)
+    uploaded_by_email: Optional[str] = Field(default=None, sa_column=None)
     created_at:      datetime       = Field(
         default_factory=utc_now, nullable=False
     )
@@ -767,6 +769,29 @@ class PlatformTenantSettings(SQLModel, table=True):
     email_domain_verified: bool = Field(default=False)
     email_provider_identity_id: Optional[str] = Field(default=None, max_length=255)
     email_branding: Optional[str] = Field(default=None, description="JSON object")
+    
+    # Yeni eklenen kurumsal, operasyonel, bölgesel ve güvenlik ayarları
+    contact_phone: Optional[str] = Field(default=None, max_length=30)
+    address: Optional[str] = Field(default=None, max_length=500)
+    default_currency: str = Field(default="TRY", max_length=10)
+    vat_rate: float = Field(default=20.0)
+    low_stock_threshold: int = Field(default=10)
+    auto_invoice_no: bool = Field(default=True)
+    require_approval_for_expenses: bool = Field(default=True)
+    default_payment_term_days: int = Field(default=30)
+    
+    locale: str = Field(default="tr-TR", max_length=10)
+    timezone: str = Field(default="Europe/Istanbul", max_length=50)
+    date_format: str = Field(default="DD.MM.YYYY", max_length=20)
+    session_timeout_minutes: int = Field(default=60)
+    mfa_required_for_admins: bool = Field(default=True)
+    login_ip_whitelist: Optional[str] = Field(default=None, max_length=500)
+    email_notifications: bool = Field(default=True)
+    push_notifications: bool = Field(default=False)
+    daily_summary_hour: str = Field(default="18:00", max_length=10)
+    backup_frequency: str = Field(default="daily", max_length=20)
+    retention_days: int = Field(default=180)
+
     updated_at: datetime = Field(default_factory=utc_now, sa_column_kwargs={"onupdate": utc_now})
 
 

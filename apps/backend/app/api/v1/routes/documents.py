@@ -8,13 +8,14 @@ from __future__ import annotations
 import time
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Path
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.storage import storage
 from app.core.exceptions import NotFoundError, ConflictError
-from app.db.models import Document
+from app.db.models import Document, User
+from app.core.dependencies import get_current_user
 from app.db.schemas import (
     DocumentCreate,
     DocumentRead,
@@ -24,6 +25,30 @@ from app.db.schemas import (
 )
 
 router = APIRouter()
+
+
+async def populate_uploader_details(docs: list[Document] | Document, db: AsyncSession) -> list[Document] | Document:
+    is_single = False
+    if isinstance(docs, Document):
+        is_single = True
+        docs_list = [docs]
+    else:
+        docs_list = list(docs)
+        
+    uploader_ids = {d.uploaded_by for d in docs_list if d.uploaded_by}
+    if not uploader_ids:
+        return docs if not is_single else docs_list[0]
+        
+    users_result = await db.execute(select(User).where(User.id.in_(uploader_ids)))
+    users_lookup = {u.id: u for u in users_result.scalars()}
+    
+    for d in docs_list:
+        if d.uploaded_by and d.uploaded_by in users_lookup:
+            u = users_lookup[d.uploaded_by]
+            d.uploaded_by_name = u.full_name
+            d.uploaded_by_email = u.email
+            
+    return docs_list[0] if is_single else docs_list
 
 
 @router.post(
@@ -38,6 +63,7 @@ async def upload_document(
     revision_note: str | None = Form(None),
     file:          UploadFile = File(...),
     db:           AsyncSession = Depends(get_db),
+    current_user: User         = Depends(get_current_user),
 ) -> Document:
     # ── 1 · Dosyayı oku ve S3/OCI'ya yükle ───────────────────────────────────────
     content = await file.read()
@@ -64,6 +90,7 @@ async def upload_document(
         mime_type     = file.content_type,
         revision_note = revision_note,
         version       = 1,
+        uploaded_by   = current_user.id,
     )
     db.add(doc)
     
@@ -76,6 +103,7 @@ async def upload_document(
         await db.rollback()
         raise HTTPException(status_code=500, detail=f"Veritabanı kaydı başarısız: {e}")
 
+    await populate_uploader_details(doc, db)
     return doc
 
 
@@ -87,16 +115,28 @@ async def upload_document(
 async def list_project_documents(
     project_id: uuid.UUID,
     db:         AsyncSession = Depends(get_db),
+    current_user: User         = Depends(get_current_user),
 ) -> list[Document]:
     # Only return the latest version of each document group (parent_id is None or current)
     # A simpler way: just list all and let frontend handle or list only archived=False
     query = select(Document).where(
         Document.project_id == project_id,
         Document.archived == False
-    ).order_by(Document.created_at.desc())
+    )
+
+    # Apply discipline-based restriction for discipline_only engineers
+    if current_user.discipline_only and current_user.discipline:
+        allowed_types = ["field_report", "photo", "revision", "other"]
+        mapped_drawing = f"drawing_{current_user.discipline}"
+        allowed_types.append(mapped_drawing)
+        query = query.where(Document.doc_type.in_(allowed_types))
+
+    query = query.order_by(Document.created_at.desc())
     
     result = await db.execute(query)
-    return list(result.scalars())
+    docs = list(result.scalars())
+    await populate_uploader_details(docs, db)
+    return docs
 
 
 @router.get(
@@ -127,6 +167,7 @@ async def upload_document_version(
     revision_note: str | None = Form(None),
     file:          UploadFile = File(...),
     db:            AsyncSession = Depends(get_db),
+    current_user: User         = Depends(get_current_user),
 ) -> Document:
     # ── 1 · Eski dökümanı bul ───────────────────────────────────────────────────
     old_doc = await db.get(Document, doc_id)
@@ -165,6 +206,7 @@ async def upload_document_version(
         revision_note = revision_note,
         version       = old_doc.version + 1,
         parent_id     = parent_id,
+        uploaded_by   = current_user.id,
     )
     db.add(new_doc)
     
@@ -176,6 +218,7 @@ async def upload_document_version(
         await db.rollback()
         raise HTTPException(status_code=500, detail=f"Versiyon kaydı başarısız: {e}")
 
+    await populate_uploader_details(new_doc, db)
     return new_doc
 
 
@@ -222,3 +265,29 @@ async def delete_document(
     await db.commit()
     await db.refresh(doc)
     return doc
+
+
+@router.get(
+    "/{doc_id}/versions",
+    response_model=list[DocumentRead],
+    summary="Dökümanın tüm versiyon geçmişini listele",
+)
+async def list_document_versions(
+    doc_id: uuid.UUID,
+    db:     AsyncSession = Depends(get_db),
+    current_user: User   = Depends(get_current_user),
+) -> list[Document]:
+    doc = await db.get(Document, doc_id)
+    if not doc:
+        raise NotFoundError(detail="Döküman bulunamadı.")
+    
+    root_id = doc.parent_id if doc.parent_id else doc.id
+    
+    query = select(Document).where(
+        (Document.parent_id == root_id) | (Document.id == root_id)
+    ).order_by(Document.version.desc())
+    
+    result = await db.execute(query)
+    versions = list(result.scalars())
+    await populate_uploader_details(versions, db)
+    return versions

@@ -137,6 +137,7 @@ async def update_tenant(
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant bulunamadı.")
 
+    old_status = tenant.status.value if tenant.status else None
     changed: dict[str, object] = {}
 
     if payload.name is not None:
@@ -165,6 +166,40 @@ async def update_tenant(
 
     db.add(tenant)
     await _log_action(db, user, "tenant.update", tenant_id=tenant.id, details=changed)
+
+    if "status" in changed and old_status != tenant.status.value:
+        try:
+            from app.db.models import PlatformTenantSettings, User
+            from app.core.email_templates import get_tenant_status_email_template, build_branding_dict
+            from app.core.workers.tasks import send_tenant_email_async
+            
+            admins_result = await db.execute(
+                select(User).where(User.tenant_id == tenant.id, User.default_role == "admin", User.is_active == True)
+            )
+            admins = list(admins_result.scalars())
+            
+            tenant_settings = await db.get(PlatformTenantSettings, tenant.id)
+            branding = build_branding_dict(tenant_settings, tenant.name, tenant.logo_url)
+            
+            for admin_user in admins:
+                subject, text_content, html_content = get_tenant_status_email_template(
+                    tenant_name=tenant.name,
+                    full_name=admin_user.full_name,
+                    old_status=old_status,
+                    new_status=tenant.status.value,
+                    branding=branding,
+                )
+                send_tenant_email_async.delay(
+                    tenant_id=str(tenant.id),
+                    template="tenant_status_change",
+                    to=[admin_user.email],
+                    subject=subject,
+                    text=text_content,
+                    html=html_content,
+                )
+        except Exception:
+            pass
+
     await db.commit()
     await db.refresh(tenant)
     return tenant
@@ -319,6 +354,33 @@ async def provision_tenant_admin(
         details={"email": normalized_email},
     )
 
+    try:
+        from app.db.models import PlatformTenantSettings
+        from app.core.email_templates import get_provision_email_template, build_branding_dict
+        from app.core.workers.tasks import send_tenant_email_async
+        
+        tenant_settings = await db.get(PlatformTenantSettings, tenant.id)
+        branding = build_branding_dict(tenant_settings, tenant.name, tenant.logo_url)
+        
+        subject, text_content, html_content = get_provision_email_template(
+            tenant_name=tenant.name,
+            full_name=admin_user.full_name,
+            email=admin_user.email,
+            temporary_password=payload.temporary_password,
+            branding=branding,
+        )
+        
+        send_tenant_email_async.delay(
+            tenant_id=str(tenant.id),
+            template="platform_admin_provision",
+            to=[admin_user.email],
+            subject=subject,
+            text=text_content,
+            html=html_content,
+        )
+    except Exception:
+        pass
+
     await db.commit()
     await db.refresh(admin_user)
     return admin_user
@@ -438,6 +500,34 @@ async def reset_tenant_admin_password(
         target_user_id=admin_user.id,
         details={"force_password_change": payload.force_password_change},
     )
+
+    try:
+        from app.db.models import PlatformTenantSettings
+        from app.core.email_templates import get_password_reset_email_template, build_branding_dict
+        from app.core.workers.tasks import send_tenant_email_async
+        
+        tenant_settings = await db.get(PlatformTenantSettings, tenant.id)
+        branding = build_branding_dict(tenant_settings, tenant.name, tenant.logo_url)
+        
+        subject, text_content, html_content = get_password_reset_email_template(
+            tenant_name=tenant.name,
+            full_name=admin_user.full_name,
+            email=admin_user.email,
+            temporary_password=payload.temporary_password,
+            force_password_change=payload.force_password_change,
+            branding=branding,
+        )
+        
+        send_tenant_email_async.delay(
+            tenant_id=str(tenant.id),
+            template="platform_admin_password_reset",
+            to=[admin_user.email],
+            subject=subject,
+            text=text_content,
+            html=html_content,
+        )
+    except Exception:
+        pass
 
     await db.commit()
     await db.refresh(admin_user)

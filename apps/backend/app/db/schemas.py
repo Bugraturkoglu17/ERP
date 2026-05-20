@@ -61,6 +61,28 @@ class TenantContextRead(BaseModel):
     email_domain_verified: bool = False
     email_provider_identity_id: str | None = None
     email_branding: dict[str, Any] | None = None
+    
+    # Yeni eklenen kurumsal, operasyonel, bölgesel ve güvenlik ayarları
+    contact_phone: str | None = None
+    address: str | None = None
+    default_currency: str = "TRY"
+    vat_rate: float = 20.0
+    low_stock_threshold: int = 10
+    auto_invoice_no: bool = True
+    require_approval_for_expenses: bool = True
+    default_payment_term_days: int = 30
+    
+    locale: str = "tr-TR"
+    timezone: str = "Europe/Istanbul"
+    date_format: str = "DD.MM.YYYY"
+    session_timeout_minutes: int = 60
+    mfa_required_for_admins: bool = True
+    login_ip_whitelist: str | None = None
+    email_notifications: bool = True
+    push_notifications: bool = False
+    daily_summary_hour: str = "18:00"
+    backup_frequency: str = "daily"
+    retention_days: int = 180
 
 
 class TenantProfileUpdate(BaseModel):
@@ -93,10 +115,12 @@ class UserRead(BaseModel):
 
 
 class UserUpdate(BaseModel):
-    full_name:  str | None         = None
-    phone:      str | None         = None
-    discipline: str | None         = None
-    is_active:  bool | None        = None
+    full_name:       str | None       = None
+    phone:           str | None       = None
+    discipline:      str | None       = None
+    discipline_only: bool | None      = None
+    roles:           list[str] | None = None
+    is_active:       bool | None      = None
 
 
 class TenantCreate(BaseModel):
@@ -145,6 +169,28 @@ class TenantSettingsUpsert(BaseModel):
     email_domain_verified: bool | None = None
     email_provider_identity_id: str | None = None
     email_branding: dict[str, Any] | None = None
+    
+    # Yeni eklenen kurumsal, operasyonel, bölgesel ve güvenlik ayarları
+    contact_phone: str | None = None
+    address: str | None = None
+    default_currency: str | None = None
+    vat_rate: float | None = None
+    low_stock_threshold: int | None = None
+    auto_invoice_no: bool | None = None
+    require_approval_for_expenses: bool | None = None
+    default_payment_term_days: int | None = None
+    
+    locale: str | None = None
+    timezone: str | None = None
+    date_format: str | None = None
+    session_timeout_minutes: int | None = None
+    mfa_required_for_admins: bool | None = None
+    login_ip_whitelist: str | None = None
+    email_notifications: bool | None = None
+    push_notifications: bool | None = None
+    daily_summary_hour: str | None = None
+    backup_frequency: str | None = None
+    retention_days: int | None = None
 
 
 class TenantSettingsRead(TenantSettingsUpsert):
@@ -518,6 +564,8 @@ class DocumentRead(BaseModel):
     revision_note:   str | None
     archived:        bool
     uploaded_by:     UUID | None
+    uploaded_by_name:  str | None = None
+    uploaded_by_email: str | None = None
     created_at:      datetime
     model_config    = ConfigDict(from_attributes=True)
  

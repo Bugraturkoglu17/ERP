@@ -21,8 +21,12 @@ from app.core.config import settings
 
 
 # ── Sync Engine  (migrations, celery, sync crud) ──────────────────────────────
+_sync_url = str(settings.DATABASE_URL).replace("+asyncpg", "+psycopg2")
+if "postgresql://" in _sync_url and "+psycopg2" not in _sync_url:
+    _sync_url = _sync_url.replace("postgresql://", "postgresql+psycopg2://")
+
 engine = create_engine(
-    str(settings.DATABASE_URL),
+    _sync_url,
     echo=settings.is_development,
     future=True,
     pool_pre_ping=True,
@@ -30,6 +34,9 @@ engine = create_engine(
 
 # ── Async Engine  (FastAPI route'ları için) ──────────────────────────────────
 _async_url = str(settings.DATABASE_URL).replace("+psycopg2", "+asyncpg")
+if "postgresql://" in _async_url and "+asyncpg" not in _async_url:
+    _async_url = _async_url.replace("postgresql://", "postgresql+asyncpg://")
+
 async_engine = create_async_engine(
     _async_url,
     echo=settings.is_development,

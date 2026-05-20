@@ -2050,6 +2050,8 @@ export interface components {
         };
         /** TenantAdminUpdateRequest */
         TenantAdminUpdateRequest: {
+            /** Full Name */
+            full_name?: string | null;
             /** Is Active */
             is_active?: boolean | null;
             /** Force Password Change */
@@ -2080,6 +2082,23 @@ export interface components {
             domain?: string | null;
             /** Subdomain */
             subdomain?: string | null;
+            /** @default platform */
+            email_mode: components["schemas"]["TenantEmailMode"];
+            /** From Name */
+            from_name?: string | null;
+            /** From Email */
+            from_email?: string | null;
+            /** Reply To */
+            reply_to?: string | null;
+            /**
+             * Email Domain Verified
+             * @default false
+             */
+            email_domain_verified: boolean;
+            /** Email Provider Identity Id */
+            email_provider_identity_id?: string | null;
+            /** Email Branding */
+            email_branding?: Record<string, never> | null;
         };
         /** TenantCreate */
         TenantCreate: {
@@ -2090,6 +2109,11 @@ export interface components {
             /** Logo Url */
             logo_url?: string | null;
         };
+        /**
+         * TenantEmailMode
+         * @enum {string}
+         */
+        TenantEmailMode: "platform" | "tenant_domain";
         /** TenantProfileUpdate */
         TenantProfileUpdate: {
             /** Tenant Name */
@@ -2134,6 +2158,19 @@ export interface components {
             domain?: string | null;
             /** Subdomain */
             subdomain?: string | null;
+            email_mode?: components["schemas"]["TenantEmailMode"] | null;
+            /** From Name */
+            from_name?: string | null;
+            /** From Email */
+            from_email?: string | null;
+            /** Reply To */
+            reply_to?: string | null;
+            /** Email Domain Verified */
+            email_domain_verified?: boolean | null;
+            /** Email Provider Identity Id */
+            email_provider_identity_id?: string | null;
+            /** Email Branding */
+            email_branding?: Record<string, never> | null;
             /**
              * Tenant Id
              * Format: uuid
@@ -2159,6 +2196,19 @@ export interface components {
             domain?: string | null;
             /** Subdomain */
             subdomain?: string | null;
+            email_mode?: components["schemas"]["TenantEmailMode"] | null;
+            /** From Name */
+            from_name?: string | null;
+            /** From Email */
+            from_email?: string | null;
+            /** Reply To */
+            reply_to?: string | null;
+            /** Email Domain Verified */
+            email_domain_verified?: boolean | null;
+            /** Email Provider Identity Id */
+            email_provider_identity_id?: string | null;
+            /** Email Branding */
+            email_branding?: Record<string, never> | null;
         };
         /** TenantUpdate */
         TenantUpdate: {

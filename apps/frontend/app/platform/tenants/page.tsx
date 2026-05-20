@@ -663,56 +663,56 @@ function PlatformTenantsPageContent() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-5">
+    <div className="space-y-6 max-w-[1600px] mx-auto">
       <ConfirmModal state={confirm} onClose={() => setConfirm((p) => ({ ...p, open: false }))} />
 
       <div className="fixed right-4 top-4 z-50 space-y-2">
         {toasts.map((t) => (
-          <div key={t.id} className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm shadow ${t.type === "ok" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-rose-200 bg-rose-50 text-rose-700"}`}>
+          <div key={t.id} className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm shadow ${t.type === "ok" ? "border-emerald-250/50 bg-emerald-50 text-emerald-800" : "border-rose-250/50 bg-rose-50 text-rose-800"}`}>
             {t.type === "ok" ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
             <span>{t.text}</span>
           </div>
         ))}
       </div>
 
-      <section className="rounded-2xl bg-gradient-to-r from-slate-900 to-slate-700 p-6 text-white">
-        <div className="flex flex-wrap items-center justify-between gap-4">
+      <section className="corp-header">
+        <div className="flex flex-wrap items-center justify-between gap-4 relative z-10">
           <div>
-            <p className="text-xs uppercase tracking-[0.22em] text-slate-300">Platform Owner</p>
-            <h1 className="mt-1 text-2xl font-bold">Super Admin Paneli</h1>
-            <p className="mt-1 text-sm text-slate-300">Firma yaşam döngüsü, yönetici, lisans ve denetim.</p>
+            <p className="text-[10px] font-black uppercase tracking-wider text-slate-350">Platform Owner</p>
+            <h1 className="mt-1.5 text-2xl font-bold tracking-tight">Super Admin Paneli</h1>
+            <p className="mt-1 text-xs text-slate-350">Firma yaşam döngüsü, yönetici, lisans ve denetim.</p>
           </div>
-          <div className="grid grid-cols-2 gap-2 text-xs sm:text-sm">
-            <div className="rounded-lg border border-white/20 bg-white/10 px-3 py-2">Firma: <b>{firmalar.length}</b></div>
-            <div className="rounded-lg border border-white/20 bg-white/10 px-3 py-2">Aktif: <b>{metrik.aktifFirma}</b></div>
-            <div className="rounded-lg border border-white/20 bg-white/10 px-3 py-2">Askıda: <b>{metrik.askida}</b></div>
-            <div className="rounded-lg border border-white/20 bg-white/10 px-3 py-2">Yönetici: <b>{metrik.adminSayisi}</b></div>
+          <div className="grid grid-cols-2 gap-2 text-[10px] font-bold">
+            <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5">Firma: <b>{firmalar.length}</b></div>
+            <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5">Aktif: <b>{metrik.aktifFirma}</b></div>
+            <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5">Askıda: <b>{metrik.askida}</b></div>
+            <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5">Yönetici: <b>{metrik.adminSayisi}</b></div>
           </div>
         </div>
       </section>
 
-      {error && <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-700">{error}</div>}
+      {error && <div className="rounded-xl border border-rose-250/50 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-800">{error}</div>}
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-4">
-        <div className="grid gap-3 md:grid-cols-4">
-          <button onClick={() => setTab("firmalar")} className={`rounded-lg px-3 py-2 text-sm font-semibold ${tab === "firmalar" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700"}`}>Firmalar</button>
-          <button onClick={() => setTab("yoneticiler")} className={`rounded-lg px-3 py-2 text-sm font-semibold ${tab === "yoneticiler" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700"}`}>Yöneticiler</button>
-          <button onClick={() => setTab("lisans")} className={`rounded-lg px-3 py-2 text-sm font-semibold ${tab === "lisans" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700"}`}>Lisans</button>
-          <button onClick={() => setTab("audit")} className={`rounded-lg px-3 py-2 text-sm font-semibold ${tab === "audit" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700"}`}>Audit</button>
+      <div className="corp-card p-4">
+        <div className="flex bg-slate-100 rounded-xl p-1 border border-slate-200/50">
+          <button onClick={() => setTab("firmalar")} className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all ${tab === "firmalar" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}>Firmalar</button>
+          <button onClick={() => setTab("yoneticiler")} className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all ${tab === "yoneticiler" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}>Yöneticiler</button>
+          <button onClick={() => setTab("lisans")} className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all ${tab === "lisans" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}>Lisans</button>
+          <button onClick={() => setTab("audit")} className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all ${tab === "audit" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}>Audit</button>
         </div>
-      </section>
+      </div>
 
-      <section className="grid gap-5 lg:grid-cols-3">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 lg:col-span-1">
-          <h3 className="mb-3 text-sm font-bold text-slate-900">Firma Seçimi ve Filtre</h3>
-          <div className="space-y-2">
+      <section className="grid gap-6 lg:grid-cols-3">
+        <div className="corp-card p-5 lg:col-span-1 space-y-4">
+          <h3 className="text-xs font-extrabold text-slate-450 uppercase tracking-wider border-b border-slate-100 pb-2">Firma Seçimi ve Filtre</h3>
+          <div className="space-y-3">
             <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input className="w-full rounded-lg border border-slate-300 py-2 pl-9 pr-3 text-sm" placeholder="Firma adı/kod ara" value={searchFirma} onChange={(e) => setSearchFirma(e.target.value)} />
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input className="corp-input pl-9" placeholder="Firma adı/kod ara" value={searchFirma} onChange={(e) => setSearchFirma(e.target.value)} />
             </div>
             <div className="relative">
-              <Filter className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <select className="w-full rounded-lg border border-slate-300 py-2 pl-9 pr-3 text-sm" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+              <Filter className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <select className="corp-select pl-9" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                 <option value="all">Tüm durumlar</option>
                 <option value="trial">Deneme</option>
                 <option value="active">Aktif</option>
@@ -720,13 +720,13 @@ function PlatformTenantsPageContent() {
                 <option value="archived">Arşiv</option>
               </select>
             </div>
-            <select className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={selectedFirmaId} onChange={(e) => setSelectedFirmaId(e.target.value)}>
+            <select className="corp-select" value={selectedFirmaId} onChange={(e) => setSelectedFirmaId(e.target.value)}>
               <option value="">Firma seçin</option>
               {filteredFirmalar.map((firma) => (
                 <option key={firma.id} value={firma.id}>{firma.name} ({firma.code})</option>
               ))}
             </select>
-            <div className="text-xs text-slate-500">Seçili firma: {selectedFirma ? selectedFirma.name : "Yok"}</div>
+            <div className="text-xs text-slate-500 font-semibold">Seçili firma: {selectedFirma ? selectedFirma.name : "Yok"}</div>
           </div>
 
           {selectedFirma && (

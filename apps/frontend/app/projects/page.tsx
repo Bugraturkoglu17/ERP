@@ -296,8 +296,8 @@ export default function ProjectsPage() {
     return (
       <div className="flex items-center justify-center h-full min-h-[500px]">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-slate-500 font-medium">Şantiyeler ve Projeler listeleniyor...</p>
+          <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-slate-500 font-semibold text-sm">Şantiyeler ve Projeler listeleniyor...</p>
         </div>
       </div>
     );
@@ -306,17 +306,17 @@ export default function ProjectsPage() {
   return (
     <div className="space-y-6 max-w-[1600px] mx-auto animate-in fade-in duration-200">
       {/* Top Header Card */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 via-slate-950 to-indigo-950 p-8 shadow-lg text-white">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div className="corp-header">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
-            <h2 className="text-3xl font-extrabold tracking-tight">Proje & Şantiye Portföyü</h2>
-            <p className="text-slate-300 mt-2 text-sm max-w-xl">
+            <h2 className="text-2xl font-bold tracking-tight">Proje & Şantiye Portföyü</h2>
+            <p className="text-slate-300 mt-1.5 text-xs max-w-xl">
               Sismik Mekanik bünyesindeki sismik koruma, havalandırma (HVAC) ve yangın tesisatı şantiyelerini, ekiplerini ve hakediş durumlarını yönetin.
             </p>
           </div>
           <button 
             onClick={() => setIsCreateModalOpen(true)}
-            className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-md shadow-blue-500/10 transition-all transform hover:-translate-y-0.5"
+            className="corp-btn-primary"
           >
             <Plus className="w-4 h-4" /> Yeni Şantiye / Proje Ekle
           </button>
@@ -324,32 +324,34 @@ export default function ProjectsPage() {
       </div>
 
       {/* Toolbar Filters & View Selector */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="corp-card p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-3 flex-1">
           <div className="relative max-w-xs w-full">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input 
               type="text" 
               placeholder="Proje adı veya koduna göre ara..." 
-              className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+              className="corp-input pl-9"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
 
-          <select
-            value={selectedStatusFilter}
-            onChange={(e) => setSelectedStatusFilter(e.target.value)}
-            className="p-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-          >
-            <option value="all">Tüm Durumlar</option>
-            <option value="inquiry">Keşif Aşamasındakiler</option>
-            <option value="approved">Onaylananlar / Bekleyenler</option>
-            <option value="in_progress">Sahada Devam Edenler</option>
-            <option value="invoice_pend">Hakediş Bekleyenler</option>
-            <option value="completed">Tamamlananlar</option>
-            <option value="cancelled">İptal Edilenler</option>
-          </select>
+          <div className="w-56">
+            <select
+              value={selectedStatusFilter}
+              onChange={(e) => setSelectedStatusFilter(e.target.value)}
+              className="corp-select"
+            >
+              <option value="all">Tüm Durumlar</option>
+              <option value="inquiry">Keşif Aşamasındakiler</option>
+              <option value="approved">Onaylananlar / Bekleyenler</option>
+              <option value="in_progress">Sahada Devam Edenler</option>
+              <option value="invoice_pend">Hakediş Bekleyenler</option>
+              <option value="completed">Tamamlananlar</option>
+              <option value="cancelled">İptal Edilenler</option>
+            </select>
+          </div>
         </div>
 
         {/* View Mode Switches */}
@@ -389,17 +391,24 @@ export default function ProjectsPage() {
           
           {/* Table View */}
           {viewMode === "table" && (
-            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+            <div className="corp-card">
               <div className="md:hidden divide-y divide-slate-100">
                 {filteredProjects.map((p) => {
-                  const stat = STATUS_MAP[p.status] || STATUS_MAP.inquiry;
+                  let statusBadgeClass = "corp-badge-secondary";
+                  if (p.status === "in_progress") statusBadgeClass = "corp-badge-success";
+                  else if (p.status === "inquiry") statusBadgeClass = "corp-badge-warning";
+                  else if (p.status === "approved" || p.status === "invoice_pend") statusBadgeClass = "corp-badge-info";
+                  else if (p.status === "cancelled") statusBadgeClass = "corp-badge-danger";
+
+                  const label = STATUS_MAP[p.status]?.label?.split(" / ")[0] || "Taslak";
+                  
                   return (
                     <button
                       key={p.id}
                       type="button"
                       onClick={() => handleSelectProject(p)}
                       className={`w-full px-4 py-4 text-left transition-all ${
-                        activeProject?.id === p.id ? "bg-blue-50/30" : "hover:bg-slate-50/50"
+                        activeProject?.id === p.id ? "bg-blue-50/30 font-bold" : "hover:bg-slate-50/50"
                       }`}
                     >
                       <div className="flex items-start justify-between gap-3">
@@ -425,11 +434,11 @@ export default function ProjectsPage() {
                       </div>
 
                       <div className="mt-3 flex items-center justify-between gap-2">
-                        <span className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wider ${stat.color} ${stat.bg} ${stat.border}`}>
-                          {stat.label}
+                        <span className={statusBadgeClass}>
+                          {label}
                         </span>
                         <span className="text-xs font-black text-slate-900">
-                          {p.contract_value ? `₺${p.contract_value.toLocaleString("tr")}` : "Teklif"}
+                          {p.contract_value ? `₺{p.contract_value.toLocaleString("tr")}` : "Teklif"}
                         </span>
                       </div>
                     </button>
@@ -443,28 +452,35 @@ export default function ProjectsPage() {
               </div>
 
               <div className="hidden md:block overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead className="bg-slate-50 border-b border-slate-100">
+                <table className="corp-table">
+                  <thead>
                     <tr>
-                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Proje Kodu & Adı</th>
-                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Tasarım Kapsamı</th>
-                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Süreç Durumu</th>
-                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Sözleşme Tutarı</th>
-                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Detaylar</th>
+                      <th className="corp-th">Proje Kodu & Adı</th>
+                      <th className="corp-th">Tasarım Kapsamı</th>
+                      <th className="corp-th">Süreç Durumu</th>
+                      <th className="corp-th">Sözleşme Tutarı</th>
+                      <th className="corp-th text-right">Detaylar</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody>
                     {filteredProjects.map((p) => {
-                      const stat = STATUS_MAP[p.status] || STATUS_MAP.inquiry;
+                      let statusBadgeClass = "corp-badge-secondary";
+                      if (p.status === "in_progress") statusBadgeClass = "corp-badge-success";
+                      else if (p.status === "inquiry") statusBadgeClass = "corp-badge-warning";
+                      else if (p.status === "approved" || p.status === "invoice_pend") statusBadgeClass = "corp-badge-info";
+                      else if (p.status === "cancelled") statusBadgeClass = "corp-badge-danger";
+
+                      const label = STATUS_MAP[p.status]?.label?.split(" / ")[0] || "Taslak";
+                      
                       return (
                         <tr 
                           key={p.id} 
                           onClick={() => handleSelectProject(p)}
-                          className={`hover:bg-slate-50/50 transition-all cursor-pointer ${
+                          className={`hover:bg-slate-50/50 cursor-pointer ${
                             activeProject?.id === p.id ? "bg-blue-50/30 font-semibold" : ""
                           }`}
                         >
-                          <td className="px-6 py-4">
+                          <td className="corp-td">
                             <div>
                               <p className="text-slate-900 text-sm font-bold">{p.name}</p>
                               <span className="inline-flex mt-1 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">
@@ -472,28 +488,28 @@ export default function ProjectsPage() {
                               </span>
                             </div>
                           </td>
-                          <td className="px-6 py-4">
+                          <td className="corp-td">
                             <div className="flex flex-wrap gap-1">
                               {p.scope_codes.map((code: string) => {
-                                const tag = SCOPE_TAGS[code] || { label: code, color: "text-slate-700", bg: "bg-slate-50" };
+                                const tag = SCOPE_TAGS[code] || { label: code, color: "text-slate-700 border-slate-200", bg: "bg-slate-50" };
                                 return (
                                   <span key={code} className={`px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wider ${tag.color} ${tag.bg}`}>
                                     {tag.label}
                                   </span>
                                 );
                               })}
-                              {p.scope_codes.length === 0 && <span className="text-xs text-slate-300 italic">Kapsam belirlenmemiş</span>}
+                              {p.scope_codes.length === 0 && <span className="text-xs text-slate-350 italic">Kapsam belirlenmemiş</span>}
                             </div>
                           </td>
-                          <td className="px-6 py-4">
-                            <span className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wider ${stat.color} ${stat.bg} ${stat.border}`}>
-                              {stat.label}
+                          <td className="corp-td">
+                            <span className={statusBadgeClass}>
+                              {label}
                             </span>
                           </td>
-                          <td className="px-6 py-4 text-sm font-black text-slate-900">
+                          <td className="corp-td font-bold text-slate-900">
                             {p.contract_value ? `₺${p.contract_value.toLocaleString("tr")}` : <span className="text-slate-300 italic">Teklif Aşamasında</span>}
                           </td>
-                          <td className="px-6 py-4 text-right">
+                          <td className="corp-td text-right">
                             <ChevronRight className="w-4 h-4 text-slate-400 inline-block" />
                           </td>
                         </tr>
@@ -501,7 +517,7 @@ export default function ProjectsPage() {
                     })}
                     {filteredProjects.length === 0 && (
                       <tr>
-                        <td colSpan={5} className="px-6 py-16 text-center text-slate-400 italic">
+                        <td colSpan={5} className="corp-td text-center text-slate-450 italic py-16">
                           Filtreye uygun kayıtlı proje bulunamadı.
                         </td>
                       </tr>
@@ -512,17 +528,22 @@ export default function ProjectsPage() {
             </div>
           )}
 
-          {/* Kanban Board View */}
           {viewMode === "kanban" && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {["inquiry", "approved", "in_progress"].map(statusKey => {
                 const columnProjects = filteredProjects.filter(p => p.status === statusKey);
-                const statInfo = STATUS_MAP[statusKey] || STATUS_MAP.inquiry;
+                let statusBadgeClass = "corp-badge-secondary";
+                if (statusKey === "in_progress") statusBadgeClass = "corp-badge-success";
+                else if (statusKey === "inquiry") statusBadgeClass = "corp-badge-warning";
+                else if (statusKey === "approved") statusBadgeClass = "corp-badge-info";
+
+                const label = STATUS_MAP[statusKey]?.label?.split(" / ")[0] || "Taslak";
+                
                 return (
-                  <div key={statusKey} className="bg-slate-50/80 p-4 rounded-2xl border border-slate-200/50 flex flex-col gap-4 min-h-[450px]">
-                    <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
-                      <span className={`px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-wider ${statInfo.color} ${statInfo.bg}`}>
-                        {statInfo.label.split(" / ")[0]}
+                  <div key={statusKey} className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex flex-col gap-4 min-h-[450px]">
+                    <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                      <span className={statusBadgeClass}>
+                        {label}
                       </span>
                       <span className="text-xs font-bold text-slate-400">{columnProjects.length} Proje</span>
                     </div>
@@ -532,28 +553,28 @@ export default function ProjectsPage() {
                         <div 
                           key={p.id}
                           onClick={() => handleSelectProject(p)}
-                          className={`bg-white p-4 rounded-xl border transition-all duration-200 cursor-pointer flex flex-col gap-2.5 ${
+                          className={`bg-white p-4 rounded-xl border cursor-pointer flex flex-col gap-2.5 transition-colors duration-150 ${
                             activeProject?.id === p.id 
-                              ? "border-blue-500 shadow-md shadow-blue-500/5 bg-blue-50/10 ring-1 ring-blue-500" 
-                              : "border-slate-200/70 hover:border-slate-300 hover:shadow-sm"
+                              ? "border-indigo-600 bg-indigo-50/10 ring-1 ring-indigo-600" 
+                              : "border-slate-200 hover:border-slate-300"
                           }`}
                         >
                           <div className="flex flex-col gap-1">
                             <span className="text-[10px] font-mono font-extrabold text-slate-400">{p.project_no}</span>
-                            <span className="font-bold text-slate-900 text-sm">{p.name}</span>
+                            <span className="font-bold text-slate-950 text-xs leading-normal">{p.name}</span>
                           </div>
                           
                           <div className="flex flex-wrap gap-1">
                             {p.scope_codes.map((code: string) => (
-                              <span key={code} className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 uppercase tracking-wider">
+                              <span key={code} className="text-[9px] font-black px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200/50 uppercase tracking-wider">
                                 {code}
                               </span>
                             ))}
                           </div>
 
-                          <div className="flex items-center justify-between text-[10px] text-slate-500 pt-2 border-t border-slate-100 font-medium">
-                            <span>Vade: {p.due_date ? new Date(p.due_date).toLocaleDateString("tr") : "Belirsiz"}</span>
-                            <span>{p.contract_value ? `₺${(p.contract_value / 1000).toFixed(0)}k` : "Teklif"}</span>
+                          <div className="flex items-center justify-between text-[10px] text-slate-550 pt-2 border-t border-slate-100 font-bold">
+                            <span className="text-slate-400 font-medium">Vade: {p.due_date ? new Date(p.due_date).toLocaleDateString("tr") : "Belirsiz"}</span>
+                            <span className="text-slate-700">{p.contract_value ? `₺${(p.contract_value / 1000).toFixed(0)}k` : "Teklif"}</span>
                           </div>
                         </div>
                       ))}
@@ -567,12 +588,13 @@ export default function ProjectsPage() {
             </div>
           )}
 
-          {/* Gantt Timeline View */}
           {viewMode === "gantt" && (
-            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 space-y-6">
-              <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-                <span className="text-sm font-bold text-slate-800 flex items-center gap-1.5"><Calendar className="w-4 h-4 text-blue-500" /> Şantiye Zaman Çizelgesi</span>
-                <span className="text-xs text-slate-400">Başlangıç ve teslim tarihleri baz alınmıştır</span>
+            <div className="corp-card p-6 space-y-6">
+              <div className="flex justify-between items-center border-b border-slate-200 pb-3.5">
+                <span className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                  <Calendar className="w-4 h-4 text-indigo-600" /> Şantiye Zaman Çizelgesi
+                </span>
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wide">Başlangıç ve teslim tarihleri baz alınmıştır</span>
               </div>
 
               <div className="space-y-4">
@@ -585,14 +607,14 @@ export default function ProjectsPage() {
                   const durationPct = Math.min(85 - offsetPct, Math.max(15, 30));
 
                   return (
-                    <div key={p.id} className="grid grid-cols-4 gap-4 items-center border-b border-slate-50 pb-2">
+                    <div key={p.id} className="grid grid-cols-4 gap-4 items-center border-b border-slate-100 pb-3">
                       <div className="col-span-1">
                         <span className="font-bold text-slate-900 text-xs block line-clamp-1">{p.name}</span>
                         <span className="text-[9px] font-mono text-slate-400 uppercase tracking-widest">{p.project_no}</span>
                       </div>
-                      <div className="col-span-3 relative h-6 bg-slate-50 rounded-lg overflow-hidden border border-slate-100 shadow-inner">
+                      <div className="col-span-3 relative h-6 bg-slate-100 rounded-lg overflow-hidden border border-slate-200 shadow-inner">
                         <div 
-                          className="absolute h-full rounded-md bg-gradient-to-r from-blue-500 via-indigo-500 to-indigo-600 flex items-center px-2 text-white font-mono text-[9px] font-extrabold shadow-sm transition-all duration-300"
+                          className="absolute h-full rounded-md bg-indigo-600 flex items-center px-2 text-white font-mono text-[9px] font-bold shadow-sm"
                           style={{ left: `${offsetPct}%`, width: `${durationPct}%` }}
                         >
                           {start.toLocaleDateString("tr", { month: "short" })} - {end.toLocaleDateString("tr", { month: "short" })}
@@ -610,40 +632,40 @@ export default function ProjectsPage() {
         {/* Selected Project Assignments Sidebar details */}
         <div className="xl:col-span-1">
           {activeProject ? (
-            <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm space-y-5">
-              <div className="flex flex-col gap-2 border-b border-slate-100 pb-3">
-                <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider">Seçilen Şantiye</span>
-                <h3 className="text-md font-extrabold text-slate-900 leading-tight">{activeProject.name}</h3>
-                <span className="text-xs text-slate-500 font-medium">{activeProject.project_no}</span>
-                <div className="flex items-center gap-2 pt-1">
-                  <button onClick={openEditModal} className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg px-2.5 py-1 hover:bg-indigo-100">
+            <div className="corp-card p-5 space-y-5">
+              <div className="flex flex-col gap-2 border-b border-slate-200 pb-3">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Seçilen Şantiye</span>
+                <h3 className="text-sm font-extrabold text-slate-950 leading-tight">{activeProject.name}</h3>
+                <span className="text-xs text-slate-500 font-semibold">{activeProject.project_no}</span>
+                <div className="flex items-center gap-2 pt-2">
+                  <button onClick={openEditModal} className="corp-btn-secondary px-2.5 py-1 text-[11px] h-auto">
                     Düzenle
                   </button>
-                  <button onClick={handleDeleteProject} className="text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-2.5 py-1 hover:bg-rose-100">
+                  <button onClick={handleDeleteProject} className="corp-btn-danger px-2.5 py-1 text-[11px] h-auto">
                     Sil
                   </button>
                 </div>
               </div>
 
               {/* Description */}
-              <div className="space-y-1.5 text-xs text-slate-600">
-                <span className="font-bold text-slate-400 uppercase text-[9px] tracking-wider">Açıklama</span>
-                <p className="leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100 font-medium">
+              <div className="space-y-1.5 text-xs text-slate-700">
+                <span className="font-black text-slate-400 uppercase text-[9px] tracking-wider">Açıklama</span>
+                <p className="leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-200 font-semibold text-xs text-slate-800">
                   {activeProject.description || <span className="text-slate-300 italic">Açıklama girilmemiş.</span>}
                 </p>
               </div>
 
               {/* Scope codes list */}
               <div className="space-y-2">
-                <span className="font-bold text-slate-400 uppercase text-[9px] tracking-wider block">Uzmanlık Kapsamı</span>
+                <span className="font-black text-slate-400 uppercase text-[9px] tracking-wider block">Uzmanlık Kapsamı</span>
                 <div className="flex flex-col gap-1.5">
                   {activeProject.scope_codes.map((code: string) => {
                     const otherLabel = String(code).startsWith("other:") ? String(code).replace("other:", "Diğer: ") : null;
                     const tag = otherLabel
-                      ? { label: otherLabel, color: "text-slate-700 border-slate-300", bg: "bg-slate-100" }
-                      : (SCOPE_TAGS[code] || { label: code, color: "text-slate-700", bg: "bg-slate-50" });
+                      ? { label: otherLabel, color: "text-slate-700 border-slate-200", bg: "bg-slate-100" }
+                      : (SCOPE_TAGS[code] || { label: code, color: "text-slate-700 border-slate-200", bg: "bg-slate-50" });
                     return (
-                      <span key={code} className={`px-2.5 py-1 text-xs font-semibold rounded-lg border uppercase tracking-wider block text-center ${tag.color} ${tag.bg}`}>
+                      <span key={code} className={`px-2.5 py-1 text-[10px] font-bold rounded-lg border uppercase tracking-wider block text-center ${tag.color} ${tag.bg}`}>
                         {tag.label}
                       </span>
                     );
@@ -652,12 +674,12 @@ export default function ProjectsPage() {
               </div>
 
               {/* Team list */}
-              <div className="space-y-3 pt-3 border-t border-slate-100">
+              <div className="space-y-3 pt-3.5 border-t border-slate-200">
                 <div className="flex justify-between items-center">
-                  <span className="font-bold text-slate-400 uppercase text-[9px] tracking-wider">Saha Ekibi & Taşeronlar</span>
+                  <span className="font-black text-slate-400 uppercase text-[9px] tracking-wider">Saha Ekibi & Taşeronlar</span>
                   <button
                     onClick={() => setIsAssignModalOpen(true)}
-                    className="text-xs text-blue-600 font-bold hover:underline flex items-center gap-0.5"
+                    className="text-xs text-indigo-600 font-bold hover:text-indigo-700 flex items-center gap-0.5"
                   >
                     <UserPlus className="w-3.5 h-3.5" /> Personel Ata
                   </button>
@@ -667,18 +689,18 @@ export default function ProjectsPage() {
                   {assignments.map((as: any) => {
                     const matchedUser = usersList.find(u => u.id === as.user_id);
                     return (
-                      <div key={as.id} className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-100 hover:bg-slate-100/50 transition-colors">
+                      <div key={as.id} className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200 hover:bg-slate-100/50 transition-colors">
                         <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center font-bold text-[10px] text-slate-600 shrink-0">
+                          <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center font-bold text-[10px] text-slate-600 shrink-0 border border-slate-300">
                             {matchedUser ? matchedUser.full_name.slice(0,2).toUpperCase() : "PE"}
                           </div>
                           <div>
-                            <span className="text-xs font-bold text-slate-800 block line-clamp-1">{matchedUser?.full_name || "Bilinmeyen Personel"}</span>
-                            <span className="text-[10px] text-slate-400 font-semibold">{as.role_at_project}</span>
+                            <span className="text-xs font-bold text-slate-900 block line-clamp-1">{matchedUser?.full_name || "Bilinmeyen Personel"}</span>
+                            <span className="text-[10px] text-slate-450 font-bold">{as.role_at_project}</span>
                           </div>
                         </div>
                         {as.is_lead && (
-                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 tracking-wider">
+                          <span className="inline-flex px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-800 border border-indigo-200 text-[9px] font-black uppercase tracking-wider">
                             ŞEF
                           </span>
                         )}
@@ -686,7 +708,7 @@ export default function ProjectsPage() {
                     );
                   })}
                   {assignments.length === 0 && (
-                    <div className="text-xs text-slate-400 italic text-center py-4 bg-slate-50/50 rounded-xl border border-dashed">
+                    <div className="text-xs text-slate-400 italic text-center py-4 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
                       Bu projeye henüz hiçbir saha personeli veya taşeron atanmamıştır.
                     </div>
                   )}
@@ -694,10 +716,10 @@ export default function ProjectsPage() {
               </div>
             </div>
           ) : (
-            <div className="h-[350px] flex flex-col items-center justify-center bg-white rounded-2xl border-2 border-dashed border-slate-200 text-slate-400 p-6 text-center italic shadow-sm">
-              <FolderTree className="w-8 h-8 text-slate-400 opacity-60 mb-2" />
-              <p className="text-xs font-bold text-slate-700">Şantiye Detayı Seçilmedi</p>
-              <p className="text-[10px] text-slate-400 max-w-[200px] mt-1">Saha atamalarını ve kapsam kodlarını görmek için bir şantiyeye tıklayın.</p>
+            <div className="h-[350px] flex flex-col items-center justify-center bg-white rounded-2xl border border-slate-250 text-slate-400 p-6 text-center italic shadow-sm">
+              <FolderTree className="w-8 h-8 text-slate-350 mb-2" />
+              <p className="text-xs font-bold text-slate-700 font-sans">Şantiye Detayı Seçilmedi</p>
+              <p className="text-[10px] text-slate-400 max-w-[200px] mt-1.5 leading-normal">Saha atamalarını ve kapsam kodlarını görmek için bir şantiyeye tıklayın.</p>
             </div>
           )}
         </div>
@@ -706,25 +728,25 @@ export default function ProjectsPage() {
 
       {/* Create Project Modal featuring Cascade dropdowns */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-200 my-8">
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden border border-slate-200 my-8">
+            <div className="p-6 border-b border-slate-200 flex items-center justify-between bg-slate-50">
               <div>
-                <h3 className="text-lg font-bold text-slate-900 font-sans">Yeni Şantiye Projesi Kaydet</h3>
-                <p className="text-xs text-slate-500 mt-0.5">Müşteri → Bölge → Şube cascade hiyerarşisi</p>
+                <h3 className="text-base font-bold text-slate-900">Yeni Şantiye Projesi Kaydet</h3>
+                <p className="text-[11px] text-slate-500 mt-0.5">Müşteri → Bölge → Şube cascade hiyerarşisi</p>
               </div>
-              <button onClick={() => setIsCreateModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100">
+              <button onClick={() => setIsCreateModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <form onSubmit={handleCreateProject} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
               
               {/* Cascade Hiyerarşi Selects */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50/50 p-4 rounded-2xl border border-slate-200/50">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Müşteri Firma</label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Müşteri Firma</label>
                   <select 
-                    className="w-full p-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-white"
+                    className="corp-select"
                     value={projectForm.customer_id}
                     onChange={(e) => handleCustomerChange(e.target.value)}
                     required
@@ -737,9 +759,9 @@ export default function ProjectsPage() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Uygulama Bölgesi</label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Uygulama Bölgesi</label>
                   <select 
-                    className="w-full p-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-white"
+                    className="corp-select"
                     value={projectForm.region_id}
                     onChange={(e) => handleRegionChange(e.target.value)}
                     disabled={!projectForm.customer_id}
@@ -753,9 +775,9 @@ export default function ProjectsPage() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Hedef Şube (Lokasyon)</label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Hedef Şube (Lokasyon)</label>
                   <select 
-                    className="w-full p-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-white"
+                    className="corp-select"
                     value={projectForm.branch_id}
                     onChange={(e) => setProjectForm({...projectForm, branch_id: e.target.value})}
                     disabled={!projectForm.region_id}
@@ -772,11 +794,11 @@ export default function ProjectsPage() {
               {/* Project core parameters */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Proje Adı</label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Proje Adı</label>
                   <input 
                     type="text" 
                     placeholder="Örn: X Mağazası Sismik Koruma Kurulumu"
-                    className="w-full p-2.5 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm"
+                    className="corp-input"
                     value={projectForm.name}
                     onChange={(e) => setProjectForm({...projectForm, name: e.target.value})}
                     required
@@ -784,11 +806,11 @@ export default function ProjectsPage() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Proje Numarası / Kodu</label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Proje Numarası / Kodu</label>
                   <input 
                     type="text" 
                     placeholder="Örn: SIS-2026-X01"
-                    className="w-full p-2.5 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm font-mono"
+                    className="corp-input font-mono"
                     value={projectForm.project_no}
                     onChange={(e) => setProjectForm({...projectForm, project_no: e.target.value})}
                   />
@@ -797,20 +819,20 @@ export default function ProjectsPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Sözleşme Bütçesi (TL)</label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Sözleşme Bütçesi (TL)</label>
                   <input 
                     type="number" 
                     placeholder="0.00"
-                    className="w-full p-2.5 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm font-mono"
+                    className="corp-input font-mono"
                     value={projectForm.contract_value}
                     onChange={(e) => setProjectForm({...projectForm, contract_value: e.target.value})}
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">İlk Başlangıç Aşaması</label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">İlk Başlangıç Aşaması</label>
                   <select 
-                    className="w-full p-2.5 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-white"
+                    className="corp-select"
                     value={projectForm.status}
                     onChange={(e) => setProjectForm({...projectForm, status: e.target.value})}
                     required
@@ -824,10 +846,10 @@ export default function ProjectsPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Başlangıç Tarihi</label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Başlangıç Tarihi</label>
                   <input 
                     type="date"
-                    className="w-full p-2.5 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm"
+                    className="corp-input font-semibold"
                     value={projectForm.start_date}
                     onChange={(e) => setProjectForm({...projectForm, start_date: e.target.value})}
                     required
@@ -835,10 +857,10 @@ export default function ProjectsPage() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Teslim / Vade Tarihi</label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Teslim / Vade Tarihi</label>
                   <input 
                     type="date"
-                    className="w-full p-2.5 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm"
+                    className="corp-input font-semibold"
                     value={projectForm.due_date}
                     onChange={(e) => setProjectForm({...projectForm, due_date: e.target.value})}
                     required
@@ -847,8 +869,8 @@ export default function ProjectsPage() {
               </div>
 
               {/* Scope codes selector */}
-              <div className="space-y-2 pt-2 border-t border-slate-100">
-                <span className="text-xs font-bold text-slate-600 uppercase tracking-wider block">Uygulama Alanları (Kapsam)</span>
+              <div className="space-y-2 pt-2 border-t border-slate-200">
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Uygulama Alanları (Kapsam)</span>
                 <div className="grid grid-cols-2 gap-3">
                   {Object.entries(SCOPE_TAGS).map(([key, info]) => (
                     <div 
@@ -860,10 +882,10 @@ export default function ProjectsPage() {
                           : [...projectForm.scope_codes, key];
                         setProjectForm({ ...projectForm, scope_codes: newCodes });
                       }}
-                      className={`p-3 rounded-xl border-2 transition-all duration-200 cursor-pointer text-xs font-bold select-none ${
+                      className={`p-3 rounded-xl border transition-all duration-150 cursor-pointer text-xs font-bold select-none ${
                         projectForm.scope_codes.includes(key) 
-                          ? "border-blue-500 bg-blue-50 text-blue-700" 
-                          : "border-slate-100 hover:border-slate-200 bg-slate-50/50 text-slate-600"
+                          ? "border-indigo-650 border-indigo-600 bg-indigo-50 text-indigo-800" 
+                          : "border-slate-200 hover:border-slate-350 bg-slate-50 text-slate-600"
                       }`}
                     >
                       {info.label}
@@ -872,11 +894,11 @@ export default function ProjectsPage() {
                 </div>
                 {projectForm.scope_codes.includes("other") && (
                   <div className="pt-2">
-                    <label className="text-xs font-bold text-slate-600 uppercase tracking-wider block mb-1">Diğer Kapsam Adı</label>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">Diğer Kapsam Adı</label>
                     <input
                       type="text"
                       placeholder="Örn: Elektrik Altyapı Entegrasyonu"
-                      className="w-full p-2.5 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm"
+                      className="corp-input"
                       value={otherScopeLabel}
                       onChange={(e) => setOtherScopeLabel(e.target.value)}
                     />
@@ -885,9 +907,9 @@ export default function ProjectsPage() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Detaylı Keşif / Şantiye Özeti</label>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Detaylı Keşif / Şantiye Özeti</label>
                 <textarea 
-                  className="w-full p-2.5 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm"
+                  className="corp-input"
                   rows={3}
                   placeholder="Şantiye detayları, askılama parametreleri, veya özel mühendislik gereksinimleri..."
                   value={projectForm.description}
@@ -897,7 +919,7 @@ export default function ProjectsPage() {
 
               <button 
                 type="submit"
-                className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold shadow-md shadow-blue-500/10 transition-all"
+                className="corp-btn-primary w-full py-3"
               >
                 Yeni Şantiyeyi Kaydet & Başlat
               </button>
@@ -907,36 +929,36 @@ export default function ProjectsPage() {
       )}
 
       {isEditModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-200 my-8">
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden border border-slate-200 my-8">
+            <div className="p-6 border-b border-slate-200 flex items-center justify-between bg-slate-50">
               <div>
-                <h3 className="text-lg font-bold text-slate-900 font-sans">Projeyi Düzenle</h3>
-                <p className="text-xs text-slate-500 mt-0.5">Temel bilgiler, kapsam ve tarih güncellemesi</p>
+                <h3 className="text-base font-bold text-slate-900">Projeyi Düzenle</h3>
+                <p className="text-[11px] text-slate-500 mt-0.5">Temel bilgiler, kapsam ve tarih güncellemesi</p>
               </div>
-              <button onClick={() => setIsEditModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100">
+              <button onClick={() => setIsEditModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <form onSubmit={handleUpdateProject} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Proje Adı</label>
-                  <input type="text" className="w-full p-2.5 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm" value={projectForm.name} onChange={(e) => setProjectForm({ ...projectForm, name: e.target.value })} required />
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Proje Adı</label>
+                  <input type="text" className="corp-input" value={projectForm.name} onChange={(e) => setProjectForm({ ...projectForm, name: e.target.value })} required />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Proje Numarası / Kodu</label>
-                  <input type="text" className="w-full p-2.5 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm font-mono" value={projectForm.project_no} onChange={(e) => setProjectForm({ ...projectForm, project_no: e.target.value })} />
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Proje Numarası / Kodu</label>
+                  <input type="text" className="corp-input font-mono" value={projectForm.project_no} onChange={(e) => setProjectForm({ ...projectForm, project_no: e.target.value })} />
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Sözleşme Bütçesi (TL)</label>
-                  <input type="number" className="w-full p-2.5 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm font-mono" value={projectForm.contract_value} onChange={(e) => setProjectForm({ ...projectForm, contract_value: e.target.value })} />
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Sözleşme Bütçesi (TL)</label>
+                  <input type="number" className="corp-input font-mono" value={projectForm.contract_value} onChange={(e) => setProjectForm({ ...projectForm, contract_value: e.target.value })} />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Süreç Durumu</label>
-                  <select className="w-full p-2.5 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-white" value={projectForm.status} onChange={(e) => setProjectForm({ ...projectForm, status: e.target.value })} required>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Süreç Durumu</label>
+                  <select className="corp-select" value={projectForm.status} onChange={(e) => setProjectForm({ ...projectForm, status: e.target.value })} required>
                     <option value="inquiry">Keşif / Teklif Aşamasında</option>
                     <option value="approved">Onaylandı / Başlayacak</option>
                     <option value="in_progress">Sahada Devam Ediyor</option>
@@ -948,34 +970,34 @@ export default function ProjectsPage() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Başlangıç Tarihi</label>
-                  <input type="date" className="w-full p-2.5 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm" value={projectForm.start_date} onChange={(e) => setProjectForm({ ...projectForm, start_date: e.target.value })} required />
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Başlangıç Tarihi</label>
+                  <input type="date" className="corp-input font-semibold" value={projectForm.start_date} onChange={(e) => setProjectForm({ ...projectForm, start_date: e.target.value })} required />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Teslim / Vade Tarihi</label>
-                  <input type="date" className="w-full p-2.5 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm" value={projectForm.due_date} onChange={(e) => setProjectForm({ ...projectForm, due_date: e.target.value })} required />
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Teslim / Vade Tarihi</label>
+                  <input type="date" className="corp-input font-semibold" value={projectForm.due_date} onChange={(e) => setProjectForm({ ...projectForm, due_date: e.target.value })} required />
                 </div>
               </div>
-              <div className="space-y-2 pt-2 border-t border-slate-100">
-                <span className="text-xs font-bold text-slate-600 uppercase tracking-wider block">Uygulama Alanları (Kapsam)</span>
+              <div className="space-y-2 pt-2 border-t border-slate-200">
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Uygulama Alanları (Kapsam)</span>
                 <div className="grid grid-cols-2 gap-3">
                   {Object.entries(SCOPE_TAGS).map(([key, info]) => (
                     <div key={key} onClick={() => {
                       const active = projectForm.scope_codes.includes(key);
                       const newCodes = active ? projectForm.scope_codes.filter((c) => c !== key) : [...projectForm.scope_codes, key];
                       setProjectForm({ ...projectForm, scope_codes: newCodes });
-                    }} className={`p-3 rounded-xl border-2 transition-all duration-200 cursor-pointer text-xs font-bold select-none ${projectForm.scope_codes.includes(key) ? "border-blue-500 bg-blue-50 text-blue-700" : "border-slate-100 hover:border-slate-200 bg-slate-50/50 text-slate-600"}`}>
+                    }} className={`p-3 rounded-xl border transition-all duration-150 cursor-pointer text-xs font-bold select-none ${projectForm.scope_codes.includes(key) ? "border-indigo-600 bg-indigo-50 text-indigo-800" : "border-slate-200 hover:border-slate-350 bg-slate-50 text-slate-600"}`}>
                       {info.label}
                     </div>
                   ))}
                 </div>
                 {projectForm.scope_codes.includes("other") && (
                   <div className="pt-2">
-                    <label className="text-xs font-bold text-slate-600 uppercase tracking-wider block mb-1">Diğer Kapsam Adı</label>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">Diğer Kapsam Adı</label>
                     <input
                       type="text"
                       placeholder="Örn: Endüstriyel Otomasyon"
-                      className="w-full p-2.5 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm"
+                      className="corp-input"
                       value={otherScopeLabel}
                       onChange={(e) => setOtherScopeLabel(e.target.value)}
                     />
@@ -983,10 +1005,10 @@ export default function ProjectsPage() {
                 )}
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Detaylı Keşif / Şantiye Özeti</label>
-                <textarea className="w-full p-2.5 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm" rows={3} value={projectForm.description} onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })} />
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Detaylı Keşif / Şantiye Özeti</label>
+                <textarea className="corp-input" rows={3} value={projectForm.description} onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })} />
               </div>
-              <button type="submit" className="w-full py-3 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white rounded-xl font-bold shadow-md transition-all">
+              <button type="submit" className="corp-btn-primary w-full py-3">
                 Projeyi Güncelle
               </button>
             </form>
@@ -996,22 +1018,22 @@ export default function ProjectsPage() {
 
       {/* Assign User Modal */}
       {isAssignModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-200">
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200">
+            <div className="p-6 border-b border-slate-200 flex items-center justify-between bg-slate-50">
               <div>
-                <h3 className="text-lg font-bold text-slate-900">Şantiyeye Personel Ata</h3>
-                <p className="text-xs text-slate-500 mt-0.5">Sorumlu mühendis, şef veya taşeron seçimi</p>
+                <h3 className="text-base font-bold text-slate-900">Şantiyeye Personel Ata</h3>
+                <p className="text-[11px] text-slate-500 mt-0.5">Sorumlu mühendis, şef veya taşeron seçimi</p>
               </div>
-              <button onClick={() => setIsAssignModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100">
+              <button onClick={() => setIsAssignModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <form onSubmit={handleAssignUser} className="p-6 space-y-4">
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Atanacak Personel</label>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Atanacak Personel</label>
                 <select 
-                  className="w-full p-2.5 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm bg-white"
+                  className="corp-select"
                   value={assignmentForm.user_id}
                   onChange={(e) => setAssignmentForm({...assignmentForm, user_id: e.target.value})}
                   required
@@ -1024,11 +1046,11 @@ export default function ProjectsPage() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Projedeki Görevi (Unvan)</label>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Projedeki Görevi (Unvan)</label>
                 <input 
                   type="text" 
                   placeholder="Örn: Sismik Askılama Şefi, Taşeron Usta"
-                  className="w-full p-2.5 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm"
+                  className="corp-input"
                   value={assignmentForm.role_at_project}
                   onChange={(e) => setAssignmentForm({...assignmentForm, role_at_project: e.target.value})}
                   required
@@ -1039,7 +1061,7 @@ export default function ProjectsPage() {
                 <input 
                   type="checkbox" 
                   id="is_lead"
-                  className="rounded border-slate-300 focus:ring-blue-500 h-4 w-4 text-blue-600"
+                  className="rounded border-slate-350 focus:ring-indigo-500 h-4 w-4 text-indigo-650 cursor-pointer"
                   checked={assignmentForm.is_lead}
                   onChange={(e) => setAssignmentForm({...assignmentForm, is_lead: e.target.checked})}
                 />
@@ -1050,7 +1072,7 @@ export default function ProjectsPage() {
 
               <button 
                 type="submit"
-                className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold shadow-md shadow-blue-500/10 transition-all"
+                className="corp-btn-primary w-full py-3"
               >
                 Atamayı Gerçekleştir
               </button>

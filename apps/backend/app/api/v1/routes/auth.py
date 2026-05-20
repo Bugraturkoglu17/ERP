@@ -10,11 +10,11 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.dependencies import get_current_user, is_platform_admin
+from app.core.dependencies import get_current_user, is_platform_admin, require_role
 from app.core.security import create_access_token, create_refresh_token, get_user_permissions, get_user_roles, hash_password, verify_password
 from app.db.models import PlatformTenantSettings, Role, Tenant, TenantEmailMode, User, UserRole, UserSecurityPolicy
 from app.db.schemas import CompletePasswordResetRequest, MessageResponse, TenantContextRead, TenantProfileUpdate, TenantSettingsUpsert, Token, TokenRefresh, UserRead
@@ -156,6 +156,27 @@ async def get_tenant_context(
         email_domain_verified=settings.email_domain_verified if settings else False,
         email_provider_identity_id=settings.email_provider_identity_id if settings else None,
         email_branding=json.loads(settings.email_branding) if settings and settings.email_branding else None,
+        
+        # Yeni eklenen alanların eşlenmesi
+        contact_phone=settings.contact_phone if settings else None,
+        address=settings.address if settings else None,
+        default_currency=settings.default_currency if settings else "TRY",
+        vat_rate=settings.vat_rate if settings else 20.0,
+        low_stock_threshold=settings.low_stock_threshold if settings else 10,
+        auto_invoice_no=settings.auto_invoice_no if settings else True,
+        require_approval_for_expenses=settings.require_approval_for_expenses if settings else True,
+        default_payment_term_days=settings.default_payment_term_days if settings else 30,
+        locale=settings.locale if settings else "tr-TR",
+        timezone=settings.timezone if settings else "Europe/Istanbul",
+        date_format=settings.date_format if settings else "DD.MM.YYYY",
+        session_timeout_minutes=settings.session_timeout_minutes if settings else 60,
+        mfa_required_for_admins=settings.mfa_required_for_admins if settings else True,
+        login_ip_whitelist=settings.login_ip_whitelist if settings else None,
+        email_notifications=settings.email_notifications if settings else True,
+        push_notifications=settings.push_notifications if settings else False,
+        daily_summary_hour=settings.daily_summary_hour if settings else "18:00",
+        backup_frequency=settings.backup_frequency if settings else "daily",
+        retention_days=settings.retention_days if settings else 180,
     )
 
 
@@ -163,7 +184,7 @@ async def get_tenant_context(
 async def update_tenant_context_settings(
     payload: TenantSettingsUpsert,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_role("admin")),
 ) -> TenantContextRead:
     if not user.tenant_id:
         raise HTTPException(status_code=400, detail="Bu kullanıcı bir firmaya bağlı değil.")
@@ -204,6 +225,27 @@ async def update_tenant_context_settings(
         email_domain_verified=settings.email_domain_verified,
         email_provider_identity_id=settings.email_provider_identity_id,
         email_branding=json.loads(settings.email_branding) if settings.email_branding else None,
+        
+        # Yeni eklenen alanların eşlenmesi
+        contact_phone=settings.contact_phone,
+        address=settings.address,
+        default_currency=settings.default_currency,
+        vat_rate=settings.vat_rate,
+        low_stock_threshold=settings.low_stock_threshold,
+        auto_invoice_no=settings.auto_invoice_no,
+        require_approval_for_expenses=settings.require_approval_for_expenses,
+        default_payment_term_days=settings.default_payment_term_days,
+        locale=settings.locale,
+        timezone=settings.timezone,
+        date_format=settings.date_format,
+        session_timeout_minutes=settings.session_timeout_minutes,
+        mfa_required_for_admins=settings.mfa_required_for_admins,
+        login_ip_whitelist=settings.login_ip_whitelist,
+        email_notifications=settings.email_notifications,
+        push_notifications=settings.push_notifications,
+        daily_summary_hour=settings.daily_summary_hour,
+        backup_frequency=settings.backup_frequency,
+        retention_days=settings.retention_days,
     )
 
 
@@ -211,7 +253,7 @@ async def update_tenant_context_settings(
 async def update_tenant_context_profile(
     payload: TenantProfileUpdate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_role("admin")),
 ) -> TenantContextRead:
     if not user.tenant_id:
         raise HTTPException(status_code=400, detail="Bu kullanıcı bir firmaya bağlı değil.")
@@ -340,9 +382,31 @@ async def update_user_details(
     if user_in.phone is not None:
         user.phone = user_in.phone
     if user_in.discipline is not None:
-        user.discipline = user_in.discipline
+        user.discipline = user_in.discipline if user_in.discipline != "none" else None
+    if user_in.discipline_only is not None:
+        user.discipline_only = user_in.discipline_only
     if user_in.is_active is not None:
+        # Prevent self-deactivation
+        if str(user.id) == str(admin.id) and user_in.is_active is False:
+            raise HTTPException(status_code=400, detail="Kendi yöneticisi hesabınızı pasifleştiremezsiniz.")
         user.is_active = user_in.is_active
+
+    if user_in.roles is not None:
+        requested_roles = user_in.roles
+        if "platform_admin" in requested_roles and not is_platform_admin(admin):
+            raise HTTPException(status_code=403, detail="platform_admin rolü yalnızca platform yöneticisi tarafından atanabilir.")
+        
+        # Clean up old user roles and write new ones
+        await db.execute(delete(UserRole).where(UserRole.user_id == user.id))
+        
+        for role_name in requested_roles:
+            role_result = await db.execute(select(Role).where(Role.name == role_name))
+            role = role_result.scalar_one_or_none()
+            if role:
+                db.add(UserRole(user_id=user.id, role_id=role.id))
+        
+        if len(requested_roles) > 0:
+            user.default_role = requested_roles[0]
 
     db.add(user)
     await db.commit()
@@ -366,6 +430,9 @@ async def delete_user_account(
     if not is_platform_admin(admin) and user.tenant_id != admin.tenant_id:
         raise HTTPException(status_code=403, detail="Bu kullanıcı tenant kapsamınız dışında.")
     
+    if str(user.id) == str(admin.id):
+        raise HTTPException(status_code=400, detail="Kendi yöneticisi hesabınızı silemezsiniz.")
+        
     user.is_active = False
     db.add(user)
     await db.commit()
