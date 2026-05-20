@@ -640,6 +640,7 @@ class FieldReport(SQLModel, table=True):
         back_populates="authored_reports",
         sa_relationship_kwargs={"foreign_keys": "[FieldReport.author_id]"},
     )
+    items: List["FieldReportItem"] = Relationship(back_populates="report")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -842,3 +843,124 @@ class UserSecurityPolicy(SQLModel, table=True):
     user_id: UUID = Field(foreign_key="users.id", primary_key=True)
     force_password_change: bool = Field(default=False)
     updated_at: datetime = Field(default_factory=utc_now, sa_column_kwargs={"onupdate": utc_now})
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  9 · SATIN ALMA & TEDARİK (PROCUREMENT)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class ProcurementStatus(str, Enum):
+    DRAFT = "draft"
+    PENDING_APPROVAL = "pending_approval"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    ORDERED = "ordered"
+    RECEIVED = "received"
+    CANCELLED = "cancelled"
+
+
+class Supplier(SQLModel, table=True):
+    __tablename__ = "suppliers"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    tenant_id: Optional[UUID] = Field(foreign_key="tenants.id", default=None, index=True)
+    name: str = Field(max_length=200, index=True)
+    contact_name: Optional[str] = Field(default=None, max_length=120)
+    phone: Optional[str] = Field(default=None, max_length=30)
+    email: Optional[str] = Field(default=None, max_length=255)
+    tax_no: Optional[str] = Field(default=None, max_length=30)
+    address: Optional[str] = Field(default=None, max_length=500)
+    notes: Optional[str] = Field(default=None, max_length=500)
+    is_active: bool = Field(default=True)
+    created_at: datetime = Field(default_factory=utc_now, nullable=False)
+
+    orders: List["PurchaseOrder"] = Relationship(back_populates="supplier")
+
+
+class PurchaseRequest(SQLModel, table=True):
+    __tablename__ = "purchase_requests"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    tenant_id: Optional[UUID] = Field(foreign_key="tenants.id", default=None, index=True)
+    project_id: Optional[UUID] = Field(foreign_key="projects.id", default=None, index=True)
+    material_id: UUID = Field(foreign_key="materials.id", index=True)
+    quantity: int = Field(gt=0)
+    priority: str = Field(default="normal", max_length=20, index=True)
+    notes: Optional[str] = Field(default=None, max_length=500)
+    status: ProcurementStatus = Field(default=ProcurementStatus.PENDING_APPROVAL, index=True)
+    requested_by: Optional[UUID] = Field(foreign_key="users.id", default=None)
+    requested_at: datetime = Field(default_factory=utc_now, nullable=False, index=True)
+    reviewed_by: Optional[UUID] = Field(foreign_key="users.id", default=None)
+    reviewed_at: Optional[datetime] = None
+    review_note: Optional[str] = Field(default=None, max_length=255)
+
+    project: Mapped[Optional["Project"]] = Relationship()
+    material: Mapped["Material"] = Relationship()
+
+
+class PurchaseOrder(SQLModel, table=True):
+    __tablename__ = "purchase_orders"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    tenant_id: Optional[UUID] = Field(foreign_key="tenants.id", default=None, index=True)
+    po_no: str = Field(max_length=100, unique=True, index=True)
+    supplier_id: Optional[UUID] = Field(foreign_key="suppliers.id", default=None, index=True)
+    project_id: Optional[UUID] = Field(foreign_key="projects.id", default=None, index=True)
+    warehouse_id: Optional[UUID] = Field(foreign_key="warehouses.id", default=None, index=True)
+    status: ProcurementStatus = Field(default=ProcurementStatus.DRAFT, index=True)
+    order_date: Optional[datetime] = None
+    expected_date: Optional[datetime] = None
+    received_at: Optional[datetime] = None
+    total_amount: Optional[Decimal] = Field(default=None, max_digits=14, decimal_places=2)
+    notes: Optional[str] = Field(default=None, max_length=500)
+    created_by: Optional[UUID] = Field(foreign_key="users.id", default=None)
+    received_by: Optional[UUID] = Field(foreign_key="users.id", default=None)
+    created_at: datetime = Field(default_factory=utc_now, nullable=False)
+    updated_at: datetime = Field(default_factory=utc_now, sa_column_kwargs={"onupdate": utc_now})
+
+    supplier: Mapped[Optional["Supplier"]] = Relationship(back_populates="orders")
+    items: List["PurchaseOrderItem"] = Relationship(back_populates="order")
+
+
+class PurchaseOrderItem(SQLModel, table=True):
+    __tablename__ = "purchase_order_items"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    order_id: UUID = Field(foreign_key="purchase_orders.id", index=True)
+    material_id: UUID = Field(foreign_key="materials.id", index=True)
+    quantity: int = Field(gt=0)
+    unit_price: Optional[Decimal] = Field(default=None, max_digits=12, decimal_places=2)
+    total_price: Optional[Decimal] = Field(default=None, max_digits=14, decimal_places=2)
+    notes: Optional[str] = Field(default=None, max_length=255)
+
+    order: Mapped["PurchaseOrder"] = Relationship(back_populates="items")
+    material: Mapped["Material"] = Relationship()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  10 · SAHA RAPORU AKTİVİTE SATIRLARI
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class FieldReportActivityType(str, Enum):
+    INSTALLATION = "installation"
+    TESTING = "testing"
+    INSPECTION = "inspection"
+    PROCUREMENT = "procurement"
+    DOCUMENTATION = "documentation"
+    COORDINATION = "coordination"
+    OTHER = "other"
+
+
+class FieldReportItem(SQLModel, table=True):
+    __tablename__ = "field_report_items"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    report_id: UUID = Field(foreign_key="field_reports.id", index=True)
+    activity_type: FieldReportActivityType = Field(default=FieldReportActivityType.INSTALLATION, index=True)
+    description: str = Field(max_length=500)
+    location: Optional[str] = Field(default=None, max_length=200)
+    hours_spent: Optional[float] = None
+    workers_count: Optional[int] = None
+    sort_order: int = Field(default=0)
+
+    report: Mapped["FieldReport"] = Relationship(back_populates="items")
