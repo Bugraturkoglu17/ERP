@@ -660,3 +660,184 @@ class PaymentRead(BaseModel):
     payment_date:      datetime
     created_at:        datetime
     model_config  = ConfigDict(from_attributes=True)
+
+
+# ── Procurement / Satın Alma ──────────────────────────────────────────────────
+
+class SupplierCreate(BaseModel):
+    name:         str
+    contact_name: str | None = None
+    phone:        str | None = None
+    email:        str | None = None
+    tax_no:       str | None = None
+    address:      str | None = None
+    notes:        str | None = None
+
+
+class SupplierRead(BaseModel):
+    id:           UUID
+    tenant_id:    UUID | None
+    name:         str
+    contact_name: str | None
+    phone:        str | None
+    email:        str | None
+    tax_no:       str | None
+    address:      str | None
+    notes:        str | None
+    is_active:    bool
+    created_at:   datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SupplierUpdate(BaseModel):
+    name:         str | None = None
+    contact_name: str | None = None
+    phone:        str | None = None
+    email:        str | None = None
+    tax_no:       str | None = None
+    address:      str | None = None
+    notes:        str | None = None
+    is_active:    bool | None = None
+
+
+class PurchaseRequestCreate(BaseModel):
+    project_id:  UUID | None = None
+    material_id: UUID
+    quantity:    int
+    priority:    str = "normal"
+    notes:       str | None = None
+
+
+class PurchaseRequestRead(BaseModel):
+    id:           UUID
+    tenant_id:    UUID | None
+    project_id:   UUID | None
+    material_id:  UUID
+    quantity:     int
+    priority:     str
+    notes:        str | None
+    status:       str
+    requested_by: UUID | None
+    requested_at: datetime
+    reviewed_by:  UUID | None
+    reviewed_at:  datetime | None
+    review_note:  str | None
+    # Joined fields
+    material_name: str | None = None
+    project_name:  str | None = None
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PurchaseRequestReview(BaseModel):
+    action:      str   # "approve" or "reject"
+    review_note: str | None = None
+
+
+class PurchaseOrderItemCreate(BaseModel):
+    material_id: UUID
+    quantity:    int
+    unit_price:  float | None = None
+    notes:       str | None = None
+
+
+class PurchaseOrderItemRead(BaseModel):
+    id:          UUID
+    order_id:    UUID
+    material_id: UUID
+    quantity:    int
+    unit_price:  float | None
+    total_price: float | None
+    notes:       str | None
+    material_name: str | None = None
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PurchaseOrderCreate(BaseModel):
+    supplier_id:   UUID | None = None
+    project_id:    UUID | None = None
+    warehouse_id:  UUID | None = None
+    po_no:         str
+    order_date:    datetime | None = None
+    expected_date: datetime | None = None
+    notes:         str | None = None
+    items:         list[PurchaseOrderItemCreate] = []
+
+
+class PurchaseOrderRead(BaseModel):
+    id:            UUID
+    tenant_id:     UUID | None
+    po_no:         str
+    supplier_id:   UUID | None
+    project_id:    UUID | None
+    warehouse_id:  UUID | None
+    status:        str
+    order_date:    datetime | None
+    expected_date: datetime | None
+    received_at:   datetime | None
+    total_amount:  float | None
+    notes:         str | None
+    created_by:    UUID | None
+    received_by:   UUID | None
+    created_at:    datetime
+    items:         list[PurchaseOrderItemRead] = []
+    supplier_name: str | None = None
+    project_name:  str | None = None
+    model_config = ConfigDict(from_attributes=True)
+
+
+class POReceiveRequest(BaseModel):
+    received_by:   UUID | None = None
+    notes:         str | None = None
+
+
+# ── Field Reports / Saha Raporları ──────────────────────────────────────────
+
+class FieldReportItemCreate(BaseModel):
+    activity_type:  str = "installation"
+    description:    str
+    location:       str | None = None
+    hours_spent:    float | None = None
+    workers_count:  int | None = None
+    sort_order:     int = 0
+
+
+class FieldReportItemRead(BaseModel):
+    id:             UUID
+    report_id:      UUID
+    activity_type:  str
+    description:    str
+    location:       str | None
+    hours_spent:    float | None
+    workers_count:  int | None
+    sort_order:     int
+    model_config = ConfigDict(from_attributes=True)
+
+
+class FieldReportCreate(BaseModel):
+    project_id:   UUID
+    report_date:  datetime
+    summary:      str | None = None
+    weather:      str | None = None
+    team_size:    int | None = None
+    hours_worked: float | None = None
+    items:        list[FieldReportItemCreate] = []
+
+
+class FieldReportRead(BaseModel):
+    id:             UUID
+    project_id:     UUID
+    author_id:      UUID
+    report_date:    datetime
+    summary:        str | None
+    weather:        str | None
+    team_size:      int | None
+    hours_worked:   float | None
+    submitted:      bool
+    approved_by:    UUID | None
+    approved_at:    datetime | None
+    created_at:     datetime
+    items:          list[FieldReportItemRead] = []
+    project_name:   str | None = None
+    author_name:    str | None = None
+    model_config = ConfigDict(from_attributes=True)
+

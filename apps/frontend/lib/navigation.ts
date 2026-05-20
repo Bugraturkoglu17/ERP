@@ -7,6 +7,8 @@ import {
   Settings, 
   FileText,
   Building2,
+  ShoppingCart,
+  ClipboardList,
 } from "lucide-react";
 
 export type NavItem = {
@@ -36,6 +38,18 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/inventory",
     icon: Warehouse,
     allowedRoles: ["admin", "depo_sorumlusu"],
+  },
+  {
+    label: "Satın Alma",
+    href: "/procurement",
+    icon: ShoppingCart,
+    allowedRoles: ["admin", "depo_sorumlusu"],
+  },
+  {
+    label: "Saha Raporları",
+    href: "/field-reports",
+    icon: ClipboardList,
+    allowedRoles: ["admin", "saha_muhendisi"],
   },
   {
     label: "Finans",
