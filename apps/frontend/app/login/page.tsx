@@ -55,9 +55,9 @@ export default function LoginPage() {
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border">
         <div className="text-center mb-8">
           <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center text-white text-2xl font-bold mx-auto mb-4">
-            S
+            G
           </div>
-          <h1 className="text-2xl font-bold text-slate-900">Sismik Mekanik ERP</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Golabs ERP</h1>
           <p className="text-slate-500">Lütfen hesabınıza giriş yapın</p>
         </div>
 
@@ -69,7 +69,7 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-              placeholder="admin@sismikmekanik.local"
+              placeholder="admin@golabserp.local"
               required
             />
           </div>

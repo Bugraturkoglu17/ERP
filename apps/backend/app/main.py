@@ -16,8 +16,8 @@ from app.core.exceptions import AppException
 
 # ── App ────────────────────────────────────────────────────────────────────────
 app = FastAPI(
-    title="Sismik Mekanik ERP API",
-    description="Mekanik Tesisat / Sismik Koruma / Yangın Söndürme Şantiye ERP",
+    title="Golabs ERP API",
+    description="Mekanik Tesisat / Yangın Söndürme Şantiye ERP",
     version="0.1.0",
     docs_url="/api/docs",
     openapi_url="/api/v1/openapi.json",

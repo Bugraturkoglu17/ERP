@@ -1044,7 +1044,7 @@ export default function SettingsPage() {
                       {settings.emailMode === "platform" && <span className="h-2 w-2 rounded-full bg-indigo-600" />}
                     </span>
                     <span className="text-xs text-slate-500 mt-1 leading-relaxed">
-                      E-postalar platform sunucusu (info@sismikerp.com) üzerinden markalanarak yasal gönderim limitleriyle iletilir.
+                      E-postalar platform sunucusu (info@golabserp.com) üzerinden markalanarak yasal gönderim limitleriyle iletilir.
                     </span>
                   </button>
 
