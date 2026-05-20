@@ -13,7 +13,7 @@ from sqlalchemy import inspect
 
 
 revision = "20260521_01"
-down_revision = "20260519_02"
+down_revision = ("20260519_02", "20260520_01")
 branch_labels = None
 depends_on = None
 
