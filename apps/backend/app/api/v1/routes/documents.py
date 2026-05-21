@@ -45,8 +45,8 @@ async def populate_uploader_details(docs: list[Document] | Document, db: AsyncSe
     for d in docs_list:
         if d.uploaded_by and d.uploaded_by in users_lookup:
             u = users_lookup[d.uploaded_by]
-            d.uploaded_by_name = u.full_name
-            d.uploaded_by_email = u.email
+            object.__setattr__(d, "uploaded_by_name", u.full_name)
+            object.__setattr__(d, "uploaded_by_email", u.email)
             
     return docs_list[0] if is_single else docs_list
 
@@ -61,6 +61,7 @@ async def upload_document(
     project_id:    uuid.UUID = Form(...),
     doc_type:      str       = Form(...),
     revision_note: str | None = Form(None),
+    expense_id:    uuid.UUID | None = Form(None),
     file:          UploadFile = File(...),
     db:           AsyncSession = Depends(get_db),
     current_user: User         = Depends(get_current_user),
@@ -91,6 +92,7 @@ async def upload_document(
         revision_note = revision_note,
         version       = 1,
         uploaded_by   = current_user.id,
+        expense_id    = expense_id,
     )
     db.add(doc)
     

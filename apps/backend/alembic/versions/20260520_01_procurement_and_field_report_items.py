@@ -10,6 +10,7 @@ from __future__ import annotations
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import inspect
+from sqlalchemy.dialects.postgresql import ENUM as PG_ENUM
 
 
 revision = "20260520_01"
@@ -39,19 +40,37 @@ def upgrade() -> None:
     inspector = inspect(bind)
 
     # ── 1. Enums ──────────────────────────────────────────────────────────────
-    procurement_status_enum = sa.Enum(
+    bind.execute(sa.text("""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'procurementstatus') THEN
+                CREATE TYPE procurementstatus AS ENUM ('draft', 'pending_approval', 'approved', 'rejected', 'ordered', 'received', 'cancelled');
+            END IF;
+        END$$;
+    """))
+
+    bind.execute(sa.text("""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'fieldreportactivitytype') THEN
+                CREATE TYPE fieldreportactivitytype AS ENUM ('installation', 'testing', 'inspection', 'procurement', 'documentation', 'coordination', 'other');
+            END IF;
+        END$$;
+    """))
+
+    procurement_status_enum = PG_ENUM(
         "draft", "pending_approval", "approved", "rejected",
         "ordered", "received", "cancelled",
         name="procurementstatus",
+        create_type=False,
     )
-    procurement_status_enum.create(bind, checkfirst=True)
 
-    field_report_activity_enum = sa.Enum(
+    field_report_activity_enum = PG_ENUM(
         "installation", "testing", "inspection", "procurement",
         "documentation", "coordination", "other",
         name="fieldreportactivitytype",
+        create_type=False,
     )
-    field_report_activity_enum.create(bind, checkfirst=True)
 
     # ── 2. suppliers ──────────────────────────────────────────────────────────
     if not _table_exists(inspector, "suppliers"):

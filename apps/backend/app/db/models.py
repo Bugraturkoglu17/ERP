@@ -415,7 +415,11 @@ class Document(SQLModel, table=True):
         default_factory=utc_now, nullable=False
     )
 
+    # ── Gider İlişkisi ─────────────────────────────────────
+    expense_id:      Optional[UUID] = Field(default=None, foreign_key="expenses.id", index=True)
+
     project:   Mapped["Project"] = Relationship(back_populates="documents")
+    expense:   Optional["Expense"] = Relationship(back_populates="documents")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -675,6 +679,7 @@ class Expense(SQLModel, table=True):
     )
 
     project: Mapped["Project"] = Relationship(back_populates="expenses")
+    documents: List["Document"] = Relationship(back_populates="expense", sa_relationship_kwargs={"lazy": "selectin"})
 
 
 class InvoiceItem(SQLModel, table=True):

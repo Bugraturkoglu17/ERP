@@ -182,6 +182,7 @@ export default function DocumentsPage() {
     drawing_mep: { label: "MEP Koordinasyon Çizimi", color: "text-indigo-700 border-indigo-200", bg: "bg-indigo-50" },
     invoice_doc: { label: "Hakediş Fişi/Belgesi", color: "text-purple-700 border-purple-200", bg: "bg-purple-50" },
     field_report: { label: "Saha Günlük Raporu", color: "text-teal-700 border-teal-200", bg: "bg-teal-50" },
+    expense_receipt: { label: "Gider Belgesi / Fiş", color: "text-rose-700 border-rose-200", bg: "bg-rose-50" },
     other: { label: "Diğer Teknik Belge", color: "text-slate-700 border-slate-200", bg: "bg-slate-50" }
   };
 
@@ -284,6 +285,7 @@ export default function DocumentsPage() {
                     <option value="drawing_mep">MEP Çizimleri</option>
                     <option value="invoice_doc">Hakediş Dosyaları</option>
                     <option value="field_report">Saha Raporları</option>
+                    <option value="expense_receipt">Gider Belgeleri (Fatura/Fiş)</option>
                     <option value="other">Diğerleri</option>
                   </select>
                 </div>
@@ -509,6 +511,7 @@ export default function DocumentsPage() {
                   <option value="contract">Sözleşme Dosyası</option>
                   <option value="invoice_doc">Hakediş Belgesi (İcmal)</option>
                   <option value="field_report">Günlük Saha Raporu</option>
+                  <option value="expense_receipt">Gider Belgesi / Fiş</option>
                   <option value="other">Diğer Teknik Belge</option>
               </select>
               <input type="file" className="w-full" onChange={(e) => setUploadForm({...uploadForm, file: e.target.files?.[0] || null})} />

@@ -789,6 +789,23 @@ export interface paths {
         patch: operations["update_document_api_v1_documents__doc_id__patch"];
         trace?: never;
     };
+    "/api/v1/documents/{doc_id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dökümanın tüm versiyon geçmişini listele */
+        get: operations["list_document_versions_api_v1_documents__doc_id__versions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/platform/tenants": {
         parameters: {
             query?: never;
@@ -979,6 +996,203 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/procurement/suppliers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Suppliers */
+        get: operations["list_suppliers_api_v1_procurement_suppliers_get"];
+        put?: never;
+        /** Create Supplier */
+        post: operations["create_supplier_api_v1_procurement_suppliers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/procurement/suppliers/{supplier_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Supplier */
+        delete: operations["delete_supplier_api_v1_procurement_suppliers__supplier_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Supplier */
+        patch: operations["update_supplier_api_v1_procurement_suppliers__supplier_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/procurement/requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Requests */
+        get: operations["list_requests_api_v1_procurement_requests_get"];
+        put?: never;
+        /** Create Request */
+        post: operations["create_request_api_v1_procurement_requests_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/procurement/requests/{request_id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Review Request */
+        patch: operations["review_request_api_v1_procurement_requests__request_id__review_patch"];
+        trace?: never;
+    };
+    "/api/v1/procurement/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Orders */
+        get: operations["list_orders_api_v1_procurement_orders_get"];
+        put?: never;
+        /** Create Order */
+        post: operations["create_order_api_v1_procurement_orders_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/procurement/orders/{order_id}/receive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Receive Order
+         * @description PO teslim alma — her satır için otomatik Stok IN hareketi oluşturur.
+         *     Hedef depo: PO'daki warehouse_id (yoksa proje deposu).
+         */
+        patch: operations["receive_order_api_v1_procurement_orders__order_id__receive_patch"];
+        trace?: never;
+    };
+    "/api/v1/field-reports/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Reports */
+        get: operations["list_reports_api_v1_field_reports__get"];
+        put?: never;
+        /** Create Report */
+        post: operations["create_report_api_v1_field_reports__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/field-reports/{report_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Report */
+        get: operations["get_report_api_v1_field_reports__report_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Report */
+        delete: operations["delete_report_api_v1_field_reports__report_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/field-reports/{report_id}/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Report Item */
+        post: operations["add_report_item_api_v1_field_reports__report_id__items_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/field-reports/{report_id}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Submit Report */
+        patch: operations["submit_report_api_v1_field_reports__report_id__submit_patch"];
+        trace?: never;
+    };
+    "/api/v1/field-reports/{report_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Approve Report */
+        patch: operations["approve_report_api_v1_field_reports__report_id__approve_patch"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1012,6 +1226,8 @@ export interface components {
             doc_type: string;
             /** Revision Note */
             revision_note?: string | null;
+            /** Expense Id */
+            expense_id?: string | null;
             /**
              * File
              * Format: binary
@@ -1170,6 +1386,8 @@ export interface components {
              * Format: date-time
              */
             created_at?: string;
+            /** Expense Id */
+            expense_id?: string | null;
         };
         /** DocumentDownloadResponse */
         DocumentDownloadResponse: {
@@ -1215,6 +1433,12 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Expense Id */
+            expense_id?: string | null;
+            /** Uploaded By Name */
+            uploaded_by_name?: string | null;
+            /** Uploaded By Email */
+            uploaded_by_email?: string | null;
         };
         /** DocumentUpdate */
         DocumentUpdate: {
@@ -1276,6 +1500,134 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /**
+             * Documents
+             * @default []
+             */
+            documents: components["schemas"]["DocumentRead"][];
+        };
+        /** FieldReportCreate */
+        FieldReportCreate: {
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /**
+             * Report Date
+             * Format: date-time
+             */
+            report_date: string;
+            /** Summary */
+            summary?: string | null;
+            /** Weather */
+            weather?: string | null;
+            /** Team Size */
+            team_size?: number | null;
+            /** Hours Worked */
+            hours_worked?: number | null;
+            /**
+             * Items
+             * @default []
+             */
+            items: components["schemas"]["FieldReportItemCreate"][];
+        };
+        /** FieldReportItemCreate */
+        FieldReportItemCreate: {
+            /**
+             * Activity Type
+             * @default installation
+             */
+            activity_type: string;
+            /** Description */
+            description: string;
+            /** Location */
+            location?: string | null;
+            /** Hours Spent */
+            hours_spent?: number | null;
+            /** Workers Count */
+            workers_count?: number | null;
+            /**
+             * Sort Order
+             * @default 0
+             */
+            sort_order: number;
+        };
+        /** FieldReportItemRead */
+        FieldReportItemRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Report Id
+             * Format: uuid
+             */
+            report_id: string;
+            /** Activity Type */
+            activity_type: string;
+            /** Description */
+            description: string;
+            /** Location */
+            location: string | null;
+            /** Hours Spent */
+            hours_spent: number | null;
+            /** Workers Count */
+            workers_count: number | null;
+            /** Sort Order */
+            sort_order: number;
+        };
+        /** FieldReportRead */
+        FieldReportRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /**
+             * Author Id
+             * Format: uuid
+             */
+            author_id: string;
+            /**
+             * Report Date
+             * Format: date-time
+             */
+            report_date: string;
+            /** Summary */
+            summary: string | null;
+            /** Weather */
+            weather: string | null;
+            /** Team Size */
+            team_size: number | null;
+            /** Hours Worked */
+            hours_worked: number | null;
+            /** Submitted */
+            submitted: boolean;
+            /** Approved By */
+            approved_by: string | null;
+            /** Approved At */
+            approved_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Items
+             * @default []
+             */
+            items: components["schemas"]["FieldReportItemRead"][];
+            /** Project Name */
+            project_name?: string | null;
+            /** Author Name */
+            author_name?: string | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1583,6 +1935,13 @@ export interface components {
         MessageResponse: {
             /** Message */
             message: string;
+        };
+        /** POReceiveRequest */
+        POReceiveRequest: {
+            /** Received By */
+            received_by?: string | null;
+            /** Notes */
+            notes?: string | null;
         };
         /** PaymentCreate */
         PaymentCreate: {
@@ -1928,6 +2287,186 @@ export interface components {
             /** Contract Value */
             contract_value?: number | null;
         };
+        /** PurchaseOrderCreate */
+        PurchaseOrderCreate: {
+            /** Supplier Id */
+            supplier_id?: string | null;
+            /** Project Id */
+            project_id?: string | null;
+            /** Warehouse Id */
+            warehouse_id?: string | null;
+            /** Po No */
+            po_no: string;
+            /** Order Date */
+            order_date?: string | null;
+            /** Expected Date */
+            expected_date?: string | null;
+            /** Notes */
+            notes?: string | null;
+            /**
+             * Items
+             * @default []
+             */
+            items: components["schemas"]["PurchaseOrderItemCreate"][];
+        };
+        /** PurchaseOrderItemCreate */
+        PurchaseOrderItemCreate: {
+            /**
+             * Material Id
+             * Format: uuid
+             */
+            material_id: string;
+            /** Quantity */
+            quantity: number;
+            /** Unit Price */
+            unit_price?: number | null;
+            /** Notes */
+            notes?: string | null;
+        };
+        /** PurchaseOrderItemRead */
+        PurchaseOrderItemRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Order Id
+             * Format: uuid
+             */
+            order_id: string;
+            /**
+             * Material Id
+             * Format: uuid
+             */
+            material_id: string;
+            /** Quantity */
+            quantity: number;
+            /** Unit Price */
+            unit_price: number | null;
+            /** Total Price */
+            total_price: number | null;
+            /** Notes */
+            notes: string | null;
+            /** Material Name */
+            material_name?: string | null;
+        };
+        /** PurchaseOrderRead */
+        PurchaseOrderRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Tenant Id */
+            tenant_id: string | null;
+            /** Po No */
+            po_no: string;
+            /** Supplier Id */
+            supplier_id: string | null;
+            /** Project Id */
+            project_id: string | null;
+            /** Warehouse Id */
+            warehouse_id: string | null;
+            /** Status */
+            status: string;
+            /** Order Date */
+            order_date: string | null;
+            /** Expected Date */
+            expected_date: string | null;
+            /** Received At */
+            received_at: string | null;
+            /** Total Amount */
+            total_amount: number | null;
+            /** Notes */
+            notes: string | null;
+            /** Created By */
+            created_by: string | null;
+            /** Received By */
+            received_by: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Items
+             * @default []
+             */
+            items: components["schemas"]["PurchaseOrderItemRead"][];
+            /** Supplier Name */
+            supplier_name?: string | null;
+            /** Project Name */
+            project_name?: string | null;
+        };
+        /** PurchaseRequestCreate */
+        PurchaseRequestCreate: {
+            /** Project Id */
+            project_id?: string | null;
+            /**
+             * Material Id
+             * Format: uuid
+             */
+            material_id: string;
+            /** Quantity */
+            quantity: number;
+            /**
+             * Priority
+             * @default normal
+             */
+            priority: string;
+            /** Notes */
+            notes?: string | null;
+        };
+        /** PurchaseRequestRead */
+        PurchaseRequestRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Tenant Id */
+            tenant_id: string | null;
+            /** Project Id */
+            project_id: string | null;
+            /**
+             * Material Id
+             * Format: uuid
+             */
+            material_id: string;
+            /** Quantity */
+            quantity: number;
+            /** Priority */
+            priority: string;
+            /** Notes */
+            notes: string | null;
+            /** Status */
+            status: string;
+            /** Requested By */
+            requested_by: string | null;
+            /**
+             * Requested At
+             * Format: date-time
+             */
+            requested_at: string;
+            /** Reviewed By */
+            reviewed_by: string | null;
+            /** Reviewed At */
+            reviewed_at: string | null;
+            /** Review Note */
+            review_note: string | null;
+            /** Material Name */
+            material_name?: string | null;
+            /** Project Name */
+            project_name?: string | null;
+        };
+        /** PurchaseRequestReview */
+        PurchaseRequestReview: {
+            /** Action */
+            action: string;
+            /** Review Note */
+            review_note?: string | null;
+        };
         /** RegionCreate */
         RegionCreate: {
             /**
@@ -1994,6 +2533,73 @@ export interface components {
             /** Updated By */
             updated_by: string | null;
         };
+        /** SupplierCreate */
+        SupplierCreate: {
+            /** Name */
+            name: string;
+            /** Contact Name */
+            contact_name?: string | null;
+            /** Phone */
+            phone?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Tax No */
+            tax_no?: string | null;
+            /** Address */
+            address?: string | null;
+            /** Notes */
+            notes?: string | null;
+        };
+        /** SupplierRead */
+        SupplierRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Tenant Id */
+            tenant_id: string | null;
+            /** Name */
+            name: string;
+            /** Contact Name */
+            contact_name: string | null;
+            /** Phone */
+            phone: string | null;
+            /** Email */
+            email: string | null;
+            /** Tax No */
+            tax_no: string | null;
+            /** Address */
+            address: string | null;
+            /** Notes */
+            notes: string | null;
+            /** Is Active */
+            is_active: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** SupplierUpdate */
+        SupplierUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Contact Name */
+            contact_name?: string | null;
+            /** Phone */
+            phone?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Tax No */
+            tax_no?: string | null;
+            /** Address */
+            address?: string | null;
+            /** Notes */
+            notes?: string | null;
+            /** Is Active */
+            is_active?: boolean | null;
+        };
         /** TenantAdminProvisionRequest */
         TenantAdminProvisionRequest: {
             /**
@@ -2040,6 +2646,8 @@ export interface components {
         };
         /** TenantAdminResetRequest */
         TenantAdminResetRequest: {
+            /** Admin User Id */
+            admin_user_id?: string | null;
             /** Temporary Password */
             temporary_password: string;
             /**
@@ -2099,6 +2707,18 @@ export interface components {
             email_provider_identity_id?: string | null;
             /** Email Branding */
             email_branding?: Record<string, never> | null;
+            /**
+             * Email Notifications Enabled
+             * @default true
+             */
+            email_notifications_enabled: boolean;
+            /**
+             * Email Digest Mode
+             * @default immediate
+             */
+            email_digest_mode: string;
+            /** Email Opt Out Templates */
+            email_opt_out_templates?: string[];
         };
         /** TenantCreate */
         TenantCreate: {
@@ -2171,6 +2791,12 @@ export interface components {
             email_provider_identity_id?: string | null;
             /** Email Branding */
             email_branding?: Record<string, never> | null;
+            /** Email Notifications Enabled */
+            email_notifications_enabled?: boolean | null;
+            /** Email Digest Mode */
+            email_digest_mode?: string | null;
+            /** Email Opt Out Templates */
+            email_opt_out_templates?: string[] | null;
             /**
              * Tenant Id
              * Format: uuid
@@ -2209,6 +2835,12 @@ export interface components {
             email_provider_identity_id?: string | null;
             /** Email Branding */
             email_branding?: Record<string, never> | null;
+            /** Email Notifications Enabled */
+            email_notifications_enabled?: boolean | null;
+            /** Email Digest Mode */
+            email_digest_mode?: string | null;
+            /** Email Opt Out Templates */
+            email_opt_out_templates?: string[] | null;
         };
         /** TenantUpdate */
         TenantUpdate: {
@@ -4416,6 +5048,37 @@ export interface operations {
             };
         };
     };
+    list_document_versions_api_v1_documents__doc_id__versions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                doc_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_tenants_api_v1_platform_tenants_get: {
         parameters: {
             query?: never;
@@ -4840,6 +5503,565 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PlatformAuditRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_suppliers_api_v1_procurement_suppliers_get: {
+        parameters: {
+            query?: {
+                skip?: number;
+                limit?: number;
+                active_only?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupplierRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_supplier_api_v1_procurement_suppliers_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SupplierCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupplierRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_supplier_api_v1_procurement_suppliers__supplier_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                supplier_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_supplier_api_v1_procurement_suppliers__supplier_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                supplier_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SupplierUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupplierRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_requests_api_v1_procurement_requests_get: {
+        parameters: {
+            query?: {
+                project_id?: string | null;
+                status_filter?: string | null;
+                skip?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseRequestRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_request_api_v1_procurement_requests_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PurchaseRequestCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseRequestRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    review_request_api_v1_procurement_requests__request_id__review_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PurchaseRequestReview"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseRequestRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_orders_api_v1_procurement_orders_get: {
+        parameters: {
+            query?: {
+                project_id?: string | null;
+                status_filter?: string | null;
+                skip?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseOrderRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_order_api_v1_procurement_orders_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PurchaseOrderCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseOrderRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    receive_order_api_v1_procurement_orders__order_id__receive_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["POReceiveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseOrderRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_reports_api_v1_field_reports__get: {
+        parameters: {
+            query?: {
+                project_id?: string | null;
+                submitted?: boolean | null;
+                approved?: boolean | null;
+                skip?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FieldReportRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_report_api_v1_field_reports__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FieldReportCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FieldReportRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_report_api_v1_field_reports__report_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                report_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FieldReportRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_report_api_v1_field_reports__report_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                report_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_report_item_api_v1_field_reports__report_id__items_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                report_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FieldReportItemCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FieldReportItemRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_report_api_v1_field_reports__report_id__submit_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                report_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FieldReportRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approve_report_api_v1_field_reports__report_id__approve_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                report_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FieldReportRead"];
                 };
             };
             /** @description Validation Error */

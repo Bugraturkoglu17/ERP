@@ -507,6 +507,7 @@ class DocumentCreate(BaseModel):
     doc_type:     str
     original_name: str
     revision_note: str | None = None
+    expense_id:   UUID | None = None
  
 class DocumentUpdate(BaseModel):
     doc_type:     str | None = None
@@ -527,6 +528,9 @@ class DocumentRead(BaseModel):
     archived:        bool
     uploaded_by:     UUID | None
     created_at:      datetime
+    expense_id:        UUID | None = None
+    uploaded_by_name:  str | None = None
+    uploaded_by_email: str | None = None
     model_config    = ConfigDict(from_attributes=True)
  
 class DocumentVersionCreate(BaseModel):
@@ -589,6 +593,7 @@ class ExpenseCreate(BaseModel):
     amount:            float
     quantity:          float | None = None
     expense_date:      datetime
+    stock_movement_id: UUID | None = None
 
 class ExpenseRead(BaseModel):
     id:                UUID
@@ -599,6 +604,8 @@ class ExpenseRead(BaseModel):
     quantity:          float | None
     expense_date:      datetime
     created_at:        datetime
+    stock_movement_id: UUID | None = None
+    documents:         list[DocumentRead] = []
     model_config  = ConfigDict(from_attributes=True)
 
 class PaymentCreate(BaseModel):

@@ -306,6 +306,7 @@ async def create_expense(
         amount=Decimal(str(expense_in.amount)),
         quantity=Decimal(str(expense_in.quantity)) if expense_in.quantity else None,
         expense_date=exp_date,
+        stock_movement_id=expense_in.stock_movement_id,
     )
     db.add(exp)
     await db.commit()

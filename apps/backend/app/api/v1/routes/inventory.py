@@ -30,6 +30,8 @@ from app.db.models import (
     Warehouse,
     WarehouseType,
     Tenant,
+    Expense,
+    ExpenseCategory,
 )
 from app.db.schemas import (
     InventoryTransactionCreate,
@@ -724,6 +726,11 @@ async def create_transaction(
             detail="Transfer işlemi için /inventory/transfer endpoint'ini kullanın.",
         )
 
+    # ── 0 · Malzeme Doğrulaması ──────────────────────────────────────────────
+    material = await db.get(Material, body.material_id)
+    if not material or not material.is_active:
+        raise NotFoundError(detail="Malzeme bulunamadı veya pasif.")
+
     from_wh_id = body.from_warehouse_id
     to_wh_id   = body.to_warehouse_id
 
@@ -790,6 +797,9 @@ async def create_transaction(
 
     # ── Transaction kaydı ──────────────────────────────────────────────────────
     unit_cost  = body.unit_cost
+    if unit_cost is None:
+        unit_cost = material.unit_cost
+
     total_cost = (
         Decimal(str(unit_cost)) * Decimal(str(body.quantity))
         if unit_cost is not None
@@ -806,9 +816,31 @@ async def create_transaction(
         related_project_id = body.related_project_id,
         unit_cost          = unit_cost,
         total_cost         = total_cost,
-        performed_by       = None,
+        performed_by       = user.id,
+        performed_at       = datetime.now(timezone.utc).replace(tzinfo=None),
     )
     db.add(tx)
+    await db.flush()  # tx.id almak için flush yapıyoruz
+
+    # ── Eğer projeye çıkış ise otomatik gider ekle ──────────────────────────────
+    if tx_type in (InventoryTransactionType.OUT, InventoryTransactionType.ADJUSTMENT) and body.related_project_id:
+        expense_amount = total_cost or Decimal("0")
+        desc_notes = f" ({body.notes})" if body.notes else ""
+        description = f"{material.name} Stok Çıkışı - Miktar: {body.quantity} {material.unit}{desc_notes}"
+        if len(description) > 255:
+            description = description[:252] + "..."
+
+        expense = Expense(
+            project_id=body.related_project_id,
+            category=ExpenseCategory.MATERIAL,
+            description=description,
+            amount=expense_amount,
+            quantity=float(body.quantity),
+            stock_movement_id=tx.id,
+            expense_date=datetime.now(timezone.utc).replace(tzinfo=None),
+            created_by=user.id,
+        )
+        db.add(expense)
 
     try:
         await db.commit()
@@ -829,7 +861,6 @@ async def create_transaction(
             )
         )
         latest_stock = stock_row.scalar_one_or_none()
-        material = await db.get(Material, body.material_id)
         if from_wh and latest_stock and material:
             await _notify_low_stock_if_needed(
                 db,
@@ -885,6 +916,52 @@ async def list_transactions(
         )
     result = await db.execute(query.offset(skip).limit(limit))
     return list(result.scalars())
+
+
+@router.get(
+    "/transactions/{transaction_id}",
+    summary="Stok hareketi detayı",
+)
+async def get_transaction(
+    transaction_id: uuid.UUID,
+    db:             AsyncSession = Depends(get_db),
+    user:           User = Depends(get_current_user),
+):
+    from sqlalchemy.orm import selectinload
+    stmt = (
+        select(InventoryTransaction)
+        .options(
+            selectinload(InventoryTransaction.material),
+            selectinload(InventoryTransaction.from_warehouse),
+            selectinload(InventoryTransaction.to_warehouse),
+        )
+        .where(InventoryTransaction.id == transaction_id)
+    )
+    result = await db.execute(stmt)
+    tx = result.scalar_one_or_none()
+    if not tx:
+        raise NotFoundError(detail="Stok hareketi bulunamadı.")
+
+    return {
+        "id":                  str(tx.id),
+        "material_id":         str(tx.material_id),
+        "material_name":       tx.material.name if tx.material else None,
+        "material_sku":        tx.material.sku if tx.material else None,
+        "material_unit":       tx.material.unit if tx.material else None,
+        "from_warehouse_id":   str(tx.from_warehouse_id) if tx.from_warehouse_id else None,
+        "from_warehouse_name": tx.from_warehouse.name if tx.from_warehouse else None,
+        "to_warehouse_id":     str(tx.to_warehouse_id) if tx.to_warehouse_id else None,
+        "to_warehouse_name":   tx.to_warehouse.name if tx.to_warehouse else None,
+        "related_project_id":  str(tx.related_project_id) if tx.related_project_id else None,
+        "quantity":            tx.quantity,
+        "unit_cost":           float(tx.unit_cost) if tx.unit_cost is not None else None,
+        "total_cost":          float(tx.total_cost) if tx.total_cost is not None else None,
+        "transaction_type":    tx.transaction_type,
+        "reference_no":        tx.reference_no,
+        "notes":               tx.notes,
+        "performed_by":        str(tx.performed_by) if tx.performed_by else None,
+        "performed_at":        tx.performed_at.isoformat() if tx.performed_at else None,
+    }
 
 
 # ═════════════════════════════════════════════════════════════════════════════

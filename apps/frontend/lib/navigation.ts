@@ -34,10 +34,16 @@ export const NAV_ITEMS: NavItem[] = [
     allowedRoles: ["admin", "saha_muhendisi", "musteri_kullanici"],
   },
   {
-    label: "Depo & Stok",
-    href: "/inventory",
-    icon: Warehouse,
-    allowedRoles: ["admin", "depo_sorumlusu"],
+    label: "Saha Raporları",
+    href: "/field-reports",
+    icon: ClipboardList,
+    allowedRoles: ["admin", "saha_muhendisi"],
+  },
+  {
+    label: "Dokümanlar",
+    href: "/documents",
+    icon: FileText,
+    allowedRoles: ["admin", "saha_muhendisi", "musteri_kullanici"],
   },
   {
     label: "Satın Alma",
@@ -46,22 +52,16 @@ export const NAV_ITEMS: NavItem[] = [
     allowedRoles: ["admin", "depo_sorumlusu"],
   },
   {
-    label: "Saha Raporları",
-    href: "/field-reports",
-    icon: ClipboardList,
-    allowedRoles: ["admin", "saha_muhendisi"],
+    label: "Depo & Stok",
+    href: "/inventory",
+    icon: Warehouse,
+    allowedRoles: ["admin", "depo_sorumlusu"],
   },
   {
     label: "Finans",
     href: "/finance",
     icon: CircleDollarSign,
     allowedRoles: ["admin"],
-  },
-  {
-    label: "Dokümanlar",
-    href: "/documents",
-    icon: FileText,
-    allowedRoles: ["admin", "saha_muhendisi", "musteri_kullanici"],
   },
   {
     label: "Kullanıcılar",
