@@ -27,8 +27,12 @@ import {
   Trash2,
   MapPin,
   Layers,
+  Sparkles,
+  DownloadCloud,
+  UploadCloud,
+  FileSpreadsheet,
 } from "lucide-react";
-import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from "@/lib/api";
+import { api, apiDelete, apiGet, apiPatch, apiPost, apiPut } from "@/lib/api";
 import { fetchTenantContext, saveTenantContext, type TenantContext } from "@/lib/tenant-context";
 import { getTokenPayloadFromStorage, getRoles } from "@/lib/auth";
 
@@ -130,6 +134,8 @@ export default function SettingsPage() {
   const [regionsByCustomer, setRegionsByCustomer] = useState<Record<string, any[]>>({});
   const [branchesByRegion, setBranchesByRegion] = useState<Record<string, any[]>>({});
   const [loadingHierarchyData, setLoadingHierarchyData] = useState(false);
+  const [importingChain, setImportingChain] = useState<string | null>(null);
+  const [importingMessage, setImportingMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const [customerName, setCustomerName] = useState("");
   const [regionForm, setRegionForm] = useState({ customer_id: "", name: "", city: "", code: "" });
@@ -456,6 +462,83 @@ export default function SettingsPage() {
       alert("Şube silindi.");
     } catch (err: any) {
       alert(err?.response?.data?.detail || "Silinemedi.");
+    }
+  }
+
+  async function handleImportTemplateChain(chainName: string) {
+    setImportingChain(chainName);
+    setImportingMessage(null);
+    try {
+      const res = await apiPost<any>("/projects/hierarchy/import-template-chain", {
+        chain_name: chainName
+      });
+      setImportingMessage({
+        type: "success",
+        text: res?.message || `Başarıyla içe aktarıldı. ${res?.added_branches || 0} yeni şube eklendi.`
+      });
+      await loadHierarchy();
+    } catch (err: any) {
+      console.error(err);
+      setImportingMessage({
+        type: "error",
+        text: err?.response?.data?.detail || "Şablon içe aktarılırken bir hata oluştu."
+      });
+    } finally {
+      setImportingChain(null);
+    }
+  }
+
+  async function handleDownloadCSV(chainName: string) {
+    try {
+      const response = await api.get(`/projects/hierarchy/download-csv`, {
+        params: { chain: chainName },
+        responseType: "blob"
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: "text/csv;charset=utf-8;" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `${chainName.toLowerCase()}_sablon_subeler.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err: any) {
+      console.error("CSV indirilemedi:", err);
+      alert("Şablon CSV indirilirken bir hata oluştu.");
+    }
+  }
+
+  async function handleImportCustomCSV(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    
+    if (!file.name.toLowerCase().endsWith(".csv")) {
+      alert("Lütfen geçerli bir .csv dosyası seçin.");
+      return;
+    }
+    
+    setImportingChain("custom_csv");
+    setImportingMessage(null);
+    
+    const formData = new FormData();
+    formData.append("file", file);
+    
+    try {
+      const res = await apiPost<any>("/projects/hierarchy/import-custom-csv", formData, true);
+      setImportingMessage({
+        type: "success",
+        text: res?.message || `Özel CSV başarıyla aktarıldı.`
+      });
+      await loadHierarchy();
+    } catch (err: any) {
+      console.error(err);
+      setImportingMessage({
+        type: "error",
+        text: err?.response?.data?.detail || "CSV aktarılırken bir hata oluştu."
+      });
+    } finally {
+      setImportingChain(null);
+      e.target.value = "";
     }
   }
 
@@ -970,6 +1053,212 @@ export default function SettingsPage() {
                     ))}
                   </div>
                 )}
+              </div>
+
+              {/* Hazır Zincir Market Şablonları */}
+              <div className="mt-8 pt-6 border-t border-slate-100 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-amber-500 animate-pulse" /> Hazır Zincir Market Şablonları
+                    </h4>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Türkiye'nin en yaygın zincir marketlerinin güncel şube verilerini otomatik olarak kurumsal hiyerarşinize aktarın veya CSV şablonu olarak indirin.
+                    </p>
+                  </div>
+                </div>
+
+                {importingMessage && (
+                  <div className={`p-4 rounded-xl text-xs flex items-center justify-between border ${
+                    importingMessage.type === "success" 
+                      ? "bg-emerald-50 border-emerald-100 text-emerald-800" 
+                      : "bg-rose-50 border-rose-100 text-rose-800"
+                  } transition-all duration-200`}>
+                    <div className="flex items-center gap-2">
+                      {importingMessage.type === "success" ? (
+                        <CheckCircle2 className="h-4.5 w-4.5 text-emerald-600 shrink-0" />
+                      ) : (
+                        <Info className="h-4.5 w-4.5 text-rose-600 shrink-0" />
+                      )}
+                      <span className="font-semibold">{importingMessage.text}</span>
+                    </div>
+                    <button 
+                      onClick={() => setImportingMessage(null)}
+                      className="text-slate-400 hover:text-slate-600 text-sm font-bold px-1"
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                  {/* Migros Card */}
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50/10 p-4 flex flex-col justify-between space-y-4 hover:border-indigo-300 hover:bg-slate-50/30 transition-all duration-200 shadow-sm">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md uppercase tracking-wider">MİGROS</span>
+                        <Building2 className="h-4 w-4 text-slate-400" />
+                      </div>
+                      <p className="text-[11px] text-slate-500 font-semibold mt-2">Macrocenter dahil tüm Migros mağazaları.</p>
+                      <p className="text-xs font-black text-slate-700 mt-1">4.833 Aktif Şube</p>
+                    </div>
+                    <div className="flex gap-2 pt-2 border-t border-slate-100">
+                      <button
+                        onClick={() => handleImportTemplateChain("Migros")}
+                        disabled={importingChain !== null}
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 px-2.5 py-1.5 text-[11px] font-bold text-white shadow-sm transition-all active:scale-[0.98]"
+                      >
+                        {importingChain === "Migros" ? (
+                          <RotateCcw className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-3 w-3" />
+                        )}
+                        ERP'ye Aktar
+                      </button>
+                      <button
+                        onClick={() => handleDownloadCSV("Migros")}
+                        className="inline-flex items-center justify-center p-1.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 shadow-sm transition-all"
+                        title="CSV Şablonu İndir"
+                      >
+                        <FileSpreadsheet className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* A101 Card */}
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50/10 p-4 flex flex-col justify-between space-y-4 hover:border-indigo-300 hover:bg-slate-50/30 transition-all duration-200 shadow-sm">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md uppercase tracking-wider">A101</span>
+                        <Building2 className="h-4 w-4 text-slate-400" />
+                      </div>
+                      <p className="text-[11px] text-slate-500 font-semibold mt-2">Bölgesel A101 şube ağ şablonu.</p>
+                      <p className="text-xs font-black text-slate-700 mt-1">957 Aktif Şube</p>
+                    </div>
+                    <div className="flex gap-2 pt-2 border-t border-slate-100">
+                      <button
+                        onClick={() => handleImportTemplateChain("A101")}
+                        disabled={importingChain !== null}
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 px-2.5 py-1.5 text-[11px] font-bold text-white shadow-sm transition-all active:scale-[0.98]"
+                      >
+                        {importingChain === "A101" ? (
+                          <RotateCcw className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-3 w-3" />
+                        )}
+                        ERP'ye Aktar
+                      </button>
+                      <button
+                        onClick={() => handleDownloadCSV("A101")}
+                        className="inline-flex items-center justify-center p-1.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 shadow-sm transition-all"
+                        title="CSV Şablonu İndir"
+                      >
+                        <FileSpreadsheet className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* BİM Card */}
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50/10 p-4 flex flex-col justify-between space-y-4 hover:border-indigo-300 hover:bg-slate-50/30 transition-all duration-200 shadow-sm">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md uppercase tracking-wider">BİM</span>
+                        <Building2 className="h-4 w-4 text-slate-400" />
+                      </div>
+                      <p className="text-[11px] text-slate-500 font-semibold mt-2">Bölgesel BİM şube ağ şablonu.</p>
+                      <p className="text-xs font-black text-slate-700 mt-1">262 Aktif Şube</p>
+                    </div>
+                    <div className="flex gap-2 pt-2 border-t border-slate-100">
+                      <button
+                        onClick={() => handleImportTemplateChain("BİM")}
+                        disabled={importingChain !== null}
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 px-2.5 py-1.5 text-[11px] font-bold text-white shadow-sm transition-all active:scale-[0.98]"
+                      >
+                        {importingChain === "BİM" ? (
+                          <RotateCcw className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-3 w-3" />
+                        )}
+                        ERP'ye Aktar
+                      </button>
+                      <button
+                        onClick={() => handleDownloadCSV("BİM")}
+                        className="inline-flex items-center justify-center p-1.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 shadow-sm transition-all"
+                        title="CSV Şablonu İndir"
+                      >
+                        <FileSpreadsheet className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* All Chains Card */}
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50/10 p-4 flex flex-col justify-between space-y-4 hover:border-indigo-300 hover:bg-slate-50/30 transition-all duration-200 shadow-sm">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md uppercase tracking-wider">TÜMÜ</span>
+                        <Sparkles className="h-4 w-4 text-slate-400" />
+                      </div>
+                      <p className="text-[11px] text-slate-500 font-semibold mt-2">Tüm zincir market şubelerini tek seferde aktarın.</p>
+                      <p className="text-xs font-black text-slate-700 mt-1">6.052 Aktif Şube</p>
+                    </div>
+                    <div className="flex gap-2 pt-2 border-t border-slate-100">
+                      <button
+                        onClick={() => handleImportTemplateChain("all")}
+                        disabled={importingChain !== null}
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 px-2.5 py-1.5 text-[11px] font-bold text-white shadow-sm transition-all active:scale-[0.98]"
+                      >
+                        {importingChain === "all" ? (
+                          <RotateCcw className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-3 w-3" />
+                        )}
+                        ERP'ye Aktar
+                      </button>
+                      <button
+                        onClick={() => handleDownloadCSV("all")}
+                        className="inline-flex items-center justify-center p-1.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 shadow-sm transition-all"
+                        title="Tüm Şablonu CSV İndir"
+                      >
+                        <FileSpreadsheet className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Custom CSV Upload Card */}
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50/10 p-4 flex flex-col justify-between space-y-4 hover:border-indigo-300 hover:bg-slate-50/30 transition-all duration-200 shadow-sm">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md uppercase tracking-wider">ÖZEL CSV</span>
+                        <UploadCloud className="h-4 w-4 text-slate-400" />
+                      </div>
+                      <p className="text-[11px] text-slate-500 font-semibold mt-2">Dışarıdan kendi hazırladığınız şube listesi CSV dosyasını aktarın.</p>
+                      <p className="text-xs font-black text-slate-700 mt-1">Akıllı Alan Eşleştirme</p>
+                    </div>
+                    <div className="pt-2 border-t border-slate-100">
+                      <input
+                        type="file"
+                        accept=".csv"
+                        onChange={handleImportCustomCSV}
+                        disabled={importingChain !== null}
+                        className="hidden"
+                        id="custom-csv-file-input"
+                      />
+                      <label
+                        htmlFor="custom-csv-file-input"
+                        className={`w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 px-2.5 py-1.5 text-[11px] font-bold text-white shadow-sm transition-all duration-150 active:scale-[0.98] cursor-pointer ${
+                          importingChain !== null ? "pointer-events-none opacity-50" : ""
+                        }`}
+                      >
+                        {importingChain === "custom_csv" ? (
+                          <RotateCcw className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <UploadCloud className="h-3.5 w-3.5" />
+                        )}
+                        Dosya Seç & Aktar
+                      </label>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}
