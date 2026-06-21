@@ -2,14 +2,14 @@
 
 import "./globals.css";
 import { Menu } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { fetchTenantContext } from "@/lib/tenant-context";
 
 function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [title, setTitle] = useState("Yönetim Paneli");
+  const [title, setTitle] = useState("Sismik Proje Arşivi");
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
 
@@ -17,15 +17,20 @@ function AppShell({ children }: { children: React.ReactNode }) {
     setMounted(true);
   }, []);
 
-  const isPublicRoute = pathname === "/login" || pathname === "/password-reset";
+  const isPublicRoute =
+    pathname === "/login" ||
+    pathname === "/password-reset" ||
+    pathname === "/platform" ||
+    pathname.startsWith("/platform/");
   const hasToken = typeof window !== "undefined" && !!localStorage.getItem("token");
 
   useEffect(() => {
     if (!mounted) return;
-    if (!isPublicRoute && !hasToken) {
+    const isPlatformRoute = pathname === "/platform" || pathname.startsWith("/platform/");
+    if (!isPublicRoute && !isPlatformRoute && !hasToken) {
       window.location.href = "/login";
     }
-  }, [mounted, isPublicRoute, hasToken]);
+  }, [mounted, isPublicRoute, hasToken, pathname]);
 
   useEffect(() => {
     if (pathname === "/login" || pathname === "/password-reset") {
@@ -37,7 +42,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
     (async () => {
       const ctx = await fetchTenantContext();
       if (ctx?.tenant_name) {
-        setTitle(`${ctx.tenant_name} ERP Paneli`);
+        setTitle(`${ctx.tenant_name} — Proje Arşivi`);
       }
     })();
   }, [pathname, hasToken]);
@@ -51,8 +56,9 @@ function AppShell({ children }: { children: React.ReactNode }) {
     );
   }
 
+  const isPlatformRoute = pathname === "/platform" || pathname.startsWith("/platform/");
   // Redirecting state
-  if (!isPublicRoute && !hasToken) {
+  if (!isPublicRoute && !isPlatformRoute && !hasToken) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
@@ -66,7 +72,9 @@ function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-900 w-full">
-      <Sidebar mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
+      <Suspense fallback={<div className="w-64 shrink-0" />}>
+        <Sidebar mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
+      </Suspense>
       <main className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-16 shrink-0 items-center justify-between border-b bg-white px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">

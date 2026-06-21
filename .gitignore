@@ -42,3 +42,6 @@ Thumbs.db
 
 # TypeScript Build Cache
 *.tsbuildinfo
+
+# Uploaded files (binary, not version controlled)
+apps/backend/app/static/uploads/

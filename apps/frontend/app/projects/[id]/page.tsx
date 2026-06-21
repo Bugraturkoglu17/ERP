@@ -1,0 +1,1134 @@
+"use client";
+
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import {
+  Activity,
+  ChevronRight,
+  Download,
+  Edit2,
+  FileText,
+  Folder,
+  History,
+  Loader2,
+  MapPin,
+  NotebookPen,
+  Phone,
+  Plus,
+  RefreshCw,
+  Save,
+  StickyNote,
+  Store,
+  Tag,
+  Trash2,
+  Upload,
+  X,
+} from "lucide-react";
+import { apiGet, apiPatch, apiDelete, buildApiUrl } from "@/lib/api";
+import ProcessTab from "./ProcessTab";
+import ServisFormTab from "./ServisFormTab";
+import HakkedisTab from "./HakkedisTab";
+import FaturaTab from "./FaturaTab";
+
+// ── Types ──────────────────────────────────────────────────────────────────────
+
+type Project = {
+  id: string;
+  name: string;
+  project_no?: string;
+  description?: string;
+  status: string;
+  scope_codes?: string[];
+  start_date?: string;
+  due_date?: string;
+  created_at?: string;
+  updated_at?: string;
+  customer_id?: string;
+  region_id?: string;
+  branch_id?: string;
+};
+
+type Document = {
+  id: string;
+  original_name: string;
+  doc_type: string;
+  version: number;
+  revision_note?: string;
+  uploaded_by_name?: string;
+  file_size_bytes?: number;
+  created_at: string;
+};
+
+type DocVersion = {
+  id: string;
+  version: number;
+  original_name: string;
+  revision_note?: string;
+  uploaded_by_name?: string;
+  file_size_bytes?: number;
+  created_at: string;
+};
+
+type Note = {
+  id: string;
+  text: string;
+  author?: string;
+  created_at: string;
+};
+
+// ── Tab Config ─────────────────────────────────────────────────────────────────
+
+type TabKey = "identity" | "project_files" | "revisions" | "servisform" | "hakkediş" | "fatura" | "notes" | "activity" | "process";
+
+const TABS: { key: TabKey; label: string }[] = [
+  { key: "identity",      label: "Kimlik"          },
+  { key: "process",       label: "Süreç Takibi"    },
+  { key: "project_files", label: "Proje Dosyaları" },
+  { key: "revisions",     label: "Revizyonlar"     },
+  { key: "servisform",    label: "Servis Formları" },
+  { key: "hakkediş",      label: "Hakkedişler"     },
+  { key: "fatura",        label: "Faturalar"       },
+  { key: "activity",      label: "Son İşlemler"    },
+  { key: "notes",         label: "Notlar"          },
+];
+
+type DescExtra = {
+  format?: string;
+  tel1?: string;
+  tel2?: string;
+  tel3?: string;
+  tel4?: string;
+  adres?: string;
+  acilis_tarihi?: string;
+};
+
+function parseDesc(desc?: string): DescExtra {
+  if (!desc) return {};
+  try { return JSON.parse(desc); } catch { return {}; }
+}
+
+// ── Constants ──────────────────────────────────────────────────────────────────
+
+// category: hangi sekmeye ait olduğu
+// "project_file" → Proje Dosyaları, "revision" → Revizyonlar, "module" → kendi sekmesi, "other" → Diğer
+const DOC_TYPES: Record<string, { label: string; category: "project_file" | "revision" | "module" | "other"; ext?: string }> = {
+  // Proje Dosyaları
+  drawing_hvac:    { label: "HVAC Çizim",      category: "project_file", ext: "DWG" },
+  drawing_fire:    { label: "Yangın Çizim",    category: "project_file", ext: "DWG" },
+  drawing_seismic: { label: "Sismik Çizim",    category: "project_file", ext: "DWG" },
+  drawing_mep:     { label: "MEP Çizim",       category: "project_file", ext: "DWG" },
+  project_file:    { label: "Proje Dosyası",   category: "project_file"             },
+  contract:        { label: "Sözleşme",        category: "project_file", ext: "PDF" },
+  // Sadece Revizyonlar sekmesi
+  revision:        { label: "Revizyon",        category: "revision"                 },
+  // Modül sekmeleri (ServisFormTab, HakkedisTab, FaturaTab, OnayMailTab yönetir)
+  field_report:    { label: "Saha Raporu",     category: "module" },
+  invoice_doc:     { label: "Hakediş/Fatura",  category: "module" },
+  expense_receipt: { label: "Masraf Makbuzu",  category: "module" },
+  approval_email:  { label: "Onay Maili",      category: "module" },
+  // Diğer Dosyalar
+  other:           { label: "Diğer",           category: "other"  },
+};
+
+// Upload modalında sadece Proje Dosyaları kategorisindeki tipler gösterilir
+const DOC_TYPE_OPTS = Object.entries(DOC_TYPES)
+  .filter(([, d]) => d.category === "project_file")
+  .map(([v, d]) => ({ value: v, label: d.label }));
+
+
+const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
+  inquiry:      { label: "Keşif",         cls: "bg-purple-50 text-purple-700 border-purple-100" },
+  INQUIRY:      { label: "Keşif",         cls: "bg-purple-50 text-purple-700 border-purple-100" },
+  approved:     { label: "Onaylandı",     cls: "bg-green-50 text-green-700 border-green-100"   },
+  APPROVED:     { label: "Onaylandı",     cls: "bg-green-50 text-green-700 border-green-100"   },
+  in_progress:  { label: "Sahada",        cls: "bg-blue-50 text-blue-700 border-blue-100"      },
+  IN_PROGRESS:  { label: "Sahada",        cls: "bg-blue-50 text-blue-700 border-blue-100"      },
+  invoice_pend: { label: "Beklemede",     cls: "bg-amber-50 text-amber-700 border-amber-100"   },
+  INVOICE_PEND: { label: "Beklemede",     cls: "bg-amber-50 text-amber-700 border-amber-100"   },
+  completed:    { label: "Tamamlandı",    cls: "bg-slate-100 text-slate-600 border-slate-200"  },
+  COMPLETED:    { label: "Tamamlandı",    cls: "bg-slate-100 text-slate-600 border-slate-200"  },
+  cancelled:    { label: "İptal",         cls: "bg-red-50 text-red-600 border-red-100"         },
+  CANCELLED:    { label: "İptal",         cls: "bg-red-50 text-red-600 border-red-100"         },
+};
+
+const STATUS_STEPS = [
+  { key: "inquiry",      label: "Keşif"      },
+  { key: "approved",     label: "Onaylandı"  },
+  { key: "in_progress",  label: "Sahada"     },
+  { key: "invoice_pend", label: "Hakediş"    },
+  { key: "completed",    label: "Tamamlandı" },
+];
+
+const IS_TIPI_OPTS = [
+  { value: "bakim",      label: "Bakım"     },
+  { value: "tadilat",    label: "Tadilat"   },
+  { value: "yeni_yapim", label: "Yeni Yapım"},
+];
+
+const DISIPLIN_OPTS = [
+  { value: "seismic", label: "Sismik" },
+  { value: "hvac",    label: "HVAC"   },
+  { value: "fire",    label: "Yangın" },
+  { value: "mep",     label: "MEP"    },
+];
+
+const STATUS_OPTS = [
+  { value: "inquiry",      label: "Keşif"         },
+  { value: "approved",     label: "Onaylandı"     },
+  { value: "in_progress",  label: "Devam Ediyor"  },
+  { value: "invoice_pend", label: "Beklemede"     },
+  { value: "completed",    label: "Tamamlandı"    },
+  { value: "cancelled",    label: "İptal Edildi"  },
+];
+
+function fmtBytes(n?: number): string {
+  if (!n) return "—";
+  if (n < 1048576) return `${(n / 1024).toFixed(0)} KB`;
+  return `${(n / 1048576).toFixed(1)} MB`;
+}
+
+function getIstipi(codes: string[] = []): { value: string; label: string } {
+  const found = IS_TIPI_OPTS.find((o) => codes.includes(o.value));
+  return found ?? { value: "", label: "Belirtilmemiş" };
+}
+
+function getDisiplinler(codes: string[] = []): string[] {
+  return codes.filter((c) => DISIPLIN_OPTS.some((d) => d.value === c));
+}
+
+function getDocCategory(doc_type: string) {
+  return DOC_TYPES[doc_type]?.category ?? "other";
+}
+
+function getExtBadge(doc: Document): string {
+  if (DOC_TYPES[doc.doc_type]?.ext) return DOC_TYPES[doc.doc_type].ext!;
+  const ext = doc.original_name.split(".").pop()?.toUpperCase() ?? "";
+  return ext;
+}
+
+// ── URL Tab Util ───────────────────────────────────────────────────────────────
+
+function readTabFromUrl(): TabKey {
+  if (typeof window === "undefined") return "identity";
+  const p = new URLSearchParams(window.location.search);
+  const t = p.get("tab");
+  // Eski URL'lerden gelen dwg/pdf sekme key'lerini Proje Dosyaları'na yönlendir
+  if (t === "dwg" || t === "pdf") return "project_files";
+  return (t && TABS.some((x) => x.key === t) ? t : "identity") as TabKey;
+}
+
+function writeTabToUrl(tab: TabKey) {
+  const url = new URL(window.location.href);
+  url.searchParams.set("tab", tab);
+  window.history.replaceState({}, "", url.toString());
+}
+
+// ── Upload Modal ───────────────────────────────────────────────────────────────
+
+function UploadModal({
+  projectId, onClose, onDone, forRevision = false,
+}: { projectId: string; onClose: () => void; onDone: () => void; forRevision?: boolean }) {
+  const [file, setFile]       = useState<File | null>(null);
+  const [docType, setDocType] = useState(forRevision ? "revision" : "project_file");
+  const [revNote, setRevNote] = useState("");
+  const [busy, setBusy]       = useState(false);
+  const [err, setErr]         = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!file) { setErr("Dosya seçin."); return; }
+    setBusy(true); setErr("");
+    try {
+      const fd = new FormData();
+      fd.append("project_id", projectId);
+      fd.append("doc_type", docType);
+      fd.append("revision_note", revNote);
+      fd.append("file", file);
+      const token = localStorage.getItem("token") ?? "";
+      const res = await fetch(buildApiUrl("/documents/upload"), {
+        method: "POST", headers: { Authorization: `Bearer ${token}` }, body: fd,
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Yükleme başarısız.");
+      onDone(); onClose();
+    } catch (ex: any) { setErr(ex.message ?? "Yükleme başarısız."); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+          <h2 className="text-sm font-bold text-slate-900">Dosya Yükle</h2>
+          <button onClick={onClose}><X className="h-5 w-5 text-slate-400 hover:text-slate-700" /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Dosya Türü</label>
+            {forRevision ? (
+              <div className="w-full rounded-lg border px-3 py-2 text-sm bg-slate-50 text-slate-600">Revizyon</div>
+            ) : (
+              <select value={docType} onChange={(e) => setDocType(e.target.value)}
+                className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
+                {DOC_TYPE_OPTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            )}
+          </div>
+          <div>
+            <input ref={inputRef} type="file" required onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="hidden" />
+            <button type="button" onClick={() => inputRef.current?.click()}
+              className="w-full rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center hover:border-blue-300 hover:bg-blue-50 transition-colors">
+              {file ? <span className="text-sm font-medium text-slate-700">{file.name}</span>
+                    : <span className="text-sm text-slate-400">Dosya seçmek için tıklayın</span>}
+            </button>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Revizyon Notu</label>
+            <input value={revNote} onChange={(e) => setRevNote(e.target.value)}
+              className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              placeholder="İsteğe bağlı..." />
+          </div>
+          {err && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{err}</p>}
+          <div className="flex justify-end gap-2 pt-1">
+            <button type="button" onClick={onClose}
+              className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50">Vazgeç</button>
+            <button type="submit" disabled={busy}
+              className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50">
+              {busy && <Loader2 className="h-4 w-4 animate-spin" />} Yükle
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ── Revise Modal ───────────────────────────────────────────────────────────────
+
+function ReviseModal({ doc, onClose, onDone }: { doc: Document; onClose: () => void; onDone: () => void }) {
+  const [file, setFile]       = useState<File | null>(null);
+  const [revNote, setRevNote] = useState("");
+  const [busy, setBusy]       = useState(false);
+  const [err, setErr]         = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!file) { setErr("Dosya seçin."); return; }
+    setBusy(true); setErr("");
+    try {
+      const fd = new FormData();
+      fd.append("revision_note", revNote);
+      fd.append("file", file);
+      const token = localStorage.getItem("token") ?? "";
+      const res = await fetch(buildApiUrl(`/documents/${doc.id}/version`), {
+        method: "POST", headers: { Authorization: `Bearer ${token}` }, body: fd,
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Revizyon başarısız.");
+      onDone(); onClose();
+    } catch (ex: any) { setErr(ex.message ?? "Revizyon başarısız."); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+          <div>
+            <h2 className="text-sm font-bold text-slate-900">Yeni Revizyon</h2>
+            <p className="text-[11px] text-slate-400 mt-0.5">{doc.original_name} · v{doc.version} → v{doc.version + 1}</p>
+          </div>
+          <button onClick={onClose}><X className="h-5 w-5 text-slate-400" /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+          <div>
+            <input ref={inputRef} type="file" required onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="hidden" />
+            <button type="button" onClick={() => inputRef.current?.click()}
+              className="w-full rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center hover:border-blue-300 hover:bg-blue-50 transition-colors">
+              {file ? <span className="text-sm font-medium text-slate-700">{file.name}</span>
+                    : <span className="text-sm text-slate-400">Güncel dosyayı seçin</span>}
+            </button>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Revizyon Notu</label>
+            <input value={revNote} onChange={(e) => setRevNote(e.target.value)}
+              className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              placeholder="Ne değişti?" />
+          </div>
+          {err && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{err}</p>}
+          <div className="flex justify-end gap-2 pt-1">
+            <button type="button" onClick={onClose}
+              className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50">Vazgeç</button>
+            <button type="submit" disabled={busy}
+              className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+              {busy && <Loader2 className="h-4 w-4 animate-spin" />} Yükle
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ── History Drawer ─────────────────────────────────────────────────────────────
+
+function HistoryDrawer({ doc, onClose }: { doc: Document; onClose: () => void }) {
+  const [versions, setVersions] = useState<DocVersion[]>([]);
+  const [loading, setLoading]   = useState(true);
+
+  useEffect(() => {
+    apiGet<DocVersion[]>(`/documents/${doc.id}/versions`)
+      .then((d) => setVersions(Array.isArray(d) ? d : []))
+      .catch(() => setVersions([]))
+      .finally(() => setLoading(false));
+  }, [doc.id]);
+
+  const download = async (ver: DocVersion) => {
+    try {
+      const data = await apiGet<{ url: string }>(`/documents/${ver.id}/download`);
+      if (data?.url) window.open(data.url, "_blank");
+    } catch { alert("İndirme bağlantısı alınamadı."); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
+      <div className="w-full max-w-sm bg-white border-l border-slate-200 shadow-2xl flex flex-col h-full" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between border-b border-slate-100 px-5 py-4 shrink-0">
+          <div>
+            <h2 className="text-sm font-bold text-slate-900">Revizyon Geçmişi</h2>
+            <p className="text-[11px] text-slate-400 mt-0.5 truncate max-w-[220px]">{doc.original_name}</p>
+          </div>
+          <button onClick={onClose}><X className="h-5 w-5 text-slate-400 hover:text-slate-700" /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-2">
+          {loading ? <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-slate-400" /></div>
+            : versions.length === 0 ? <p className="text-sm text-slate-400 text-center py-8">Revizyon bulunamadı.</p>
+            : [...versions].sort((a, b) => b.version - a.version).map((v) => (
+              <div key={v.id} className="flex items-start gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">v{v.version}</div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-slate-800 truncate">{v.original_name}</p>
+                  {v.revision_note && <p className="text-[11px] text-slate-500 mt-0.5 italic">{v.revision_note}</p>}
+                  <p className="text-[11px] text-slate-400 mt-0.5">{v.uploaded_by_name ?? "—"} · {new Date(v.created_at).toLocaleDateString("tr-TR")} · {fmtBytes(v.file_size_bytes)}</p>
+                </div>
+                <button onClick={() => download(v)} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-green-50 hover:text-green-600">
+                  <Download className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Doc List ───────────────────────────────────────────────────────────────────
+
+function DocList({
+  docs, onRevise, onHistory, onDelete, onUpload,
+}: {
+  docs: Document[];
+  onRevise: (d: Document) => void;
+  onHistory: (d: Document) => void;
+  onDelete: (d: Document) => void;
+  onUpload: () => void;
+}) {
+  const handleDownload = async (doc: Document) => {
+    try {
+      const data = await apiGet<{ url: string }>(`/documents/${doc.id}/download`);
+      if (data?.url) window.open(data.url, "_blank");
+    } catch { alert("İndirme bağlantısı alınamadı."); }
+  };
+
+  if (docs.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 gap-3">
+        <Folder className="h-8 w-8 text-slate-200" />
+        <p className="text-sm text-slate-400">Bu klasörde henüz dosya yok.</p>
+        <button onClick={onUpload}
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:underline">
+          <Upload className="h-3.5 w-3.5" /> Dosya Yükle
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {docs.map((doc) => {
+        const typeInfo = DOC_TYPES[doc.doc_type];
+        return (
+          <div key={doc.id} className="flex items-center gap-3 rounded-xl border border-slate-100 bg-white px-4 py-3 hover:border-slate-200 group transition-colors">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-50">
+              <FileText className="h-4 w-4 text-slate-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-medium text-slate-900 truncate">{doc.original_name}</p>
+                {(() => { const ext = getExtBadge(doc); return ext ? (
+                  <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold tracking-wide ${
+                    ext === "DWG"  ? "bg-orange-50 text-orange-600" :
+                    ext === "PDF"  ? "bg-red-50 text-red-600"       :
+                    ext === "XLSX" || ext === "XLS" ? "bg-green-50 text-green-600" :
+                    ext === "ZIP"  ? "bg-purple-50 text-purple-600" :
+                    "bg-slate-100 text-slate-500"
+                  }`}>{ext}</span>
+                ) : null; })()}
+              </div>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-[11px] text-slate-400">{typeInfo?.label ?? doc.doc_type}</span>
+                <span className="text-slate-200">·</span>
+                <span className="text-[11px] text-slate-400">v{doc.version}</span>
+                <span className="text-slate-200">·</span>
+                <span className="text-[11px] text-slate-400">{fmtBytes(doc.file_size_bytes)}</span>
+                {doc.revision_note && (
+                  <><span className="text-slate-200">·</span><span className="text-[11px] text-slate-500 italic truncate max-w-[180px]">{doc.revision_note}</span></>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button onClick={() => onHistory(doc)} title="Revizyon Geçmişi"
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700"><History className="h-3.5 w-3.5" /></button>
+              <button onClick={() => onRevise(doc)} title="Yeni Revizyon"
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-blue-50 hover:text-blue-600"><RefreshCw className="h-3.5 w-3.5" /></button>
+              <button onClick={() => handleDownload(doc)} title="İndir"
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-green-50 hover:text-green-600"><Download className="h-3.5 w-3.5" /></button>
+              <button onClick={() => onDelete(doc)} title="Arşivle"
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></button>
+            </div>
+            <div className="shrink-0 text-[11px] text-slate-400 ml-1">
+              {new Date(doc.created_at).toLocaleDateString("tr-TR")}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Edit Modal ─────────────────────────────────────────────────────────────────
+
+function EditModal({ project, onClose, onDone }: { project: Project; onClose: () => void; onDone: (p: Project) => void }) {
+  const [form, setForm] = useState({
+    name:        project.name,
+    project_no:  project.project_no ?? "",
+    description: project.description ?? "",
+    status:      project.status,
+    is_tipi:     project.scope_codes?.find((c) => ["bakim","tadilat","yeni_yapim"].includes(c)) ?? "bakim",
+    disiplinler: (project.scope_codes ?? []).filter((c) => ["seismic","hvac","fire","mep"].includes(c)),
+    start_date:  project.start_date ? project.start_date.split("T")[0] : "",
+    due_date:    project.due_date ? project.due_date.split("T")[0] : "",
+  });
+  const [busy, setBusy] = useState(false);
+  const [err, setErr]   = useState("");
+
+  const toggleDisiplin = (v: string) => setForm((p) => ({
+    ...p,
+    disiplinler: p.disiplinler.includes(v) ? p.disiplinler.filter((d) => d !== v) : [...p.disiplinler, v],
+  }));
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true); setErr("");
+    try {
+      const scope_codes = [form.is_tipi, ...form.disiplinler];
+      const updated = await apiPatch<Project>(`/projects/${project.id}`, {
+        name:        form.name.trim(),
+        project_no:  form.project_no.trim() || null,
+        description: form.description.trim() || null,
+        status:      form.status,
+        scope_codes,
+        start_date:  form.start_date ? `${form.start_date}T00:00:00` : null,
+        due_date:    form.due_date   ? `${form.due_date}T00:00:00`   : null,
+      });
+      onDone(updated);
+      onClose();
+    } catch (ex: any) {
+      setErr(ex?.response?.data?.detail ?? "Güncelleme başarısız.");
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+          <h2 className="text-sm font-bold text-slate-900">Mağaza Bilgilerini Düzenle</h2>
+          <button onClick={onClose}><X className="h-5 w-5 text-slate-400 hover:text-slate-700" /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="overflow-y-auto max-h-[75vh] px-6 py-5 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2">
+              <label className="block text-xs font-medium text-slate-600 mb-1">Mağaza Adı *</label>
+              <input required value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+                className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Mağaza Kodu</label>
+              <input value={form.project_no} onChange={(e) => setForm((p) => ({ ...p, project_no: e.target.value }))}
+                className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Durum</label>
+              <select value={form.status} onChange={(e) => setForm((p) => ({ ...p, status: e.target.value }))}
+                className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
+                {STATUS_OPTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">İş Tipi</label>
+              <select value={form.is_tipi} onChange={(e) => setForm((p) => ({ ...p, is_tipi: e.target.value }))}
+                className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
+                {IS_TIPI_OPTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Başlangıç</label>
+              <input type="date" value={form.start_date} onChange={(e) => setForm((p) => ({ ...p, start_date: e.target.value }))}
+                className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs font-medium text-slate-600 mb-1">Hedef Bitiş</label>
+              <input type="date" value={form.due_date} onChange={(e) => setForm((p) => ({ ...p, due_date: e.target.value }))}
+                className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-2">Disiplinler</label>
+            <div className="flex flex-wrap gap-2">
+              {DISIPLIN_OPTS.map((d) => (
+                <button key={d.value} type="button" onClick={() => toggleDisiplin(d.value)}
+                  className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${form.disiplinler.includes(d.value) ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"}`}>
+                  {d.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Açıklama / Notlar</label>
+            <textarea rows={3} value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
+              className="w-full rounded-lg border px-3 py-2 text-sm resize-none focus:border-blue-500 focus:outline-none" />
+          </div>
+          {err && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{err}</p>}
+          <div className="flex justify-end gap-2 pt-1">
+            <button type="button" onClick={onClose}
+              className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50">Vazgeç</button>
+            <button type="submit" disabled={busy}
+              className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50">
+              {busy && <Loader2 className="h-4 w-4 animate-spin" />}<Save className="h-4 w-4" /> Kaydet
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ── Ana Sayfa ──────────────────────────────────────────────────────────────────
+
+export default function MagazaDetailPage() {
+  const { id } = useParams<{ id: string }>();
+
+  const [project, setProject] = useState<Project | null>(null);
+  const [docs,    setDocs]    = useState<Document[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [tab,     setTab]     = useState<TabKey>("identity");
+
+  const [uploadOpen,        setUploadOpen]        = useState(false);
+  const [uploadForRevision, setUploadForRevision] = useState(false);
+  const [editOpen,          setEditOpen]          = useState(false);
+  const [reviseDoc,         setReviseDoc]         = useState<Document | null>(null);
+  const [historyDoc,        setHistoryDoc]        = useState<Document | null>(null);
+  const [projFileFilter,    setProjFileFilter]    = useState<string>("all");
+
+  // TODO: Notlar backend endpoint gerekiyor (POST /projects/{id}/notes). Şimdilik localStorage kullanılıyor.
+  const [notes,      setNotes]      = useState<Note[]>([]);
+  const [noteText,   setNoteText]   = useState("");
+  const [savingNote, setSavingNote] = useState(false);
+
+  // Read initial tab from URL on mount
+  useEffect(() => { setTab(readTabFromUrl()); }, []);
+
+  const switchTab = (t: TabKey) => {
+    setTab(t);
+    writeTabToUrl(t);
+  };
+
+  const loadDocs = useCallback(async () => {
+    if (!id) return;
+    const d = await apiGet<Document[]>(`/documents/project/${id}`).catch(() => [] as Document[]);
+    setDocs(Array.isArray(d) ? d : []);
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    setLoading(true);
+    Promise.all([
+      apiGet<Project>(`/projects/${id}`).catch(() => null),
+      apiGet<Document[]>(`/documents/project/${id}`).catch(() => [] as Document[]),
+    ]).then(([p, d]) => {
+      setProject(p);
+      setDocs(Array.isArray(d) ? d : []);
+    }).finally(() => setLoading(false));
+  }, [id]);
+
+  // Load notes from localStorage (TODO: replace with backend)
+  useEffect(() => {
+    if (!id) return;
+    try {
+      const raw = localStorage.getItem(`project_notes_${id}`);
+      setNotes(raw ? JSON.parse(raw) : []);
+    } catch { setNotes([]); }
+  }, [id]);
+
+  const saveNotes = (updated: Note[]) => {
+    setNotes(updated);
+    localStorage.setItem(`project_notes_${id}`, JSON.stringify(updated));
+  };
+
+  const addNote = () => {
+    if (!noteText.trim()) return;
+    setSavingNote(true);
+    const newNote: Note = {
+      id: Date.now().toString(),
+      text: noteText.trim(),
+      created_at: new Date().toISOString(),
+    };
+    saveNotes([newNote, ...notes]);
+    setNoteText("");
+    setSavingNote(false);
+  };
+
+  const deleteNote = (noteId: string) => {
+    saveNotes(notes.filter((n) => n.id !== noteId));
+  };
+
+  const handleDeleteDoc = async (doc: Document) => {
+    if (!confirm(`"${doc.original_name}" arşivlensin mi?`)) return;
+    try {
+      await apiDelete(`/documents/${doc.id}`);
+      await loadDocs();
+    } catch { alert("Dosya arşivlenemedi."); }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-7 w-7 animate-spin text-slate-400" />
+      </div>
+    );
+  }
+
+  if (!project) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-4">
+        <Store className="h-10 w-10 text-slate-200" />
+        <p className="text-sm text-slate-500">Mağaza bulunamadı veya erişim yetkiniz yok.</p>
+        <Link href="/projects" className="text-sm text-blue-600 hover:underline">← Mağazalar Listesine Dön</Link>
+      </div>
+    );
+  }
+
+  const statusInfo = STATUS_BADGE[project.status] ?? { label: project.status, cls: "bg-slate-100 text-slate-600 border-slate-200" };
+  const istipi     = getIstipi(project.scope_codes);
+  const disiplinler = getDisiplinler(project.scope_codes);
+  const stepIdx     = STATUS_STEPS.findIndex((s) => s.key === project.status.toLowerCase());
+
+  // Dosyalar doc_type kategorisine göre ayrılır — uzantıya göre değil
+  const projectFileDocs = docs.filter((d) => getDocCategory(d.doc_type) === "project_file");
+  const revisionDocs    = docs.filter((d) => getDocCategory(d.doc_type) === "revision");
+  const otherDocs       = docs.filter((d) => getDocCategory(d.doc_type) === "other");
+
+  // Proje Dosyaları içi filtre
+  const filteredProjectDocs = projFileFilter === "all"
+    ? projectFileDocs
+    : projectFileDocs.filter((d) => {
+        const ext = getExtBadge(d).toLowerCase();
+        if (projFileFilter === "dwg")   return ext === "dwg";
+        if (projFileFilter === "pdf")   return ext === "pdf";
+        if (projFileFilter === "excel") return ext === "xls" || ext === "xlsx";
+        if (projFileFilter === "zip")   return ext === "zip";
+        return !["dwg","pdf","xls","xlsx","zip"].includes(ext);
+      });
+
+  const extra = parseDesc(project.description);
+  const phones = [extra.tel1, extra.tel2, extra.tel3, extra.tel4].filter((t) => t && t.trim());
+
+  const tabCounts: Record<TabKey, number | null> = {
+    identity:      null,
+    process:       null,
+    project_files: projectFileDocs.length || null,
+    revisions:     revisionDocs.length    || null,
+    servisform:    null,
+    "hakkediş":    null,
+    fatura:        null,
+    activity:      null,
+    notes:         notes.length           || null,
+  };
+
+  return (
+    <div className="max-w-5xl mx-auto space-y-5">
+
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-1.5 text-xs text-slate-400">
+        <Link href="/projects" className="hover:text-slate-700 transition-colors">Mağazalar</Link>
+        <ChevronRight className="h-3 w-3" />
+        <span className="text-slate-700 font-medium truncate max-w-[280px]">{project.name}</span>
+      </div>
+
+      {/* Başlık Kartı */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${statusInfo.cls}`}>
+                {statusInfo.label}
+              </span>
+              {istipi.value && (
+                <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-600">
+                  {istipi.label}
+                </span>
+              )}
+              {disiplinler.map((d) => (
+                <span key={d} className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-blue-600">
+                  {d}
+                </span>
+              ))}
+              {project.project_no && (
+                <span className="text-[11px] font-mono text-slate-400">#{project.project_no}</span>
+              )}
+            </div>
+            <h1 className="text-xl font-bold text-slate-900 leading-tight">{project.name}</h1>
+            {extra.adres && (
+              <p className="mt-1.5 text-sm text-slate-500 line-clamp-2">{extra.adres}</p>
+            )}
+          </div>
+          <div className="flex gap-2 shrink-0 flex-wrap">
+            <button onClick={() => setEditOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
+              <Edit2 className="h-3.5 w-3.5" /> Düzenle
+            </button>
+            {(tab === "project_files" || tab === "revisions") && (
+              <button
+                onClick={() => { setUploadForRevision(tab === "revisions"); setUploadOpen(true); }}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 transition-colors">
+                <Upload className="h-3.5 w-3.5" />
+                {tab === "revisions" ? "Revize Proje Yükle" : "Proje Dosyası Yükle"}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Süreç Adımları */}
+        {project.status !== "cancelled" && project.status !== "CANCELLED" && (
+          <div className="mt-5 pt-4 border-t border-slate-100 overflow-x-auto">
+            <div className="flex items-center gap-1.5 min-w-max">
+              {STATUS_STEPS.map((s, idx) => {
+                const done   = idx < stepIdx;
+                const active = idx === stepIdx;
+                return (
+                  <div key={s.key} className="flex items-center gap-1.5">
+                    <div className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                      active ? "bg-blue-600 text-white shadow-sm" : done ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-400"
+                    }`}>
+                      {done && <span className="text-[10px]">✓</span>} {s.label}
+                    </div>
+                    {idx < STATUS_STEPS.length - 1 && (
+                      <ChevronRight className={`h-3 w-3 shrink-0 ${done ? "text-slate-600" : "text-slate-200"}`} />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Sekmeler + İçerik */}
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+
+        {/* Tab Bar */}
+        <div className="flex overflow-x-auto border-b border-slate-100">
+          {TABS.map((t) => {
+            const count = tabCounts[t.key];
+            const active = tab === t.key;
+            return (
+              <button
+                key={t.key}
+                onClick={() => switchTab(t.key)}
+                className={`flex-none flex items-center gap-1.5 px-4 py-3 text-xs font-medium border-b-2 transition-colors whitespace-nowrap ${
+                  active
+                    ? "border-blue-600 text-blue-700"
+                    : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50"
+                }`}
+              >
+                {t.label}
+                {count !== null && count > 0 && (
+                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${active ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-500"}`}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Tab Content */}
+        <div className="p-5">
+
+          {/* ── Kimlik Bilgileri ── */}
+          {tab === "identity" && (
+            <div className="space-y-5">
+              {/* Temel Bilgiler */}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <InfoCard label="Mağaza Adı" value={project.name} />
+                <InfoCard label="Mağaza Kodu" value={project.project_no ?? "—"} mono />
+                <InfoCard label="İş Tipi" value={istipi.label} />
+                <InfoCard label="Durum" value={statusInfo.label} />
+                {disiplinler.length > 0 && (
+                  <InfoCard label="Disiplinler" value={disiplinler.join(", ").toUpperCase()} />
+                )}
+                {project.start_date && (
+                  <InfoCard label="Başlangıç Tarihi" value={new Date(project.start_date).toLocaleDateString("tr-TR")} />
+                )}
+                {project.due_date && (
+                  <InfoCard label="Hedef Bitiş" value={new Date(project.due_date).toLocaleDateString("tr-TR")} />
+                )}
+                <InfoCard label="Sisteme Eklenme" value={project.created_at ? new Date(project.created_at).toLocaleDateString("tr-TR") : "—"} />
+              </div>
+
+              {/* Ek Bilgiler — gizlenebilir */}
+              {(extra.format || extra.adres || extra.acilis_tarihi || phones.length > 0) && (
+                <details className="group">
+                  <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-slate-400 select-none list-none flex items-center gap-1.5">
+                    <span className="group-open:rotate-90 transition-transform inline-block">▶</span>
+                    Ek Bilgiler
+                  </summary>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    {extra.format && <InfoCard label="Format" value={extra.format} />}
+                    {extra.acilis_tarihi && (
+                      <InfoCard label="Açılış Tarihi" value={new Date(extra.acilis_tarihi).toLocaleDateString("tr-TR")} />
+                    )}
+                    {phones.map((tel, i) => (
+                      <InfoCard key={i} label={`Telefon ${i + 1}`} value={tel!} mono />
+                    ))}
+                    {extra.adres && (
+                      <div className="sm:col-span-2 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
+                        <p className="text-[11px] font-medium text-slate-500 mb-1">Adres</p>
+                        <p className="text-sm text-slate-800 leading-relaxed">{extra.adres}</p>
+                      </div>
+                    )}
+                  </div>
+                </details>
+              )}
+            </div>
+          )}
+
+          {/* ── Proje Dosyaları ── */}
+          {tab === "project_files" && (
+            <div className="space-y-4">
+              {/* Filtre Chipleri */}
+              {projectFileDocs.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { key: "all",   label: "Tümü"  },
+                    { key: "dwg",   label: "DWG"   },
+                    { key: "pdf",   label: "PDF"   },
+                    { key: "excel", label: "Excel" },
+                    { key: "zip",   label: "ZIP"   },
+                    { key: "other", label: "Diğer" },
+                  ].map((f) => (
+                    <button key={f.key} onClick={() => setProjFileFilter(f.key)}
+                      className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
+                        projFileFilter === f.key
+                          ? "bg-blue-600 text-white border-blue-600"
+                          : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+                      }`}>
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <DocList
+                docs={filteredProjectDocs}
+                onRevise={setReviseDoc}
+                onHistory={setHistoryDoc}
+                onDelete={handleDeleteDoc}
+                onUpload={() => { setUploadForRevision(false); setUploadOpen(true); }}
+              />
+            </div>
+          )}
+
+          {/* ── Revizyonlar ── */}
+          {tab === "revisions" && (
+            revisionDocs.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-3">
+                <History className="h-8 w-8 text-slate-200" />
+                <p className="text-sm text-slate-400">Henüz revizyon kaydı yok.</p>
+                <button
+                  onClick={() => { setUploadForRevision(true); setUploadOpen(true); }}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:underline">
+                  <Upload className="h-3.5 w-3.5" /> Revize Proje Yükle
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {[...revisionDocs]
+                  .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                  .map((doc) => (
+                    <div key={doc.id} className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 group">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 border border-blue-100 text-[11px] font-bold text-blue-700">
+                        v{doc.version}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-slate-800 truncate">{doc.original_name}</p>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          {doc.uploaded_by_name ?? "—"} · {fmtBytes(doc.file_size_bytes)}
+                        </p>
+                        {doc.revision_note && <p className="text-[11px] text-slate-500 italic mt-0.5">{doc.revision_note}</p>}
+                      </div>
+                      <div className="shrink-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => setHistoryDoc(doc)} title="Tüm versiyonlar"
+                          className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700"><History className="h-3.5 w-3.5" /></button>
+                        <button onClick={() => setReviseDoc(doc)} title="Yeni revizyon"
+                          className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-blue-50 hover:text-blue-600"><RefreshCw className="h-3.5 w-3.5" /></button>
+                        <button onClick={() => handleDeleteDoc(doc)} title="Arşivle"
+                          className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></button>
+                      </div>
+                      <p className="text-[11px] text-slate-400 shrink-0 ml-1">{new Date(doc.created_at).toLocaleDateString("tr-TR")}</p>
+                    </div>
+                  ))}
+              </div>
+            )
+          )}
+
+
+          {/* ── Süreç Takibi ── */}
+          {tab === "process" && project && (
+            <ProcessTab
+              projectId={project.id}
+              workType={project.scope_codes?.includes("bakim") ? "bakim" : "tadilat"}
+              onTabSwitch={(t) => switchTab(t as TabKey)}
+            />
+          )}
+
+          {/* ── Servis Formları ── */}
+          {tab === "servisform" && project && (
+            <ServisFormTab projectId={project.id} />
+          )}
+
+          {/* ── Hakkedişler ── */}
+          {tab === "hakkediş" && project && (
+            <HakkedisTab projectId={project.id} />
+          )}
+
+          {/* ── Faturalar ── */}
+          {tab === "fatura" && project && (
+            <FaturaTab projectId={project.id} />
+          )}
+
+          {/* ── Son İşlemler ── */}
+          {/* TODO: Backend'de activity/audit log endpoint'i eklenince gerçek verilerle doldurulacak. */}
+          {tab === "activity" && (
+            <div className="space-y-3">
+              <div className="rounded-xl bg-amber-50 border border-amber-100 px-4 py-2.5">
+                <p className="text-xs text-amber-700">Son işlemler geçmişi backend'de audit log endpoint'i hazır olduğunda burada görüntülenecek.</p>
+              </div>
+
+              {/* Mock geçmiş — gerçek verilerle değişecek */}
+              {docs.length > 0 ? (
+                <div className="space-y-2">
+                  {[...docs]
+                    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                    .slice(0, 20)
+                    .map((doc) => (
+                      <div key={doc.id} className="flex items-start gap-3 rounded-xl border border-slate-100 bg-white px-4 py-3">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 border border-blue-100">
+                          <Activity className="h-3.5 w-3.5 text-blue-500" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-slate-800">
+                            <span className="text-blue-600">Dosya yüklendi</span> — {doc.original_name}
+                          </p>
+                          <p className="text-[11px] text-slate-400 mt-0.5">
+                            {DOC_TYPES[doc.doc_type]?.label ?? doc.doc_type} · v{doc.version} · {doc.uploaded_by_name ?? "—"}
+                          </p>
+                        </div>
+                        <p className="text-[11px] text-slate-400 shrink-0">
+                          {new Date(doc.created_at).toLocaleDateString("tr-TR", { day: "2-digit", month: "short", year: "numeric" })}
+                        </p>
+                      </div>
+                    ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 gap-3">
+                  <Activity className="h-8 w-8 text-slate-200" />
+                  <p className="text-sm text-slate-400">Henüz kayıtlı işlem yok.</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Notlar ── */}
+          {tab === "notes" && (
+            <div className="space-y-4">
+              {/* TODO: Notlar şu an localStorage'da saklanıyor. Backend endpoint eklenince burası değişecek. */}
+              <div className="rounded-xl bg-amber-50 border border-amber-100 px-4 py-2.5">
+                <p className="text-xs text-amber-700">Notlar şu an yalnızca bu tarayıcıda kaydediliyor. Kalıcı notlar için backend geliştirmesi gerekiyor.</p>
+              </div>
+              <div className="flex gap-2">
+                <textarea
+                  rows={2}
+                  value={noteText}
+                  onChange={(e) => setNoteText(e.target.value)}
+                  placeholder="Mağaza hakkında not ekleyin..."
+                  className="flex-1 rounded-xl border border-slate-200 px-3 py-2.5 text-sm resize-none focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+                <button onClick={addNote} disabled={!noteText.trim() || savingNote}
+                  className="self-end inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-40 transition-colors">
+                  <Plus className="h-4 w-4" /> Ekle
+                </button>
+              </div>
+              {notes.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 gap-2">
+                  <StickyNote className="h-7 w-7 text-slate-200" />
+                  <p className="text-sm text-slate-400">Henüz not eklenmemiş.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {notes.map((note) => (
+                    <div key={note.id} className="rounded-xl border border-slate-100 bg-white px-4 py-3 group">
+                      <p className="text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">{note.text}</p>
+                      <div className="flex items-center justify-between mt-2">
+                        <p className="text-[11px] text-slate-400">{new Date(note.created_at).toLocaleDateString("tr-TR", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
+                        <button onClick={() => deleteNote(note.id)}
+                          className="text-[11px] text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">Sil</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Modals */}
+      {uploadOpen && id && <UploadModal projectId={id} forRevision={uploadForRevision} onClose={() => { setUploadOpen(false); setUploadForRevision(false); }} onDone={loadDocs} />}
+      {editOpen   && project && <EditModal project={project} onClose={() => setEditOpen(false)} onDone={(p) => setProject(p)} />}
+      {reviseDoc  && <ReviseModal doc={reviseDoc} onClose={() => setReviseDoc(null)} onDone={loadDocs} />}
+      {historyDoc && <HistoryDrawer doc={historyDoc} onClose={() => setHistoryDoc(null)} />}
+    </div>
+  );
+}
+
+// ── InfoCard ───────────────────────────────────────────────────────────────────
+
+function InfoCard({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
+      <p className="text-[11px] font-medium text-slate-500 mb-0.5">{label}</p>
+      <p className={`text-sm font-medium text-slate-800 ${mono ? "font-mono" : ""}`}>{value}</p>
+    </div>
+  );
+}

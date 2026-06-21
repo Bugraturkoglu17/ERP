@@ -32,7 +32,7 @@ export interface paths {
         put?: never;
         /**
          * Login
-         * @description E-posta + şifre ile JWT login.
+         * @description E-posta ile şifresiz login (Şifre kaldırıldı).
          */
         post: operations["login_api_v1_auth_login_post"];
         delete?: never;
@@ -1272,10 +1272,385 @@ export interface paths {
         patch: operations["approve_report_api_v1_field_reports__report_id__approve_patch"];
         trace?: never;
     };
+    "/api/v1/process/projects/{project_id}/process": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Project Processes
+         * @description Bir mağazanın tüm süreçlerini listeler.
+         */
+        get: operations["get_project_processes_api_v1_process_projects__project_id__process_get"];
+        put?: never;
+        /**
+         * Create Process
+         * @description Yeni tadilat / yeni yapım süreci başlatır. Aşamalar otomatik oluşur.
+         */
+        post: operations["create_process_api_v1_process_projects__project_id__process_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/process/projects/{project_id}/process/{process_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Process */
+        patch: operations["update_process_api_v1_process_projects__project_id__process__process_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/process/projects/{project_id}/process/{process_id}/stages/{stage_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Stage */
+        patch: operations["update_stage_api_v1_process_projects__project_id__process__process_id__stages__stage_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/process/projects/{project_id}/process/{process_id}/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Notes */
+        get: operations["get_notes_api_v1_process_projects__project_id__process__process_id__notes_get"];
+        put?: never;
+        /** Add Note */
+        post: operations["add_note_api_v1_process_projects__project_id__process__process_id__notes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/process/projects/{project_id}/activities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Activities */
+        get: operations["get_activities_api_v1_process_projects__project_id__activities_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/process/active-jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Active Jobs
+         * @description Ana sayfadaki 'Aktif İşler' paneli için — tadilat/yeni yapım aktif süreçler.
+         */
+        get: operations["get_active_jobs_api_v1_process_active_jobs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/service-forms/projects/{project_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Service Forms
+         * @description Bir mağazanın servis formlarını listeler (isteğe bağlı yıl/ay filtresi).
+         */
+        get: operations["list_service_forms_api_v1_service_forms_projects__project_id__get"];
+        put?: never;
+        /**
+         * Create Service Form
+         * @description Aylık servis formu kaydı oluşturur.
+         */
+        post: operations["create_service_form_api_v1_service_forms_projects__project_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/service-forms/{form_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Service Form */
+        delete: operations["delete_service_form_api_v1_service_forms__form_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/progress-payments/projects/{project_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Payments */
+        get: operations["list_payments_api_v1_progress_payments_projects__project_id__get"];
+        put?: never;
+        /** Create Payment */
+        post: operations["create_payment_api_v1_progress_payments_projects__project_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/progress-payments/{payment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Payment */
+        patch: operations["update_payment_api_v1_progress_payments__payment_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/approvals/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Approvals */
+        get: operations["list_approvals_api_v1_approvals__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/approvals/projects/{project_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Project Approvals */
+        get: operations["list_project_approvals_api_v1_approvals_projects__project_id__get"];
+        put?: never;
+        /** Create Approval */
+        post: operations["create_approval_api_v1_approvals_projects__project_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/approvals/{approval_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Approval */
+        patch: operations["update_approval_api_v1_approvals__approval_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/invoice-records/projects/{project_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Invoices */
+        get: operations["list_invoices_api_v1_invoice_records_projects__project_id__get"];
+        put?: never;
+        /** Create Invoice */
+        post: operations["create_invoice_api_v1_invoice_records_projects__project_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** ActiveJobRead */
+        ActiveJobRead: {
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /** Project Name */
+            project_name: string;
+            /** Project No */
+            project_no: string | null;
+            /** Work Type */
+            work_type: string;
+            /**
+             * Process Id
+             * Format: uuid
+             */
+            process_id: string;
+            /** Process Title */
+            process_title: string;
+            /** Process Status */
+            process_status: string;
+            /** Current Stage */
+            current_stage: string | null;
+            /** Target End Date */
+            target_end_date: string | null;
+            /** Days Remaining */
+            days_remaining: number | null;
+        };
+        /** ApprovalRequestCreate */
+        ApprovalRequestCreate: {
+            /** Approval Type */
+            approval_type: string;
+            /** Title */
+            title: string;
+            /** Description */
+            description?: string | null;
+            /** Amount */
+            amount?: number | null;
+            /** File Url */
+            file_url?: string | null;
+            /** File Name */
+            file_name?: string | null;
+            /** Related Payment Id */
+            related_payment_id?: string | null;
+            /** Related Invoice Id */
+            related_invoice_id?: string | null;
+            /** Process Id */
+            process_id?: string | null;
+        };
+        /** ApprovalRequestRead */
+        ApprovalRequestRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /** Process Id */
+            process_id: string | null;
+            /** Approval Type */
+            approval_type: string;
+            /** Related Payment Id */
+            related_payment_id: string | null;
+            /** Related Invoice Id */
+            related_invoice_id: string | null;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string | null;
+            /** Amount */
+            amount: number | null;
+            /** File Url */
+            file_url: string | null;
+            /** File Name */
+            file_name: string | null;
+            /** Status */
+            status: string;
+            /** Requested By */
+            requested_by: string | null;
+            /** Requested By Name */
+            requested_by_name: string | null;
+            /**
+             * Requested At
+             * Format: date-time
+             */
+            requested_at: string;
+            /** Approved By */
+            approved_by: string | null;
+            /** Approved By Name */
+            approved_by_name: string | null;
+            /** Approved At */
+            approved_at: string | null;
+            /** Note */
+            note: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Project Name */
+            project_name?: string | null;
+            /** Project No */
+            project_no?: string | null;
+        };
+        /** ApprovalRequestUpdate */
+        ApprovalRequestUpdate: {
+            /** Status */
+            status: string;
+            /** Note */
+            note?: string | null;
+        };
         /** Body_import_custom_csv_api_v1_projects_hierarchy_import_custom_csv_post */
         Body_import_custom_csv_api_v1_projects_hierarchy_import_custom_csv_post: {
             /**
@@ -1881,6 +2256,72 @@ export interface components {
             /** Due Date */
             due_date?: string | null;
         };
+        /** InvoiceRecordCreate */
+        InvoiceRecordCreate: {
+            /** Invoice Type */
+            invoice_type: string;
+            /** Invoice No */
+            invoice_no?: string | null;
+            /** Period */
+            period?: string | null;
+            /** Amount */
+            amount?: number | null;
+            /**
+             * Currency
+             * @default TRY
+             */
+            currency: string;
+            /** File Url */
+            file_url?: string | null;
+            /** File Name */
+            file_name?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Process Id */
+            process_id?: string | null;
+        };
+        /** InvoiceRecordRead */
+        InvoiceRecordRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /** Process Id */
+            process_id: string | null;
+            /** Invoice Type */
+            invoice_type: string;
+            /** Invoice No */
+            invoice_no: string | null;
+            /** Period */
+            period: string | null;
+            /** Amount */
+            amount: number | null;
+            /** Currency */
+            currency: string;
+            /** File Url */
+            file_url: string | null;
+            /** File Name */
+            file_name: string | null;
+            /** Description */
+            description: string | null;
+            /** Approval Status */
+            approval_status: string;
+            /** Submitted By */
+            submitted_by: string | null;
+            /** Submitted By Name */
+            submitted_by_name: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /** LowStockAlertRead */
         LowStockAlertRead: {
             /**
@@ -2214,6 +2655,84 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** ProgressPaymentCreate */
+        ProgressPaymentCreate: {
+            /** Payment Type */
+            payment_type: string;
+            /** Period */
+            period?: string | null;
+            /** Amount */
+            amount?: number | null;
+            /**
+             * Currency
+             * @default TRY
+             */
+            currency: string;
+            /** File Url */
+            file_url?: string | null;
+            /** File Name */
+            file_name?: string | null;
+            /** Description */
+            description?: string | null;
+            /**
+             * Submitted For Approval
+             * @default false
+             */
+            submitted_for_approval: boolean;
+            /** Process Id */
+            process_id?: string | null;
+        };
+        /** ProgressPaymentRead */
+        ProgressPaymentRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /** Process Id */
+            process_id: string | null;
+            /** Payment Type */
+            payment_type: string;
+            /** Period */
+            period: string | null;
+            /** Amount */
+            amount: number | null;
+            /** Currency */
+            currency: string;
+            /** File Url */
+            file_url: string | null;
+            /** File Name */
+            file_name: string | null;
+            /** Description */
+            description: string | null;
+            /** Approval Status */
+            approval_status: string;
+            /** Submitted For Approval */
+            submitted_for_approval: boolean;
+            /** Submitted By */
+            submitted_by: string | null;
+            /** Submitted By Name */
+            submitted_by_name: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** ProgressPaymentUpdate */
+        ProgressPaymentUpdate: {
+            /** Approval Status */
+            approval_status?: string | null;
+            /** Amount */
+            amount?: number | null;
+            /** Description */
+            description?: string | null;
         };
         /** ProjectAssignmentCreate */
         ProjectAssignmentCreate: {
@@ -2607,6 +3126,66 @@ export interface components {
             /** City */
             city?: string | null;
         };
+        /** ServiceFormCreate */
+        ServiceFormCreate: {
+            /** Year */
+            year: number;
+            /** Month */
+            month: number;
+            /** Contractor Company */
+            contractor_company?: string | null;
+            /** Description */
+            description?: string | null;
+            /** File Url */
+            file_url?: string | null;
+            /** File Name */
+            file_name?: string | null;
+            /** File Size Bytes */
+            file_size_bytes?: number | null;
+            /**
+             * Status
+             * @default uploaded
+             */
+            status: string;
+        };
+        /** ServiceFormRead */
+        ServiceFormRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /** Year */
+            year: number;
+            /** Month */
+            month: number;
+            /** File Url */
+            file_url: string | null;
+            /** File Name */
+            file_name: string | null;
+            /** File Size Bytes */
+            file_size_bytes: number | null;
+            /** Contractor Company */
+            contractor_company: string | null;
+            /** Uploaded By */
+            uploaded_by: string | null;
+            /** Uploaded By Name */
+            uploaded_by_name: string | null;
+            /** Description */
+            description: string | null;
+            /** Status */
+            status: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /** StockRead */
         StockRead: {
             /**
@@ -2628,6 +3207,220 @@ export interface components {
             updated_at: string;
             /** Updated By */
             updated_by: string | null;
+        };
+        /** StoreActivityRead */
+        StoreActivityRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /** User Id */
+            user_id: string | null;
+            /** User Name */
+            user_name: string | null;
+            /** Activity Type */
+            activity_type: string;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string | null;
+            /** Related Process Id */
+            related_process_id: string | null;
+            /** Related Stage Id */
+            related_stage_id: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** StoreProcessCreate */
+        StoreProcessCreate: {
+            /** Work Type */
+            work_type: string;
+            /** Title */
+            title: string;
+            /** Description */
+            description?: string | null;
+            /** Start Date */
+            start_date?: string | null;
+            /** Target End Date */
+            target_end_date?: string | null;
+            /** Responsible Name */
+            responsible_name?: string | null;
+        };
+        /** StoreProcessNoteCreate */
+        StoreProcessNoteCreate: {
+            /** Content */
+            content: string;
+            /**
+             * Note Type
+             * @default general
+             */
+            note_type: string;
+            /** Stage Id */
+            stage_id?: string | null;
+        };
+        /** StoreProcessNoteRead */
+        StoreProcessNoteRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Process Id
+             * Format: uuid
+             */
+            process_id: string;
+            /** Stage Id */
+            stage_id: string | null;
+            /** User Id */
+            user_id: string | null;
+            /** User Name */
+            user_name: string | null;
+            /** Note Type */
+            note_type: string;
+            /** Content */
+            content: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** StoreProcessRead */
+        StoreProcessRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /** Tenant Id */
+            tenant_id: string | null;
+            /** Work Type */
+            work_type: string;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string | null;
+            /** Status */
+            status: string;
+            /** Start Date */
+            start_date: string | null;
+            /** Target End Date */
+            target_end_date: string | null;
+            /** Completed At */
+            completed_at: string | null;
+            /** Responsible Name */
+            responsible_name: string | null;
+            /** Progress Percent */
+            progress_percent: number;
+            /** Created By */
+            created_by: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * Stages
+             * @default []
+             */
+            stages: components["schemas"]["StoreProcessStageRead"][];
+        };
+        /** StoreProcessStageRead */
+        StoreProcessStageRead: {
+            /** Name */
+            name: string;
+            /**
+             * Order Index
+             * @default 0
+             */
+            order_index: number;
+            /**
+             * Status
+             * @default pending
+             */
+            status: string;
+            /** Responsible Name */
+            responsible_name?: string | null;
+            /** Start Date */
+            start_date?: string | null;
+            /** Target End Date */
+            target_end_date?: string | null;
+            /** Note */
+            note?: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Process Id
+             * Format: uuid
+             */
+            process_id: string;
+            /** Completed At */
+            completed_at?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** StoreProcessStageUpdate */
+        StoreProcessStageUpdate: {
+            /** Status */
+            status?: string | null;
+            /** Responsible Name */
+            responsible_name?: string | null;
+            /** Start Date */
+            start_date?: string | null;
+            /** Target End Date */
+            target_end_date?: string | null;
+            /** Completed At */
+            completed_at?: string | null;
+            /** Note */
+            note?: string | null;
+        };
+        /** StoreProcessUpdate */
+        StoreProcessUpdate: {
+            /** Title */
+            title?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Status */
+            status?: string | null;
+            /** Target End Date */
+            target_end_date?: string | null;
+            /** Responsible Name */
+            responsible_name?: string | null;
+            /** Progress Percent */
+            progress_percent?: number | null;
+            /** Completed At */
+            completed_at?: string | null;
         };
         /** SupplierCreate */
         SupplierCreate: {
@@ -6286,6 +7079,664 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FieldReportRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_project_processes_api_v1_process_projects__project_id__process_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoreProcessRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_process_api_v1_process_projects__project_id__process_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StoreProcessCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoreProcessRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_process_api_v1_process_projects__project_id__process__process_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                process_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StoreProcessUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoreProcessRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_stage_api_v1_process_projects__project_id__process__process_id__stages__stage_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                process_id: string;
+                stage_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StoreProcessStageUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoreProcessStageRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_notes_api_v1_process_projects__project_id__process__process_id__notes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                process_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoreProcessNoteRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_note_api_v1_process_projects__project_id__process__process_id__notes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                process_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StoreProcessNoteCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoreProcessNoteRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_activities_api_v1_process_projects__project_id__activities_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoreActivityRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_active_jobs_api_v1_process_active_jobs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActiveJobRead"][];
+                };
+            };
+        };
+    };
+    list_service_forms_api_v1_service_forms_projects__project_id__get: {
+        parameters: {
+            query?: {
+                year?: number | null;
+                month?: number | null;
+            };
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceFormRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_service_form_api_v1_service_forms_projects__project_id__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServiceFormCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceFormRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_service_form_api_v1_service_forms__form_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                form_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_payments_api_v1_progress_payments_projects__project_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgressPaymentRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_payment_api_v1_progress_payments_projects__project_id__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProgressPaymentCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgressPaymentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_payment_api_v1_progress_payments__payment_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                payment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProgressPaymentUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgressPaymentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_approvals_api_v1_approvals__get: {
+        parameters: {
+            query?: {
+                approval_type?: string | null;
+                status?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalRequestRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_project_approvals_api_v1_approvals_projects__project_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalRequestRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_approval_api_v1_approvals_projects__project_id__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApprovalRequestCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalRequestRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_approval_api_v1_approvals__approval_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                approval_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApprovalRequestUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalRequestRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_invoices_api_v1_invoice_records_projects__project_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceRecordRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_invoice_api_v1_invoice_records_projects__project_id__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoiceRecordCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceRecordRead"];
                 };
             };
             /** @description Validation Error */

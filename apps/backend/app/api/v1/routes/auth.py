@@ -39,21 +39,17 @@ async def login(
     db:          AsyncSession = Depends(get_db),
     form_data:   OAuth2PasswordRequestForm = Depends(),
 ) -> Token:
-    """E-posta + şifre ile JWT login."""
+    """E-posta ile şifresiz login (Şifre kaldırıldı)."""
     result  = await db.execute(select(User).where(User.email == form_data.username))
     user    = result.scalar_one_or_none()
 
-    if not user or not verify_password(form_data.password, user.hashed_password):
+    if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Geçersiz e-posta veya şifre.",
+            detail="Geçersiz e-posta.",
         )
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Hesabınız pasif durumda.")
-
-    policy = await db.get(UserSecurityPolicy, user.id)
-    if policy and policy.force_password_change:
-        raise HTTPException(status_code=403, detail="Parolanız sıfırlandı. Giriş öncesi parola yenileme gerekli.")
 
     roles       = await get_user_roles(db, user.id)
     permissions = await get_user_permissions(db, user.id)

@@ -969,3 +969,192 @@ class FieldReportItem(SQLModel, table=True):
     sort_order: int = Field(default=0)
 
     report: Mapped["FieldReport"] = Relationship(back_populates="items")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  11 · SÜREÇ TAKİBİ (STORE PROCESS)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class StoreProcess(SQLModel, table=True):
+    """Mağaza tadilat / yeni yapım süreç kaydı."""
+
+    __tablename__ = "store_processes"
+
+    id:                  UUID             = Field(default_factory=uuid4, primary_key=True)
+    tenant_id:           Optional[UUID]   = Field(foreign_key="tenants.id", default=None, index=True)
+    project_id:          UUID             = Field(foreign_key="projects.id", index=True)
+    work_type:           str              = Field(max_length=20, index=True)   # bakim | tadilat | yeni_yapim
+    title:               str              = Field(max_length=255)
+    description:         Optional[str]    = Field(default=None)
+    status:              str              = Field(default="in_progress", max_length=30, index=True)
+    start_date:          Optional[datetime] = None
+    target_end_date:     Optional[datetime] = None
+    completed_at:        Optional[datetime] = None
+    responsible_name:    Optional[str]    = Field(default=None, max_length=255)
+    responsible_user_id: Optional[UUID]   = Field(foreign_key="users.id", default=None)
+    progress_percent:    int              = Field(default=0)
+    created_by:          Optional[UUID]   = Field(foreign_key="users.id", default=None)
+    created_at:          datetime         = Field(default_factory=utc_now, nullable=False)
+    updated_at:          datetime         = Field(default_factory=utc_now, sa_column_kwargs={"onupdate": utc_now})
+
+    stages: List["StoreProcessStage"] = Relationship(back_populates="process")
+    notes:  List["StoreProcessNote"]  = Relationship(back_populates="process")
+
+
+class StoreProcessStage(SQLModel, table=True):
+    """Süreç aşaması (timeline adımı)."""
+
+    __tablename__ = "store_process_stages"
+
+    id:               UUID           = Field(default_factory=uuid4, primary_key=True)
+    process_id:       UUID           = Field(foreign_key="store_processes.id", index=True)
+    name:             str            = Field(max_length=255)
+    order_index:      int            = Field(default=0, index=True)
+    status:           str            = Field(default="pending", max_length=30)  # pending | in_progress | completed | delayed | cancelled
+    responsible_name: Optional[str]  = Field(default=None, max_length=255)
+    start_date:       Optional[datetime] = None
+    target_end_date:  Optional[datetime] = None
+    completed_at:     Optional[datetime] = None
+    note:             Optional[str]  = Field(default=None)
+    created_at:       datetime       = Field(default_factory=utc_now, nullable=False)
+    updated_at:       datetime       = Field(default_factory=utc_now, sa_column_kwargs={"onupdate": utc_now})
+
+    process: Mapped["StoreProcess"] = Relationship(back_populates="stages")
+
+
+class StoreProcessNote(SQLModel, table=True):
+    """Süreç notu (firma / teknik / onay / revizyon)."""
+
+    __tablename__ = "store_process_notes"
+
+    id:          UUID         = Field(default_factory=uuid4, primary_key=True)
+    process_id:  UUID         = Field(foreign_key="store_processes.id", index=True)
+    stage_id:    Optional[UUID] = Field(foreign_key="store_process_stages.id", default=None)
+    user_id:     Optional[UUID] = Field(foreign_key="users.id", default=None)
+    user_name:   Optional[str] = Field(default=None, max_length=255)
+    note_type:   str          = Field(default="general", max_length=30)  # general | firm | technical | approval | revision
+    content:     str          = Field()
+    created_at:  datetime     = Field(default_factory=utc_now, nullable=False)
+
+    process: Mapped["StoreProcess"] = Relationship(back_populates="notes")
+
+
+class StoreActivity(SQLModel, table=True):
+    """Son İşlemler akışı — mağaza bazlı tüm değişiklikler."""
+
+    __tablename__ = "store_activities"
+
+    id:                  UUID         = Field(default_factory=uuid4, primary_key=True)
+    tenant_id:           Optional[UUID] = Field(foreign_key="tenants.id", default=None, index=True)
+    project_id:          UUID         = Field(foreign_key="projects.id", index=True)
+    user_id:             Optional[UUID] = Field(foreign_key="users.id", default=None)
+    user_name:           Optional[str] = Field(default=None, max_length=255)
+    activity_type:       str          = Field(max_length=50, index=True)
+    title:               str          = Field(max_length=500)
+    description:         Optional[str] = Field(default=None)
+    related_process_id:  Optional[UUID] = Field(foreign_key="store_processes.id", default=None)
+    related_stage_id:    Optional[UUID] = Field(foreign_key="store_process_stages.id", default=None)
+    created_at:          datetime     = Field(default_factory=utc_now, nullable=False, index=True)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Phase 6 — Servis Formları, Hakkedişler, Onay Süreçleri
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class StoreServiceForm(SQLModel, table=True):
+    """Aylık bakım servis formu — sahadan yüklenen form."""
+
+    __tablename__ = "store_service_forms"
+
+    id:                 UUID           = Field(default_factory=uuid4, primary_key=True)
+    tenant_id:          Optional[UUID] = Field(foreign_key="tenants.id", default=None, index=True)
+    project_id:         UUID           = Field(foreign_key="projects.id", index=True)
+    year:               int            = Field(index=True)
+    month:              int            = Field(index=True)  # 1-12
+    file_url:           Optional[str]  = Field(default=None)
+    file_name:          Optional[str]  = Field(default=None, max_length=500)
+    file_size_bytes:    Optional[int]  = Field(default=None)
+    contractor_company: Optional[str]  = Field(default=None, max_length=255)
+    uploaded_by:        Optional[UUID] = Field(foreign_key="users.id", default=None)
+    uploaded_by_name:   Optional[str]  = Field(default=None, max_length=255)
+    description:        Optional[str]  = Field(default=None)
+    status:             str            = Field(default="uploaded", max_length=30, index=True)
+    created_at:         datetime       = Field(default_factory=utc_now, nullable=False)
+    updated_at:         datetime       = Field(default_factory=utc_now, sa_column_kwargs={"onupdate": utc_now})
+
+
+class StoreProgressPayment(SQLModel, table=True):
+    """Hakkediş — mağaza bazlı ödeme talebi."""
+
+    __tablename__ = "store_progress_payments"
+
+    id:                 UUID           = Field(default_factory=uuid4, primary_key=True)
+    tenant_id:          Optional[UUID] = Field(foreign_key="tenants.id", default=None, index=True)
+    project_id:         UUID           = Field(foreign_key="projects.id", index=True)
+    process_id:         Optional[UUID] = Field(foreign_key="store_processes.id", default=None, index=True)
+    payment_type:       str            = Field(max_length=50, index=True)
+    period:             Optional[str]  = Field(default=None, max_length=20)  # "2026-06"
+    amount:             Optional[Decimal] = Field(default=None, max_digits=14, decimal_places=2)
+    currency:           str            = Field(default="TRY", max_length=10)
+    file_url:           Optional[str]  = Field(default=None)
+    file_name:          Optional[str]  = Field(default=None, max_length=500)
+    description:        Optional[str]  = Field(default=None)
+    approval_status:    str            = Field(default="pending", max_length=30, index=True)
+    submitted_for_approval: bool       = Field(default=False)
+    submitted_by:       Optional[UUID] = Field(foreign_key="users.id", default=None)
+    submitted_by_name:  Optional[str]  = Field(default=None, max_length=255)
+    created_at:         datetime       = Field(default_factory=utc_now, nullable=False)
+    updated_at:         datetime       = Field(default_factory=utc_now, sa_column_kwargs={"onupdate": utc_now})
+
+
+class StoreInvoiceRecord(SQLModel, table=True):
+    """Mağaza bazlı fatura kaydı (servis/materyal/ara/final)."""
+
+    __tablename__ = "store_invoice_records"
+
+    id:                 UUID           = Field(default_factory=uuid4, primary_key=True)
+    tenant_id:          Optional[UUID] = Field(foreign_key="tenants.id", default=None, index=True)
+    project_id:         UUID           = Field(foreign_key="projects.id", index=True)
+    process_id:         Optional[UUID] = Field(foreign_key="store_processes.id", default=None)
+    invoice_type:       str            = Field(max_length=50, index=True)
+    invoice_no:         Optional[str]  = Field(default=None, max_length=100)
+    period:             Optional[str]  = Field(default=None, max_length=20)
+    amount:             Optional[Decimal] = Field(default=None, max_digits=14, decimal_places=2)
+    currency:           str            = Field(default="TRY", max_length=10)
+    file_url:           Optional[str]  = Field(default=None)
+    file_name:          Optional[str]  = Field(default=None, max_length=500)
+    description:        Optional[str]  = Field(default=None)
+    approval_status:    str            = Field(default="pending", max_length=30, index=True)
+    submitted_by:       Optional[UUID] = Field(foreign_key="users.id", default=None)
+    submitted_by_name:  Optional[str]  = Field(default=None, max_length=255)
+    created_at:         datetime       = Field(default_factory=utc_now, nullable=False)
+    updated_at:         datetime       = Field(default_factory=utc_now, sa_column_kwargs={"onupdate": utc_now})
+
+
+class StoreApprovalRequest(SQLModel, table=True):
+    """Onay talebi — hakkediş, fatura, proje, teklif, mail."""
+
+    __tablename__ = "store_approval_requests"
+
+    id:                 UUID           = Field(default_factory=uuid4, primary_key=True)
+    tenant_id:          Optional[UUID] = Field(foreign_key="tenants.id", default=None, index=True)
+    project_id:         UUID           = Field(foreign_key="projects.id", index=True)
+    process_id:         Optional[UUID] = Field(foreign_key="store_processes.id", default=None)
+    approval_type:      str            = Field(max_length=50, index=True)
+    related_payment_id: Optional[UUID] = Field(foreign_key="store_progress_payments.id", default=None)
+    related_invoice_id: Optional[UUID] = Field(foreign_key="store_invoice_records.id", default=None)
+    title:              str            = Field(max_length=500)
+    description:        Optional[str]  = Field(default=None)
+    amount:             Optional[Decimal] = Field(default=None, max_digits=14, decimal_places=2)
+    file_url:           Optional[str]  = Field(default=None)
+    file_name:          Optional[str]  = Field(default=None, max_length=500)
+    status:             str            = Field(default="bekliyor", max_length=30, index=True)
+    requested_by:       Optional[UUID] = Field(foreign_key="users.id", default=None)
+    requested_by_name:  Optional[str]  = Field(default=None, max_length=255)
+    requested_at:       datetime       = Field(default_factory=utc_now, nullable=False)
+    approved_by:        Optional[UUID] = Field(default=None)
+    approved_by_name:   Optional[str]  = Field(default=None, max_length=255)
+    approved_at:        Optional[datetime] = Field(default=None)
+    note:               Optional[str]  = Field(default=None)
+    created_at:         datetime       = Field(default_factory=utc_now, nullable=False)
+    updated_at:         datetime       = Field(default_factory=utc_now, sa_column_kwargs={"onupdate": utc_now})

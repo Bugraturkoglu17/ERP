@@ -1,67 +1,117 @@
-import { 
-  LayoutDashboard, 
-  FolderTree, 
-  Warehouse, 
-  CircleDollarSign, 
-  Users, 
-  Settings, 
-  FileText,
+import {
+  LayoutDashboard,
+  Store,
+  Wrench,
+  HardHat,
   Building2,
-  ShoppingCart,
-  ClipboardList,
+  CheckCircle,
+  GitCommit,
+  Receipt,
+  Users,
+  FileText,
+  type LucideIcon,
 } from "lucide-react";
 
 export type NavItem = {
   label: string;
   href: string;
-  icon: any;
+  icon: LucideIcon;
   allowedRoles?: string[];
-  platformNav?: boolean;
 };
 
-export const NAV_ITEMS: NavItem[] = [
+export type NavGroup = {
+  label: string;
+  icon: LucideIcon;
+  href: string;
+  allowedRoles?: string[];
+  items: NavItem[];
+};
+
+export type NavEntry = NavItem | NavGroup;
+
+export function isNavGroup(entry: NavEntry): entry is NavGroup {
+  return "items" in entry && Array.isArray((entry as NavGroup).items);
+}
+
+export const NAV_ENTRIES: NavEntry[] = [
   {
-    label: "Operasyon Panosu",
+    label: "Genel Bakış",
     href: "/",
     icon: LayoutDashboard,
-    allowedRoles: ["admin", "saha_muhendisi", "musteri_kullanici", "depo_sorumlusu"],
-    platformNav: true,
+    allowedRoles: ["admin", "saha_muhendisi", "musteri_kullanici"],
   },
   {
-    label: "Projeler",
+    label: "Mağaza Arşivi",
     href: "/projects",
-    icon: FolderTree,
+    icon: Store,
     allowedRoles: ["admin", "saha_muhendisi", "musteri_kullanici"],
   },
+
+  // ── Bakım & Onarım ─────────────────────────────────────────────────────────
   {
-    label: "Saha Raporları",
-    href: "/field-reports",
-    icon: ClipboardList,
+    label: "Bakım & Onarım",
+    href: "/bakim",
+    icon: Wrench,
     allowedRoles: ["admin", "saha_muhendisi"],
+    items: [
+      { label: "Bakım Mağazaları",   href: "/bakim",                     icon: Store,       allowedRoles: ["admin", "saha_muhendisi"] },
+      { label: "Servis Formları",    href: "/bakim/servis-formlari",    icon: FileText,    allowedRoles: ["admin", "saha_muhendisi"] },
+      { label: "Bakım Hakedişleri",  href: "/bakim/hakkedisler",        icon: Receipt,     allowedRoles: ["admin", "saha_muhendisi"] },
+    ],
   },
+
+  // ── Tadilat ────────────────────────────────────────────────────────────────
   {
-    label: "Dokümanlar",
-    href: "/documents",
-    icon: FileText,
-    allowedRoles: ["admin", "saha_muhendisi", "musteri_kullanici"],
+    label: "Tadilat",
+    href: "/tadilat",
+    icon: HardHat,
+    allowedRoles: ["admin", "saha_muhendisi"],
+    items: [
+      { label: "Aktif Tadilatlar",      href: "/tadilat",                        icon: HardHat,     allowedRoles: ["admin", "saha_muhendisi"] },
+      { label: "Tamamlanan Tadilatlar", href: "/tadilat/tamamlanan",             icon: CheckCircle, allowedRoles: ["admin", "saha_muhendisi"] },
+      { label: "Tadilat Süreçleri",     href: "/tadilat/surecleri",              icon: GitCommit,   allowedRoles: ["admin", "saha_muhendisi"] },
+      { label: "Tadilat Dosyaları",     href: "/tadilat/dosyalar",               icon: FileText,    allowedRoles: ["admin", "saha_muhendisi"] },
+      { label: "Tadilat Hakedişleri",   href: "/tadilat/hakkedisler",            icon: Receipt,     allowedRoles: ["admin", "saha_muhendisi"] },
+    ],
   },
+
+  // ── Yeni Yapım ─────────────────────────────────────────────────────────────
   {
-    label: "Satın Alma",
-    href: "/procurement",
-    icon: ShoppingCart,
-    allowedRoles: ["admin", "depo_sorumlusu"],
+    label: "Yeni Yapım",
+    href: "/yeni-yapim",
+    icon: Building2,
+    allowedRoles: ["admin", "saha_muhendisi"],
+    items: [
+      { label: "Yeni Yapım İşleri",      href: "/yeni-yapim",                      icon: Building2,   allowedRoles: ["admin", "saha_muhendisi"] },
+      { label: "Yeni Yapım Süreçleri",   href: "/yeni-yapim/surecleri",             icon: GitCommit,   allowedRoles: ["admin", "saha_muhendisi"] },
+      { label: "Yapılacak İşler",        href: "/yeni-yapim/isler",                 icon: FileText,    allowedRoles: ["admin", "saha_muhendisi"] },
+      { label: "Teklifler",              href: "/yeni-yapim/teklifler",             icon: FileText,    allowedRoles: ["admin", "saha_muhendisi"] },
+      { label: "Yeni Yapım Hakedişleri", href: "/yeni-yapim/hakkedisler",           icon: Receipt,     allowedRoles: ["admin", "saha_muhendisi"] },
+    ],
   },
+
+  // ── Onay Süreçleri ─────────────────────────────────────────────────────────
   {
-    label: "Depo & Stok",
-    href: "/inventory",
-    icon: Warehouse,
-    allowedRoles: ["admin", "depo_sorumlusu"],
+    label: "Onay Süreçleri",
+    href: "/onay-surecleri",
+    icon: CheckCircle,
+    allowedRoles: ["admin", "saha_muhendisi"],
+    items: [
+      { label: "Tümü",                  href: "/onay-surecleri",                       icon: CheckCircle, allowedRoles: ["admin", "saha_muhendisi"] },
+      { label: "Hakkediş Onayı",        href: "/onay-surecleri?tip=hakkediş",          icon: Receipt,     allowedRoles: ["admin", "saha_muhendisi"] },
+      { label: "Fatura Onayı",          href: "/onay-surecleri?tip=fatura",            icon: Receipt,     allowedRoles: ["admin", "saha_muhendisi"] },
+      { label: "Proje Onayı",           href: "/onay-surecleri?tip=proje",             icon: FileText,    allowedRoles: ["admin", "saha_muhendisi"] },
+      { label: "Teklif Onayı",          href: "/onay-surecleri?tip=teklif",            icon: FileText,    allowedRoles: ["admin", "saha_muhendisi"] },
+      { label: "İş Tamamlandı Onayı",   href: "/onay-surecleri?tip=is_tamamlandi",    icon: CheckCircle, allowedRoles: ["admin", "saha_muhendisi"] },
+    ],
   },
+
+  // ── Düz linkler ────────────────────────────────────────────────────────────
   {
-    label: "Finans",
-    href: "/finance",
-    icon: CircleDollarSign,
-    allowedRoles: ["admin"],
+    label: "Faturalar / Hakkedişler",
+    href: "/hakkedisler",
+    icon: Receipt,
+    allowedRoles: ["admin", "saha_muhendisi"],
   },
   {
     label: "Kullanıcılar",
@@ -69,41 +119,33 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Users,
     allowedRoles: ["admin"],
   },
-  {
-    label: "Platform Dashboard",
-    href: "/platform",
-    icon: LayoutDashboard,
-    allowedRoles: ["platform_admin"],
-    platformNav: true,
-  },
-  {
-    label: "Platform Firma",
-    href: "/platform/firmalar",
-    icon: Building2,
-    allowedRoles: ["platform_admin"],
-    platformNav: true,
-  },
-  {
-    label: "Ayarlar",
-    href: "/settings",
-    icon: Settings,
-    allowedRoles: ["admin", "platform_admin"],
-    platformNav: true,
-  },
 ];
 
-export function getVisibleNavItems(roles: string[]): NavItem[] {
-  const isPlatform = roles.includes("platform_admin");
+// ── Legacy flat list (backward compat for SmartSearch etc.) ──────────────────
+export const NAV_ITEMS: NavItem[] = NAV_ENTRIES.flatMap((e) =>
+  isNavGroup(e) ? e.items : [e]
+);
 
-  return NAV_ITEMS.filter((item) => {
-    if (isPlatform) {
-      if (!item.platformNav) return false;
-      return !item.allowedRoles || item.allowedRoles.includes("platform_admin");
-    }
+export type NavItemCompat = NavItem;
 
-    if (!item.allowedRoles || item.allowedRoles.length === 0) {
-      return true;
+// ── Filter by roles ───────────────────────────────────────────────────────────
+function roleMatch(roles: string[], allowed?: string[]): boolean {
+  if (!allowed || allowed.length === 0) return true;
+  return allowed.some((r) => roles.includes(r));
+}
+
+export function getVisibleNavEntries(roles: string[]): NavEntry[] {
+  if (roles.includes("platform_admin")) return [];
+  return NAV_ENTRIES.filter((e) => roleMatch(roles, e.allowedRoles)).map((e) => {
+    if (isNavGroup(e)) {
+      return { ...e, items: e.items.filter((i) => roleMatch(roles, i.allowedRoles)) };
     }
-    return item.allowedRoles.some((role) => roles.includes(role));
+    return e;
   });
+}
+
+// ── Legacy compat ─────────────────────────────────────────────────────────────
+export function getVisibleNavItems(roles: string[]): NavItem[] {
+  if (roles.includes("platform_admin")) return [];
+  return NAV_ITEMS.filter((i) => roleMatch(roles, i.allowedRoles));
 }

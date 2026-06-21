@@ -1,4 +1,4 @@
-# ─────────────────────────────────────────────────────────────────────────────
+﻿# ─────────────────────────────────────────────────────────────────────────────
 #  Sismik Mekanik ERP — Object Storage Service
 #  Implements S3-compatible interface for OCI Object Storage
 # ─────────────────────────────────────────────────────────────────────────────
@@ -28,7 +28,7 @@ class StorageService:
         self.local_mode = not settings.AWS_ACCESS_KEY_ID or settings.AWS_ACCESS_KEY_ID == ""
         
         if self.local_mode:
-            print("⚠️ OCI Object Storage credentials missing! Running in LOCAL FALLBACK mode.")
+            print("[WARN] OCI Object Storage credentials missing! Running in LOCAL FALLBACK mode.")
             self.local_base_dir = os.path.join(
                 os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
                 "static", 
@@ -46,7 +46,7 @@ class StorageService:
                     config=Config(signature_version="s3v4"),
                 )
             except Exception as e:
-                print(f"⚠️ Failed to init boto3 client: {e}. Falling back to local storage.")
+                print(f"[WARN] Failed to init boto3 client: {e}. Falling back to local storage.")
                 self.local_mode = True
                 self.local_base_dir = os.path.join(
                     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 

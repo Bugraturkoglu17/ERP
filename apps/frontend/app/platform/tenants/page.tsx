@@ -9,9 +9,7 @@ import {
   Building2,
   CheckCircle2,
   CreditCard,
-  Download,
   Filter,
-  History,
   KeyRound,
   Lock,
   PlusCircle,
@@ -85,16 +83,6 @@ type Lisans = {
   ends_at?: string | null;
 };
 
-type Audit = {
-  id: string;
-  actor_user_id: string;
-  action: string;
-  tenant_id?: string | null;
-  target_user_id?: string | null;
-  details?: string | null;
-  created_at: string;
-};
-
 type ConfirmState = {
   open: boolean;
   title: string;
@@ -102,7 +90,7 @@ type ConfirmState = {
   action: () => Promise<void>;
 };
 
-const TABS = ["firmalar", "yoneticiler", "lisans", "audit"] as const;
+const TABS = ["firmalar", "yoneticiler", "lisans"] as const;
 type TabKey = (typeof TABS)[number];
 
 const STATUS_LABELS: Record<string, string> = {
@@ -184,7 +172,6 @@ function PlatformTenantsPageContent() {
   const [firmaYoneticileri, setFirmaYoneticileri] = useState<FirmaYoneticisi[]>([]);
   const [planlar, setPlanlar] = useState<Plan[]>([]);
   const [lisanslar, setLisanslar] = useState<Lisans[]>([]);
-  const [audit, setAudit] = useState<Audit[]>([]);
 
   const [firmaForm, setFirmaForm] = useState({
     name: "",
@@ -228,8 +215,6 @@ function PlatformTenantsPageContent() {
 
   const [searchFirma, setSearchFirma] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [auditActionFilter, setAuditActionFilter] = useState("all");
-  const [auditTextFilter, setAuditTextFilter] = useState("");
 
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState<ConfirmState>({ open: false, title: "", detail: "", action: async () => {} });
@@ -272,20 +257,6 @@ function PlatformTenantsPageContent() {
     return planlar.find((p) => p.id === aktifLisans.plan_id) || null;
   }, [aktifLisans, planlar]);
 
-  const auditActions = useMemo(() => {
-    const setValues = new Set(audit.map((x) => x.action));
-    return Array.from(setValues).sort();
-  }, [audit]);
-
-  const filteredAudit = useMemo(() => {
-    return audit.filter((row) => {
-      const passAction = auditActionFilter === "all" || row.action === auditActionFilter;
-      const text = `${row.action} ${row.details || ""} ${row.actor_user_id}`.toLowerCase();
-      const passText = text.includes(auditTextFilter.toLowerCase());
-      return passAction && passText;
-    });
-  }, [audit, auditActionFilter, auditTextFilter]);
-
   const metrik = useMemo(() => {
     const aktifFirma = firmalar.filter((f) => f.is_active).length;
     const askida = firmalar.filter((f) => f.status.toLowerCase() === "suspended").length;
@@ -296,14 +267,12 @@ function PlatformTenantsPageContent() {
   }, [firmalar, firmaYoneticileri, aktifPlan]);
 
   const loadCore = async () => {
-    const [firmaRows, planRows, auditRows] = await Promise.all([
+    const [firmaRows, planRows] = await Promise.all([
       apiGet<Firma[]>("/platform/tenants"),
       apiGet<Plan[]>("/platform/plans"),
-      apiGet<Audit[]>("/platform/audit"),
     ]);
     setFirmalar(Array.isArray(firmaRows) ? firmaRows : []);
     setPlanlar(Array.isArray(planRows) ? planRows : []);
-    setAudit(Array.isArray(auditRows) ? auditRows : []);
   };
 
   const loadFirmaScope = async (firmaId: string) => {
@@ -654,28 +623,6 @@ function PlatformTenantsPageContent() {
     }
   };
 
-  const exportAuditCsv = () => {
-    const rows = filteredAudit.map((a) => ({
-      zaman: new Date(a.created_at).toISOString(),
-      aksiyon: a.action,
-      aktor: a.actor_user_id,
-      firma: a.tenant_id || "",
-      hedef: a.target_user_id || "",
-      detay: (a.details || "").replace(/\n/g, " "),
-    }));
-
-    const headers = ["zaman", "aksiyon", "aktor", "firma", "hedef", "detay"];
-    const csv = [headers.join(","), ...rows.map((r) => headers.map((h) => `"${String((r as any)[h] || "").replace(/"/g, '""')}"`).join(","))].join("\n");
-
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `audit-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
   if (!authorized || loading) {
     return (
       <div className="flex min-h-[380px] items-center justify-center">
@@ -720,7 +667,6 @@ function PlatformTenantsPageContent() {
           <button onClick={() => setTab("firmalar")} className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all ${tab === "firmalar" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}>Firmalar</button>
           <button onClick={() => setTab("yoneticiler")} className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all ${tab === "yoneticiler" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}>Yöneticiler</button>
           <button onClick={() => setTab("lisans")} className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all ${tab === "lisans" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}>Lisans</button>
-          <button onClick={() => setTab("audit")} className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all ${tab === "audit" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}>Audit</button>
         </div>
       </div>
 
@@ -790,16 +736,23 @@ function PlatformTenantsPageContent() {
             {firmaSection === "create" && (
               <form onSubmit={createFirma} className="rounded-2xl border border-slate-200 bg-white p-4">
                 <h3 className="mb-3 flex items-center gap-2 text-sm font-bold"><PlusCircle className="h-4 w-4" /> Yeni Firma</h3>
-                <div className="grid gap-2 md:grid-cols-3">
-                  <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Firma adı" value={firmaForm.name} onChange={(e) => setFirmaForm((p) => ({ ...p, name: e.target.value }))} required />
-                  <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Kısa kod (or: akme)" pattern="[a-z0-9-]{2,32}" value={firmaForm.code} onChange={(e) => setFirmaForm((p) => ({ ...p, code: e.target.value }))} required />
-                  <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Logo URL" value={firmaForm.logo_url} onChange={(e) => setFirmaForm((p) => ({ ...p, logo_url: e.target.value }))} />
-                  <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Vergi No" value={firmaForm.tax_no} onChange={(e) => setFirmaForm((p) => ({ ...p, tax_no: e.target.value }))} />
-                  <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Sektör" value={firmaForm.sector} onChange={(e) => setFirmaForm((p) => ({ ...p, sector: e.target.value }))} />
-                  <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Ülke" value={firmaForm.country} onChange={(e) => setFirmaForm((p) => ({ ...p, country: e.target.value }))} />
-                  <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Tema rengi (#0f172a)" pattern="^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$" value={firmaForm.theme_color} onChange={(e) => setFirmaForm((p) => ({ ...p, theme_color: e.target.value }))} />
-                  <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Domain (or: firma.com)" value={firmaForm.domain} onChange={(e) => setFirmaForm((p) => ({ ...p, domain: e.target.value }))} />
-                  <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Subdomain (or: akme)" value={firmaForm.subdomain} onChange={(e) => setFirmaForm((p) => ({ ...p, subdomain: e.target.value }))} />
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div>
+                    <label className="text-xs font-medium text-slate-500 block mb-1">Firma Adı *</label>
+                    <input className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="Örn: Akme Mühendislik" value={firmaForm.name} onChange={(e) => setFirmaForm((p) => ({ ...p, name: e.target.value }))} required />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-500 block mb-1">Firma Kodu *</label>
+                    <input className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="Örn: akme (küçük harf)" pattern="[a-z0-9-]{2,32}" value={firmaForm.code} onChange={(e) => setFirmaForm((p) => ({ ...p, code: e.target.value }))} required />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-500 block mb-1">Sektör</label>
+                    <input className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="Örn: İnşaat, Mühendislik" value={firmaForm.sector} onChange={(e) => setFirmaForm((p) => ({ ...p, sector: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-500 block mb-1">Ülke</label>
+                    <input className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="Örn: Türkiye" value={firmaForm.country} onChange={(e) => setFirmaForm((p) => ({ ...p, country: e.target.value }))} />
+                  </div>
                 </div>
                 <button disabled={busy} className="mt-3 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white"><Building2 className="h-4 w-4" /> Firma Oluştur</button>
               </form>
@@ -852,40 +805,22 @@ function PlatformTenantsPageContent() {
 
                 <form onSubmit={saveFirmaVeAyar} className="rounded-2xl border border-slate-200 bg-white p-4">
                   <h3 className="mb-3 text-sm font-bold">Firma Bilgileri ve Ayarları</h3>
-                  <div className="grid gap-2 md:grid-cols-3">
-                    <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Firma adı" value={firmaDuzenleForm.name} onChange={(e) => setFirmaDuzenleForm((p) => ({ ...p, name: e.target.value }))} required />
-                    <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Kısa kod (or: akme)" pattern="[a-z0-9-]{2,32}" value={firmaDuzenleForm.code} onChange={(e) => setFirmaDuzenleForm((p) => ({ ...p, code: e.target.value }))} required />
-                    <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Logo URL" value={firmaDuzenleForm.logo_url} onChange={(e) => setFirmaDuzenleForm((p) => ({ ...p, logo_url: e.target.value }))} />
-                    <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Vergi No" value={ayarForm.tax_no} onChange={(e) => setAyarForm((p) => ({ ...p, tax_no: e.target.value }))} />
-                    <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Sektör" value={ayarForm.sector} onChange={(e) => setAyarForm((p) => ({ ...p, sector: e.target.value }))} />
-                    <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Ülke" value={ayarForm.country} onChange={(e) => setAyarForm((p) => ({ ...p, country: e.target.value }))} />
-                    <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Tema rengi (#0f172a)" pattern="^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$" value={ayarForm.theme_color} onChange={(e) => setAyarForm((p) => ({ ...p, theme_color: e.target.value }))} />
-                    <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Domain (or: firma.com)" value={ayarForm.domain} onChange={(e) => setAyarForm((p) => ({ ...p, domain: e.target.value }))} />
-                    <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Subdomain (or: akme)" value={ayarForm.subdomain} onChange={(e) => setAyarForm((p) => ({ ...p, subdomain: e.target.value }))} />
-                  </div>
-
-                  <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                    <h4 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-700">Mail Gönderim Kimliği</h4>
-                    <div className="grid gap-2 md:grid-cols-3">
-                      <select className="rounded-lg border px-3 py-2 text-sm" value={ayarForm.email_mode} onChange={(e) => setAyarForm((p) => ({ ...p, email_mode: e.target.value as "platform" | "tenant_domain" }))}>
-                        <option value="platform">Platform (önerilen başlangıç)</option>
-                        <option value="tenant_domain">Firma domain (white-label)</option>
-                      </select>
-                      <input className="rounded-lg border px-3 py-2 text-sm" placeholder="From Name (örn: Akme ERP)" value={ayarForm.from_name} onChange={(e) => setAyarForm((p) => ({ ...p, from_name: e.target.value }))} />
-                      <input className="rounded-lg border px-3 py-2 text-sm" placeholder="From Email (örn: bildirim@firma.com)" type="email" value={ayarForm.from_email} onChange={(e) => setAyarForm((p) => ({ ...p, from_email: e.target.value }))} />
-                      <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Reply-To (örn: destek@firma.com)" type="email" value={ayarForm.reply_to} onChange={(e) => setAyarForm((p) => ({ ...p, reply_to: e.target.value }))} />
-                      <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Provider Identity ID" value={ayarForm.email_provider_identity_id} onChange={(e) => setAyarForm((p) => ({ ...p, email_provider_identity_id: e.target.value }))} />
-                      <label className="flex items-center gap-2 rounded-lg border bg-white px-3 py-2 text-sm">
-                        <input type="checkbox" checked={ayarForm.email_domain_verified} onChange={(e) => setAyarForm((p) => ({ ...p, email_domain_verified: e.target.checked }))} />
-                        Domain doğrulandı
-                      </label>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div>
+                      <label className="text-xs font-medium text-slate-500 block mb-1">Firma Adı *</label>
+                      <input className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="Firma adı" value={firmaDuzenleForm.name} onChange={(e) => setFirmaDuzenleForm((p) => ({ ...p, name: e.target.value }))} required />
                     </div>
-
-                    <h4 className="mb-2 mt-3 text-xs font-bold uppercase tracking-wide text-slate-700">Mail Branding</h4>
-                    <div className="grid gap-2 md:grid-cols-3">
-                      <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Brand Logo URL" value={ayarForm.branding_logo_url} onChange={(e) => setAyarForm((p) => ({ ...p, branding_logo_url: e.target.value }))} />
-                      <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Brand Renk (#0f172a)" pattern="^$|^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$" value={ayarForm.branding_color} onChange={(e) => setAyarForm((p) => ({ ...p, branding_color: e.target.value }))} />
-                      <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Footer metni" value={ayarForm.branding_footer} onChange={(e) => setAyarForm((p) => ({ ...p, branding_footer: e.target.value }))} />
+                    <div>
+                      <label className="text-xs font-medium text-slate-500 block mb-1">Firma Kodu *</label>
+                      <input className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="Kısa kod" pattern="[a-z0-9-]{2,32}" value={firmaDuzenleForm.code} onChange={(e) => setFirmaDuzenleForm((p) => ({ ...p, code: e.target.value }))} required />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-slate-500 block mb-1">Sektör</label>
+                      <input className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="Sektör" value={ayarForm.sector} onChange={(e) => setAyarForm((p) => ({ ...p, sector: e.target.value }))} />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-slate-500 block mb-1">Ülke</label>
+                      <input className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="Ülke" value={ayarForm.country} onChange={(e) => setAyarForm((p) => ({ ...p, country: e.target.value }))} />
                     </div>
                   </div>
 
@@ -1114,34 +1049,6 @@ function PlatformTenantsPageContent() {
           </div>
         )}
 
-        {tab === "audit" && (
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 lg:col-span-2">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <h3 className="flex items-center gap-2 text-sm font-bold"><History className="h-4 w-4" /> Immutable Audit Trail</h3>
-              <button onClick={exportAuditCsv} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700"><Download className="h-3.5 w-3.5" /> CSV</button>
-            </div>
-
-            <div className="mb-3 grid gap-2 md:grid-cols-3">
-              <select className="rounded-lg border px-3 py-2 text-sm" value={auditActionFilter} onChange={(e) => setAuditActionFilter(e.target.value)}>
-                <option value="all">Tüm aksiyonlar</option>
-                {auditActions.map((a) => <option key={a} value={a}>{a}</option>)}
-              </select>
-              <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Metin ara" value={auditTextFilter} onChange={(e) => setAuditTextFilter(e.target.value)} />
-              <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">Kayıt: {filteredAudit.length}</div>
-            </div>
-
-            <div className="space-y-2">
-              {filteredAudit.length === 0 && <p className="text-sm text-slate-500">Filtreye uygun kayıt yok.</p>}
-              {filteredAudit.map((row) => (
-                <div key={row.id} className="rounded-lg border p-3">
-                  <p className="text-sm font-semibold text-slate-900">{row.action}</p>
-                  <p className="text-xs text-slate-600">{new Date(row.created_at).toLocaleString("tr-TR")} · firma: {row.tenant_id || "-"} · aktör: {row.actor_user_id}</p>
-                  {row.details && <p className="mt-1 text-xs text-slate-500 break-words">{row.details}</p>}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </section>
     </div>
   );
