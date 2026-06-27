@@ -12,7 +12,7 @@ from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.storage import storage
+from app.core.storage import storage, sanitize_filename
 from app.core.exceptions import NotFoundError, ConflictError
 from app.db.models import Document, User
 from app.core.dependencies import get_current_user
@@ -68,8 +68,8 @@ async def upload_document(
 ) -> Document:
     # ── 1 · Dosyayı oku ve S3/OCI'ya yükle ───────────────────────────────────────
     content = await file.read()
-    # Key format: projects/{project_id}/{doc_type}/{timestamp}_{filename}
-    file_key = f"projects/{project_id}/{doc_type}/{int(time.time())}_{file.filename}"
+    safe_name = sanitize_filename(file.filename or "file")
+    file_key = f"projects/{project_id}/{doc_type}/{int(time.time())}_{safe_name}"
     
     try:
         uploaded_key = await storage.upload_file(
@@ -178,7 +178,8 @@ async def upload_document_version(
     
     # ── 2 · Dosyayı yükle ───────────────────────────────────────────────────────
     content = await file.read()
-    new_file_key = f"projects/{old_doc.project_id}/{old_doc.doc_type}/{int(time.time())}_{file.filename}"
+    safe_name = sanitize_filename(file.filename or "file")
+    new_file_key = f"projects/{old_doc.project_id}/{old_doc.doc_type}/{int(time.time())}_{safe_name}"
     
     try:
         uploaded_key = await storage.upload_file(

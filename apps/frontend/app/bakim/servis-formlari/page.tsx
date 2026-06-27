@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
-  CheckCircle2, Clock, Eye, FileText, FolderOpen, Search, Store, Wrench,
+  CheckCircle2, Clock, Download, Eye, FileText, FolderOpen, Search, Store, Wrench,
 } from "lucide-react";
 import { apiGet, buildApiUrl } from "@/lib/api";
 
-type Project = { id: string; name: string; project_no?: string; status: string };
+type Project = { id: string; name: string; project_no?: string; status: string; scope_codes?: string[] };
 
 type ServiceForm = {
   id: string;
@@ -30,64 +30,69 @@ function fmtDate(d: string) {
   return new Date(d).toLocaleDateString("tr-TR", { day: "2-digit", month: "short", year: "numeric" });
 }
 
+async function fetchDocUrl(docId: string): Promise<string> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  const res = await fetch(buildApiUrl(`/documents/${docId}/download`), {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) throw new Error();
+  const { url } = await res.json();
+  return url;
+}
+
 async function openDoc(docId: string) {
   try {
-    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-    const res = await fetch(buildApiUrl(`/documents/${docId}/download`), {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
-    if (!res.ok) throw new Error();
-    const { url } = await res.json();
+    const url = await fetchDocUrl(docId);
     window.open(url, "_blank");
   } catch {
     alert("Dosya açılamadı.");
   }
 }
 
-// Her proje için mevcut per-project endpoint'ini kullanır; hiçbir bulk endpoint gerektirmez.
-async function fetchFormMap(
-  projects: Project[],
-  year: number,
-  month: number
-): Promise<Map<string, ServiceForm>> {
-  const BATCH = 20;
-  const map = new Map<string, ServiceForm>();
-
-  for (let i = 0; i < projects.length; i += BATCH) {
-    const batch = projects.slice(i, i + BATCH);
-    const results = await Promise.all(
-      batch.map((p) =>
-        apiGet<ServiceForm[]>(`/service-forms/projects/${p.id}?year=${year}&month=${month}`)
-          .catch(() => [] as ServiceForm[])
-      )
-    );
-    results.forEach((forms, idx) => {
-      if (Array.isArray(forms) && forms.length > 0) {
-        // project_id + year + month için ilk kaydı al (duplike olmamalı)
-        map.set(batch[idx].id, forms[0]);
-      }
-    });
+async function downloadDoc(docId: string, fileName?: string) {
+  try {
+    const url = await fetchDocUrl(docId);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName ?? "servis-formu";
+    a.click();
+  } catch {
+    alert("Dosya indirilemedi.");
   }
-  return map;
 }
 
 export default function BakimServisFormlariPage() {
   const [projects,    setProjects]    = useState<Project[]>([]);
   const [formMap,     setFormMap]     = useState<Map<string, ServiceForm>>(new Map());
   const [loading,     setLoading]     = useState(true);
+  const [error,       setError]       = useState("");
   const [query,       setQuery]       = useState("");
   const [monthFilter, setMonthFilter] = useState(NOW_MONTH);
   const [yearFilter,  setYearFilter]  = useState(NOW_YEAR);
 
   useEffect(() => {
-    setLoading(true);
     (async () => {
+      setLoading(true);
+      setError("");
       try {
-        const projs = await apiGet<Project[]>("/projects?limit=5000").catch(() => [] as Project[]);
-        const list  = Array.isArray(projs) ? projs : [];
-        setProjects(list);
-        const map = await fetchFormMap(list, yearFilter, monthFilter);
+        // 2 paralel çağrı — per-project loop yok
+        const [projs, forms] = await Promise.all([
+          apiGet<Project[]>("/projects?limit=5000").catch(() => [] as Project[]),
+          apiGet<ServiceForm[]>(`/service-forms?year=${yearFilter}&month=${monthFilter}`).catch(() => [] as ServiceForm[]),
+        ]);
+
+        const list = Array.isArray(projs) ? projs : [];
+        // Sadece bakım mağazaları (scope_codes içinde "bakim" olanlar)
+        const bakimList = list.filter((p) => p.scope_codes?.includes("bakim"));
+        setProjects(bakimList);
+
+        const map = new Map<string, ServiceForm>();
+        if (Array.isArray(forms)) {
+          forms.forEach((f) => map.set(f.project_id, f));
+        }
         setFormMap(map);
+      } catch {
+        setError("Bağlantı hatası. Backend çalışıyor mu?");
       } finally {
         setLoading(false);
       }
@@ -116,7 +121,6 @@ export default function BakimServisFormlariPage() {
         </div>
       </div>
 
-      {/* Filtreler */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
@@ -159,6 +163,10 @@ export default function BakimServisFormlariPage() {
             {MONTHS_TR[monthFilter]} {yearFilter} servis formları kontrol ediliyor...
           </p>
         </div>
+      ) : error ? (
+        <div className="flex flex-col items-center justify-center py-16 gap-3 rounded-2xl border border-dashed border-red-200 bg-red-50">
+          <p className="text-sm font-semibold text-red-600">{error}</p>
+        </div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 gap-3 rounded-2xl border border-dashed border-slate-200">
           <Wrench className="h-10 w-10 text-slate-200" />
@@ -188,7 +196,7 @@ export default function BakimServisFormlariPage() {
                       <div className="flex items-center gap-2">
                         <Store className="h-4 w-4 text-slate-300 shrink-0" />
                         <Link
-                          href={`/projects/${p.id}?tab=servisform`}
+                          href={`/bakim/magazalar/${p.id}`}
                           className="font-medium text-slate-900 hover:text-blue-600 transition-colors"
                         >
                           {p.name}
@@ -221,15 +229,23 @@ export default function BakimServisFormlariPage() {
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         {hasForm && form?.file_url && (
-                          <button
-                            onClick={() => openDoc(form.file_url!)}
-                            className="inline-flex items-center gap-1 text-xs text-slate-600 border border-slate-200 rounded-lg px-2 py-1 hover:bg-slate-50"
-                          >
-                            <Eye className="h-3.5 w-3.5" /> Aç
-                          </button>
+                          <>
+                            <button
+                              onClick={() => openDoc(form.file_url!)}
+                              className="inline-flex items-center gap-1 text-xs text-slate-600 border border-slate-200 rounded-lg px-2 py-1 hover:bg-slate-50"
+                            >
+                              <Eye className="h-3.5 w-3.5" /> Aç
+                            </button>
+                            <button
+                              onClick={() => downloadDoc(form.file_url!, form.file_name)}
+                              className="inline-flex items-center gap-1 text-xs text-slate-600 border border-slate-200 rounded-lg px-2 py-1 hover:bg-slate-50"
+                            >
+                              <Download className="h-3.5 w-3.5" /> İndir
+                            </button>
+                          </>
                         )}
                         <Link
-                          href={`/projects/${p.id}?tab=servisform`}
+                          href={`/bakim/magazalar/${p.id}`}
                           className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
                         >
                           <FolderOpen className="h-3.5 w-3.5" /> Forma Git

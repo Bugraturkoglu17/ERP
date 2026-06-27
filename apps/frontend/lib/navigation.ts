@@ -9,8 +9,10 @@ import {
   Receipt,
   Users,
   FileText,
+  ClipboardList,
   type LucideIcon,
 } from "lucide-react";
+
 
 export type NavItem = {
   label: string;
@@ -47,6 +49,14 @@ export const NAV_ENTRIES: NavEntry[] = [
     allowedRoles: ["admin", "saha_muhendisi", "musteri_kullanici"],
   },
 
+  // ── İş Emirleri ────────────────────────────────────────────────────────────
+  {
+    label: "İş Emirleri",
+    href: "/is-emirleri",
+    icon: ClipboardList,
+    allowedRoles: ["admin", "saha_muhendisi"],
+  },
+
   // ── Bakım & Onarım ─────────────────────────────────────────────────────────
   {
     label: "Bakım & Onarım",
@@ -54,9 +64,10 @@ export const NAV_ENTRIES: NavEntry[] = [
     icon: Wrench,
     allowedRoles: ["admin", "saha_muhendisi"],
     items: [
-      { label: "Bakım Mağazaları",   href: "/bakim",                     icon: Store,       allowedRoles: ["admin", "saha_muhendisi"] },
-      { label: "Servis Formları",    href: "/bakim/servis-formlari",    icon: FileText,    allowedRoles: ["admin", "saha_muhendisi"] },
-      { label: "Bakım Hakedişleri",  href: "/bakim/hakkedisler",        icon: Receipt,     allowedRoles: ["admin", "saha_muhendisi"] },
+      { label: "Bakım Mağazaları",   href: "/bakim",                  icon: Store,         allowedRoles: ["admin", "saha_muhendisi"] },
+      { label: "Servis Formları",    href: "/bakim/servis-formlari",  icon: FileText,      allowedRoles: ["admin", "saha_muhendisi"] },
+      { label: "Bakım Faturaları",   href: "/bakim/faturalar",        icon: Receipt,       allowedRoles: ["admin", "saha_muhendisi"] },
+      { label: "Bakım Hakkedişleri", href: "/bakim/hakkedisler",      icon: Receipt,       allowedRoles: ["admin", "saha_muhendisi"] },
     ],
   },
 

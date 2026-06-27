@@ -10,7 +10,6 @@ type Project = {
   name: string;
   project_no?: string;
   status: string;
-  scope_codes?: string[];
 };
 
 type ProgressPayment = {
@@ -46,46 +45,46 @@ function getStatus(p: ProgressPayment): { label: string; cls: string } {
   return STATUS_CFG[p.approval_status] ?? STATUS_CFG.pending;
 }
 
-function isTadilat(payment: ProgressPayment, project: Project): boolean {
-  if (payment.payment_type === "tadilat") return true;
-  if (["ara", "final"].includes(payment.payment_type)) {
-    return (project.scope_codes ?? []).includes("tadilat");
-  }
-  return false;
-}
-
-async function fetchAllPayments(projects: Project[]): Promise<Row[]> {
-  const BATCH = 20;
-  const rows: Row[] = [];
-  for (let i = 0; i < projects.length; i += BATCH) {
-    const batch = projects.slice(i, i + BATCH);
-    const results = await Promise.all(
-      batch.map((p) =>
-        apiGet<ProgressPayment[]>(`/progress-payments/projects/${p.id}`)
-          .then((payments) => (Array.isArray(payments) ? payments.map((pay) => ({ payment: pay, project: p })) : []))
-          .catch(() => [])
-      )
-    );
-    results.forEach((r) => rows.push(...r));
-  }
-  return rows;
+function isTadilat(payment: ProgressPayment): boolean {
+  return payment.payment_type === "tadilat";
 }
 
 export default function TadilatHakkedislerPage() {
   const [rows,    setRows]    = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState("");
   const [query,   setQuery]   = useState("");
 
   useEffect(() => {
     (async () => {
+      setLoading(true);
+      setError("");
       try {
-        const projects = await apiGet<Project[]>("/projects?limit=5000").catch(() => [] as Project[]);
-        const allRows  = await fetchAllPayments(Array.isArray(projects) ? projects : []);
-        const filtered = allRows.filter(({ payment, project }) => isTadilat(payment, project));
-        filtered.sort((a, b) =>
-          new Date(b.payment.created_at).getTime() - new Date(a.payment.created_at).getTime()
-        );
+        const [payments, projects] = await Promise.all([
+          apiGet<ProgressPayment[]>("/progress-payments").catch(() => [] as ProgressPayment[]),
+          apiGet<Project[]>("/projects?limit=5000").catch(() => [] as Project[]),
+        ]);
+
+        if (!Array.isArray(payments) || !Array.isArray(projects)) {
+          setError("Veri alınamadı. Lütfen tekrar deneyin.");
+          return;
+        }
+
+        const projectMap = new Map(projects.map((p) => [p.id, p]));
+
+        const filtered = payments
+          .filter((pay) => {
+            const proj = projectMap.get(pay.project_id);
+            return proj ? isTadilat(pay) : false;
+          })
+          .map((pay) => ({ payment: pay, project: projectMap.get(pay.project_id)! }))
+          .sort((a, b) =>
+            new Date(b.payment.created_at).getTime() - new Date(a.payment.created_at).getTime()
+          );
+
         setRows(filtered);
+      } catch {
+        setError("Bağlantı hatası. Backend çalışıyor mu?");
       } finally {
         setLoading(false);
       }
@@ -130,13 +129,17 @@ export default function TadilatHakkedislerPage() {
           <div className="h-6 w-6 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
           <p className="text-xs text-slate-400">Hakkediş kayıtları yükleniyor...</p>
         </div>
+      ) : error ? (
+        <div className="flex flex-col items-center justify-center py-16 gap-3 rounded-2xl border border-dashed border-red-200 bg-red-50">
+          <p className="text-sm font-semibold text-red-600">{error}</p>
+        </div>
       ) : displayed.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 gap-3 rounded-2xl border border-dashed border-slate-200">
           <HardHat className="h-10 w-10 text-slate-200" />
           <p className="text-sm font-semibold text-slate-500">
             {query ? "Arama sonucu bulunamadı." : "Henüz tadilat hakkedişi girilmemiş."}
           </p>
-          <p className="text-xs text-slate-400">Mağaza kartı › Hakkedişler sekmesinden kayıt ekleyin.</p>
+          <p className="text-xs text-slate-400">Tadilat Klasöründen hakkediş ekleyebilirsiniz.</p>
         </div>
       ) : (
         <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
@@ -172,7 +175,7 @@ export default function TadilatHakkedislerPage() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <Store className="h-4 w-4 text-slate-300 shrink-0" />
-                        <Link href={`/projects/${project.id}?tab=hakkediş`} className="text-sm font-medium text-slate-900 hover:text-blue-600 transition-colors">
+                        <Link href={`/tadilat/surecleri`} className="text-sm font-medium text-slate-900 hover:text-blue-600 transition-colors">
                           {project.name}
                         </Link>
                       </div>
@@ -189,8 +192,8 @@ export default function TadilatHakkedislerPage() {
                         : <span className="text-[11px] text-slate-300">—</span>}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <Link href={`/projects/${project.id}?tab=hakkediş`} className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline">
-                        <FolderOpen className="h-3.5 w-3.5" /> Hakkedişe Git
+                      <Link href={`/tadilat/surecleri`} className="inline-flex items-center gap-1 text-xs text-amber-700 hover:underline">
+                        <FolderOpen className="h-3.5 w-3.5" /> Klasöre Git
                       </Link>
                     </td>
                   </tr>

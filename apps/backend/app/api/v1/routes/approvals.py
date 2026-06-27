@@ -25,7 +25,7 @@ def utc_now():
 
 # ── GET /approvals (tenant genelinde tüm onaylar) ────────────────────────────
 
-@router.get("/", response_model=List[ApprovalRequestRead])
+@router.get("", response_model=List[ApprovalRequestRead])
 async def list_approvals(
     approval_type: Optional[str] = None,
     status:        Optional[str] = None,

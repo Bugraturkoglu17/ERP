@@ -4,10 +4,10 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import {
-  AlertCircle, CheckCircle2, ChevronRight, Clock, Download,
-  FolderOpen, Loader2, XCircle,
+  AlertCircle, CheckCircle2, Clock, Download,
+  FolderOpen, Loader2, RefreshCw, XCircle,
 } from "lucide-react";
-import { apiGet, apiPatch } from "@/lib/api";
+import { apiGet, apiPatch, apiPost, buildApiUrl } from "@/lib/api";
 
 type ApprovalRequest = {
   id: string;
@@ -80,15 +80,43 @@ function OnayPage() {
   const [loading,      setLoading]      = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
   const [actingId,     setActingId]     = useState<string | null>(null);
+  const [syncing,      setSyncing]      = useState(false);
 
   const load = async () => {
     setLoading(true);
-    const data = await apiGet<ApprovalRequest[]>("/approvals/").catch(() => []);
+    const data = await apiGet<ApprovalRequest[]>("/approvals").catch(() => []);
     setApprovals(Array.isArray(data) ? data : []);
     setLoading(false);
   };
 
   useEffect(() => { load(); }, []);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const res = await apiPost<{ synced: number; message: string }>(
+        "/progress-payments/sync-approvals", {}
+      );
+      alert(res?.message ?? "Senkronizasyon tamamlandı.");
+      await load();
+    } catch {
+      alert("Senkronizasyon başarısız.");
+    } finally { setSyncing(false); }
+  };
+
+  const openDoc = async (docId: string) => {
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      const res = await fetch(buildApiUrl(`/documents/${docId}/download`), {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error();
+      const { url } = await res.json();
+      window.open(url, "_blank");
+    } catch {
+      alert("Dosya açılamadı.");
+    }
+  };
 
   const act = async (id: string, status: string, note?: string) => {
     setActingId(id);
@@ -133,20 +161,32 @@ function OnayPage() {
           </div>
         </div>
 
-        {/* Durum filtresi */}
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 focus:border-blue-500 focus:outline-none"
-        >
-          <option value="">Tüm Durumlar</option>
-          <option value="bekliyor">Onay Bekliyor</option>
-          <option value="onaylandi">Onaylandı</option>
-          <option value="reddedildi">Reddedildi</option>
-          <option value="revizyon">Revizyon İstendi</option>
-          <option value="iptal">İptal Edildi</option>
-          <option value="tamamlandi">Tamamlandı</option>
-        </select>
+        <div className="flex items-center gap-2">
+          {/* Durum filtresi */}
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 focus:border-blue-500 focus:outline-none"
+          >
+            <option value="">Tüm Durumlar</option>
+            <option value="bekliyor">Onay Bekliyor</option>
+            <option value="onaylandi">Onaylandı</option>
+            <option value="reddedildi">Reddedildi</option>
+            <option value="revizyon">Revizyon İstendi</option>
+            <option value="iptal">İptal Edildi</option>
+            <option value="tamamlandi">Tamamlandı</option>
+          </select>
+          {/* Kopuk kayıtları senkronize et */}
+          <button
+            onClick={handleSync}
+            disabled={syncing}
+            title="Onaya gönderilmiş ama Onay Süreçleri'nde görünmeyen hakkedişleri senkronize eder"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+          >
+            {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+            Senkronize Et
+          </button>
+        </div>
       </div>
 
       {/* Bekleyen uyarı bandı */}
@@ -253,14 +293,12 @@ function OnayPage() {
                         <FolderOpen className="h-3 w-3" /> Detaya Git
                       </Link>
                       {a.file_url && (
-                        <a
-                          href={a.file_url}
-                          target="_blank"
-                          rel="noreferrer"
+                        <button
+                          onClick={() => openDoc(a.file_url!)}
                           className="flex items-center gap-1 text-[11px] text-blue-600 border border-blue-100 rounded-lg px-2.5 py-1 hover:bg-blue-50"
                         >
-                          <Download className="h-3 w-3" /> Dosyayı İndir
-                        </a>
+                          <Download className="h-3 w-3" /> Dosyayı Aç
+                        </button>
                       )}
                       {isPending && (
                         <>

@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { FolderOpen, GitCommit, HardHat, Search, Store } from "lucide-react";
-import { apiGet } from "@/lib/api";
+import { FolderOpen, GitCommit, HardHat, Search, Store, Trash2 } from "lucide-react";
+import { apiGet, apiDelete } from "@/lib/api";
 
 type ActiveJob = {
   project_id: string; project_name: string; project_no?: string;
+  process_id: string;
   work_type: string; process_title: string; current_stage?: string;
   target_end_date?: string; days_remaining?: number;
 };
@@ -23,12 +24,35 @@ export default function TadilatSurecleriPage() {
   const [loading, setLoading] = useState(true);
   const [query,   setQuery]   = useState("");
 
-  useEffect(() => {
+  const load = () => {
     apiGet<ActiveJob[]>("/process/active-jobs")
-      .then((d) => setJobs((Array.isArray(d) ? d : []).filter(j => j.work_type === "tadilat")))
+      .then((d) => {
+        const all = (Array.isArray(d) ? d : []).filter(j => j.work_type === "tadilat");
+        // process_id benzersiz UUID'dir — dedupe
+        const seen = new Set<string>();
+        const unique = all.filter(j => {
+          if (seen.has(j.process_id)) return false;
+          seen.add(j.process_id);
+          return true;
+        });
+        setJobs(unique);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleDelete = async (j: ActiveJob) => {
+    if (!j.process_id) { alert("Süreç ID bulunamadı."); return; }
+    if (!confirm(`"${j.process_title}" sürecini silmek istediğinizden emin misiniz?`)) return;
+    try {
+      await apiDelete(`/process/projects/${j.project_id}/process/${j.process_id}`);
+      load();
+    } catch (ex: any) {
+      alert(ex?.response?.data?.detail ?? "Süreç silinemedi.");
+    }
+  };
 
   const filtered = useMemo(() =>
     jobs.filter(j => !query || j.project_name.toLowerCase().includes(query.toLowerCase())),
@@ -73,18 +97,18 @@ export default function TadilatSurecleriPage() {
                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Süreç</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Mevcut Aşama</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Kalan Süre</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">İşlem</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide w-28">İşlem</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {filtered.map((j) => {
                 const cd = calcCountdown(j.days_remaining);
                 return (
-                  <tr key={j.project_id} className="hover:bg-slate-50 transition-colors">
+                  <tr key={j.process_id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <Store className="h-4 w-4 text-slate-300 shrink-0" />
-                        <Link href={`/projects/${j.project_id}?tab=process`}
+                        <Link href={`/tadilat/surecleri/${j.process_id}?p=${j.project_id}`}
                           className="font-medium text-slate-900 hover:text-blue-600 transition-colors">
                           {j.project_name}
                         </Link>
@@ -100,10 +124,19 @@ export default function TadilatSurecleriPage() {
                     </td>
                     <td className={`px-4 py-3 text-xs font-semibold ${cd.color}`}>{cd.text}</td>
                     <td className="px-4 py-3 text-right">
-                      <Link href={`/projects/${j.project_id}?tab=process`}
-                        className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline">
-                        <FolderOpen className="h-3.5 w-3.5" /> Sürece Git
-                      </Link>
+                      <div className="flex items-center justify-end gap-2">
+                        <Link href={`/tadilat/surecleri/${j.process_id}?p=${j.project_id}`}
+                          className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline">
+                          <FolderOpen className="h-3.5 w-3.5" /> Klasöre Git
+                        </Link>
+                        <button
+                          onClick={() => handleDelete(j)}
+                          className="inline-flex items-center gap-1 text-xs text-red-500 hover:text-red-700"
+                          title="Süreci Sil"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );

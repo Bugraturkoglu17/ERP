@@ -194,9 +194,97 @@ async def update_payment(
     payment = result.scalar_one_or_none()
     if not payment:
         raise HTTPException(status_code=404, detail="Hakkediş bulunamadı.")
+
+    was_submitted = payment.submitted_for_approval
     for k, v in body.model_dump(exclude_none=True).items():
         setattr(payment, k, v)
     payment.updated_at = utc_now()
+
+    # submitted_for_approval false→true geçişinde approval oluştur
+    if not was_submitted and payment.submitted_for_approval:
+        existing = await db.execute(
+            select(StoreApprovalRequest).where(StoreApprovalRequest.related_payment_id == payment_id)
+        )
+        if not existing.scalar_one_or_none():
+            label = PAYMENT_TYPE_LABELS.get(payment.payment_type, payment.payment_type)
+            period_str = f" ({payment.period})" if payment.period else ""
+            payment.approval_status = "pending"
+            db.add(StoreApprovalRequest(
+                tenant_id=payment.tenant_id,
+                project_id=payment.project_id,
+                process_id=payment.process_id,
+                approval_type="hakkediş",
+                related_payment_id=payment.id,
+                title=f"{label}{period_str} — Onay Talebi",
+                description=payment.description,
+                amount=payment.amount,
+                file_url=payment.file_url,
+                file_name=payment.file_name,
+                status="bekliyor",
+                requested_by=user.id,
+                requested_by_name=user.full_name or user.email,
+                requested_at=utc_now(),
+                created_at=utc_now(),
+                updated_at=utc_now(),
+            ))
+
     await db.commit()
     await db.refresh(payment)
     return ProgressPaymentRead.model_validate(payment)
+
+
+# ── POST /progress-payments/sync-approvals (admin) ───────────────────────────
+
+@router.post("/sync-approvals", status_code=200)
+async def sync_payment_approvals(
+    db:   AsyncSession = Depends(get_db),
+    user: User         = Depends(get_current_user),
+):
+    """submitted_for_approval=True ama ilişkili StoreApprovalRequest olmayan
+    hakkedişler için otomatik approval kaydı oluşturur. Duplicate oluşturmaz."""
+    result = await db.execute(
+        select(StoreProgressPayment).where(
+            StoreProgressPayment.tenant_id == user.tenant_id,
+            StoreProgressPayment.submitted_for_approval == True,  # noqa: E712
+        )
+    )
+    payments = result.scalars().all()
+
+    created = 0
+    for payment in payments:
+        existing = await db.execute(
+            select(StoreApprovalRequest).where(
+                StoreApprovalRequest.related_payment_id == payment.id
+            )
+        )
+        if existing.scalar_one_or_none():
+            continue  # Zaten var, atla
+
+        label = PAYMENT_TYPE_LABELS.get(payment.payment_type, payment.payment_type)
+        period_str = f" ({payment.period})" if payment.period else ""
+        db.add(StoreApprovalRequest(
+            tenant_id=payment.tenant_id,
+            project_id=payment.project_id,
+            process_id=payment.process_id,
+            approval_type="hakkediş",
+            related_payment_id=payment.id,
+            title=f"{label}{period_str} — Onay Talebi",
+            description=payment.description,
+            amount=payment.amount,
+            file_url=payment.file_url,
+            file_name=payment.file_name,
+            status="bekliyor",
+            requested_by=user.id,
+            requested_by_name=user.full_name or user.email,
+            requested_at=utc_now(),
+            created_at=utc_now(),
+            updated_at=utc_now(),
+        ))
+        # approval_status'u da güncelle
+        if payment.approval_status not in ("pending", "onaylandi", "reddedildi", "revizyon"):
+            payment.approval_status = "pending"
+            payment.updated_at = utc_now()
+        created += 1
+
+    await db.commit()
+    return {"synced": created, "message": f"{created} eksik onay talebi oluşturuldu."}

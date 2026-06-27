@@ -6,12 +6,39 @@
 from __future__ import annotations
 
 import boto3
+import re
+import unicodedata
 from botocore.client import Config
 from botocore.exceptions import ClientError
 import os
 from typing import Optional
 
 from app.core.config import settings
+
+
+def sanitize_filename(name: str) -> str:
+    """
+    Dosya adını ve path bileşenlerini güvenli ASCII slug'a dönüştürür.
+    Emoji, Türkçe özel karakter, boşluk temizlenir.
+    Örnek: '📁 İZMİR ÇİĞLİ.pdf' → 'izmir-cigli.pdf'
+    """
+    # Emoji ve unicode symbol karakterlerini kaldır
+    name = "".join(c for c in name if unicodedata.category(c) not in ("So", "Sm", "Sk", "Sc", "Cs", "Co", "Cn"))
+    # Türkçe karakterleri ASCII karşılıklarıyla değiştir
+    tr_map = str.maketrans("çğıiöşüÇĞIİÖŞÜ", "cgiisosCGIIOSU")
+    name = name.translate(tr_map)
+    # NFD normalize → ASCII olmayan karakterleri at
+    name = unicodedata.normalize("NFD", name)
+    name = name.encode("ascii", "ignore").decode("ascii")
+    # Nokta öncesi ve sonrası kısmı ayır (extension koru)
+    parts = name.rsplit(".", 1)
+    stem = parts[0]
+    ext = ("." + parts[1].lower()) if len(parts) == 2 else ""
+    # Güvenli olmayan karakterleri tire yap, çoklu tireyi tek yap
+    stem = re.sub(r"[^\w\-]", "-", stem)
+    stem = re.sub(r"-{2,}", "-", stem).strip("-")
+    stem = stem or "file"
+    return stem + ext
 
 class StorageService:
     """
@@ -66,7 +93,7 @@ class StorageService:
                 os.makedirs(os.path.dirname(target_path), exist_ok=True)
                 with open(target_path, "wb") as f:
                     f.write(file_content)
-                print(f"📁 Local file stored successfully: {target_path}")
+                print(f"[INFO] Local file stored: {target_path}", flush=True)
                 return file_key
             except Exception as e:
                 print(f"Local Storage Write Error: {e}")
@@ -112,7 +139,7 @@ class StorageService:
                 target_path = os.path.join(self.local_base_dir, file_key)
                 if os.path.exists(target_path):
                     os.remove(target_path)
-                    print(f"🗑️ Local file deleted: {target_path}")
+                    print(f"[INFO] Local file deleted: {target_path}", flush=True)
                 return True
             except Exception as e:
                 print(f"Local Delete Error: {e}")

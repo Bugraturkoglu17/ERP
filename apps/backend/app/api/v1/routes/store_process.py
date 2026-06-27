@@ -17,9 +17,12 @@ from app.core.dependencies import get_current_user, get_db
 from app.db.models import (
     Project,
     StoreActivity,
+    StoreApprovalRequest,
+    StoreInvoiceRecord,
     StoreProcess,
     StoreProcessNote,
     StoreProcessStage,
+    StoreProgressPayment,
     User,
 )
 from app.db.schemas import (
@@ -39,6 +42,7 @@ router = APIRouter()
 
 # ── Scope'a özel aşama şablonları ─────────────────────────────────────────────
 
+# Bakım ve genel işler için varsayılan aşamalar
 DEFAULT_STAGES = [
     "Proje Başlatıldı",
     "Keşif / Ön Hazırlık",
@@ -50,51 +54,64 @@ DEFAULT_STAGES = [
     "Tamamlandı",
 ]
 
+# Tadilat işleri için varsayılan aşamalar (scope_code belirtilmediğinde)
+TADILAT_DEFAULT_STAGES = [
+    "Keşif",
+    "Proje / Revizyon Hazırlığı",
+    "Proje Onayı",
+    "Fiyat Teklifi",
+    "Malzeme / Sipariş",
+    "Uygulama / Montaj",
+    "Kontrol / Test",
+    "Tamamlandı",
+    "Hakkediş / Fatura",
+]
+
 SCOPE_STAGES: dict[str, list[str]] = {
     "yangin_dolabi": [
+        "Keşif",
+        "Revizyon Projesi",
         "Proje Onayı",
         "Fiyat Teklifi",
-        "Malzeme / İmalat",
-        "Montaj Süreci",
+        "Malzeme Hazırlığı",
+        "Montaj / Uygulama",
         "Test ve Kontrol",
         "Tamamlandı",
-        "Fatura / Hakkediş",
+        "Hakkediş / Fatura",
     ],
     "sprinkler_hatti": [
+        "Keşif",
+        "Revizyon Projesi",
         "Proje Onayı",
         "Fiyat Teklifi",
-        "Malzeme / İmalat",
-        "Montaj Süreci",
+        "Malzeme Hazırlığı",
+        "Montaj / Uygulama",
         "Test ve Kontrol",
         "Tamamlandı",
-        "Fatura / Hakkediş",
+        "Hakkediş / Fatura",
     ],
     "havalandirma": [
-        "Proje Hazırlığı",
-        "Proje Onayı",
+        "Keşif",
+        "Revizyon Projesi",
         "Fiyat Teklifi",
-        "Sipariş Oluşturma",
-        "Kanal İmalatı",
-        "Sevkiyat",
-        "Montaj Süreci",
+        "Sipariş / İmalat",
+        "Montaj",
         "Test ve Kontrol",
         "Tamamlandı",
-        "Fatura / Hakkediş",
+        "Hakkediş / Fatura",
     ],
     "kanal_imalati": [
-        "Proje Hazırlığı",
-        "Proje Onayı",
+        "Keşif",
+        "Revizyon Projesi",
         "Fiyat Teklifi",
-        "Sipariş Oluşturma",
-        "Kanal İmalatı",
-        "Sevkiyat",
-        "Montaj Süreci",
+        "Sipariş / İmalat",
+        "Montaj",
         "Test ve Kontrol",
         "Tamamlandı",
-        "Fatura / Hakkediş",
+        "Hakkediş / Fatura",
     ],
     "klima_sogutma": [
-        "Keşif / İhtiyaç Analizi",
+        "Keşif",
         "Proje / Yerleşim Kontrolü",
         "Fiyat Teklifi",
         "Malzeme Siparişi",
@@ -102,20 +119,20 @@ SCOPE_STAGES: dict[str, list[str]] = {
         "Devreye Alma",
         "Test ve Kontrol",
         "Tamamlandı",
-        "Fatura / Hakkediş",
+        "Hakkediş / Fatura",
     ],
     "mekanik_tesisat": [
+        "Keşif",
         "Proje Hazırlığı",
         "Proje Onayı",
-        "Malzeme Listesi",
         "Fiyat Teklifi",
         "İmalat / Hazırlık",
         "Montaj Süreci",
         "Test ve Kontrol",
         "Tamamlandı",
-        "Fatura / Hakkediş",
+        "Hakkediş / Fatura",
     ],
-    "diger": DEFAULT_STAGES,
+    "diger": TADILAT_DEFAULT_STAGES,
 }
 
 SCOPE_LABELS: dict[str, str] = {
@@ -129,8 +146,11 @@ SCOPE_LABELS: dict[str, str] = {
 }
 
 
-def get_scope_stages(scope_code: str) -> list[str]:
-    return SCOPE_STAGES.get(scope_code, DEFAULT_STAGES)
+def get_scope_stages(scope_code: str, work_type: str = "tadilat") -> list[str]:
+    if scope_code in SCOPE_STAGES:
+        return SCOPE_STAGES[scope_code]
+    # Tadilat için özel varsayılan, diğerleri için genel varsayılan
+    return TADILAT_DEFAULT_STAGES if work_type == "tadilat" else DEFAULT_STAGES
 
 
 def utc_now() -> datetime:
@@ -274,8 +294,10 @@ async def create_process(
     db.add(proc)
     await db.flush()  # ID alabilmek için
 
-    # Aşamalar oluştur (scope_code varsa scope'a özel şablon kullan)
-    stage_names = get_scope_stages(body.scope_code) if body.scope_code else DEFAULT_STAGES
+    # Aşamalar oluştur (scope_code varsa scope'a özel şablon, yoksa iş tipine göre varsayılan)
+    stage_names = get_scope_stages(body.scope_code, body.work_type) if body.scope_code else (
+        TADILAT_DEFAULT_STAGES if body.work_type == "tadilat" else DEFAULT_STAGES
+    )
     for i, stage_name in enumerate(stage_names):
         stage = StoreProcessStage(
             process_id=proc.id,
@@ -429,10 +451,41 @@ async def delete_process(
     db:   AsyncSession = Depends(get_db),
     user: User         = Depends(get_current_user),
 ):
-    """Süreci siler (soft delete — status='deleted'). Mağaza kaydına dokunmaz."""
+    """Süreci siler (soft delete — status='deleted'). Mağaza kaydına dokunmaz.
+    Bağlı hakkediş veya fatura varsa 409 döner. Bağlı onay talepleri iptal edilir."""
     proc = await _get_process_or_404(db, process_id)
     if proc.project_id != project_id:
         raise HTTPException(status_code=404, detail="Süreç bulunamadı.")
+
+    # Bağlı hakkediş kontrolü
+    pay_result = await db.execute(
+        select(StoreProgressPayment).where(StoreProgressPayment.process_id == process_id).limit(1)
+    )
+    if pay_result.scalar_one_or_none():
+        raise HTTPException(
+            status_code=409,
+            detail="Bu tadilatın bağlı hakkediş/fatura kayıtları var. Önce bu kayıtları silin veya süreç iptal edilsin.",
+        )
+
+    # Bağlı fatura kontrolü
+    inv_result = await db.execute(
+        select(StoreInvoiceRecord).where(StoreInvoiceRecord.process_id == process_id).limit(1)
+    )
+    if inv_result.scalar_one_or_none():
+        raise HTTPException(
+            status_code=409,
+            detail="Bu tadilatın bağlı hakkediş/fatura kayıtları var. Önce bu kayıtları silin veya süreç iptal edilsin.",
+        )
+
+    # Bağlı bekleyen onayları iptal et
+    approvals_result = await db.execute(
+        select(StoreApprovalRequest).where(
+            StoreApprovalRequest.process_id == process_id,
+            StoreApprovalRequest.status == "bekliyor",
+        )
+    )
+    for approval in approvals_result.scalars().all():
+        approval.status = "iptal"
 
     proc.status     = "deleted"
     proc.updated_at = utc_now()

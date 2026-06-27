@@ -1131,6 +1131,174 @@ class StoreInvoiceRecord(SQLModel, table=True):
     updated_at:         datetime       = Field(default_factory=utc_now, sa_column_kwargs={"onupdate": utc_now})
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+#  12 · İŞ EMİRLERİ (WORK ORDERS)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class WorkOrderType(str, Enum):
+    MAINTENANCE   = "maintenance"    # Bakım
+    FAULT         = "fault"          # Arıza
+    REPAIR        = "repair"         # Onarım
+    RENOVATION    = "renovation"     # Tadilat
+    MANUFACTURING = "manufacturing"  # İmalat
+    OTHER         = "other"          # Diğer
+
+
+class WorkOrderStatus(str, Enum):
+    DRAFT             = "draft"              # Taslak
+    SENT              = "sent"               # WhatsApp Gönderildi
+    STARTED           = "started"            # İşe Başlandı
+    COMPLETED         = "completed"          # Tamamlandı
+    FAILED            = "failed"             # Tamamlanmadı
+    CANCELLED         = "cancelled"          # İptal Edildi
+    MATERIAL_WAITING  = "material_waiting"   # Malzeme Bekliyor
+    REVISIT           = "revisit"            # Tekrar Gidilecek
+    APPROVAL_PENDING  = "approval_pending"   # Onay Bekliyor
+    APPROVED          = "approved"           # Onaylandı
+
+
+class WorkOrderPriority(str, Enum):
+    NORMAL   = "normal"    # Normal
+    URGENT   = "urgent"    # Acil
+    CRITICAL = "critical"  # Kritik
+
+
+class WorkOrderPhotoType(str, Enum):
+    BEFORE     = "before"      # Öncesi
+    AFTER      = "after"       # Sonrası
+    COMPLETION = "completion"  # Tamamlanma
+    ISSUE      = "issue"       # Sorun
+
+
+class WorkOrderWhatsappStatus(str, Enum):
+    QUEUED    = "queued"
+    SENT      = "sent"
+    DELIVERED = "delivered"
+    READ      = "read"
+    FAILED    = "failed"
+
+
+class WorkOrder(SQLModel, table=True):
+    """İş emri — bakım, arıza, onarım, tadilat veya imalat."""
+
+    __tablename__ = "work_orders"
+
+    id:                   UUID                = Field(default_factory=uuid4, primary_key=True)
+    tenant_id:            Optional[UUID]       = Field(foreign_key="tenants.id", default=None, index=True)
+    project_id:           UUID                = Field(foreign_key="projects.id", index=True)
+    work_type:            WorkOrderType       = Field(index=True)
+    title:                str                 = Field(max_length=255)
+    description:          Optional[str]       = Field(default=None)
+    assigned_to_name:     Optional[str]       = Field(default=None, max_length=255)
+    assigned_to_phone:    Optional[str]       = Field(default=None, max_length=30)
+    priority:             WorkOrderPriority   = Field(default=WorkOrderPriority.NORMAL, index=True)
+    status:               WorkOrderStatus     = Field(default=WorkOrderStatus.DRAFT, index=True)
+    location_url:         Optional[str]       = Field(default=None, max_length=1000)
+    due_date:             Optional[datetime]  = Field(default=None)
+    created_by:           Optional[UUID]      = Field(foreign_key="users.id", default=None)
+    created_by_name:      Optional[str]       = Field(default=None, max_length=255)
+    sent_at:              Optional[datetime]  = Field(default=None)
+    started_at:           Optional[datetime]  = Field(default=None)
+    completed_at:         Optional[datetime]  = Field(default=None)
+    completion_notes:     Optional[str]       = Field(default=None)
+    created_at:           datetime            = Field(default_factory=utc_now, nullable=False)
+    updated_at:           datetime            = Field(default_factory=utc_now, sa_column_kwargs={"onupdate": utc_now})
+
+    public_links:         List["WorkOrderPublicLink"]      = Relationship(back_populates="work_order")
+    photos:               List["WorkOrderPhoto"]           = Relationship(back_populates="work_order")
+    service_forms:        List["WorkOrderServiceForm"]     = Relationship(back_populates="work_order")
+    whatsapp_messages:    List["WorkOrderWhatsappMessage"] = Relationship(back_populates="work_order")
+    activities:           List["WorkOrderActivity"]        = Relationship(back_populates="work_order")
+
+
+class WorkOrderPublicLink(SQLModel, table=True):
+    """Public (token korumalı, login gerektirmeyen) iş emri erişim linki."""
+
+    __tablename__ = "work_order_public_links"
+
+    id:             UUID              = Field(default_factory=uuid4, primary_key=True)
+    work_order_id:  UUID              = Field(foreign_key="work_orders.id", index=True)
+    token:          str               = Field(max_length=128, unique=True, index=True)
+    expires_at:     Optional[datetime] = Field(default=None)
+    is_active:      bool              = Field(default=True)
+    used_at:        Optional[datetime] = Field(default=None)
+    created_at:     datetime          = Field(default_factory=utc_now, nullable=False)
+
+    work_order: Mapped["WorkOrder"] = Relationship(back_populates="public_links")
+
+
+class WorkOrderPhoto(SQLModel, table=True):
+    """İş emrine bağlı fotoğraf."""
+
+    __tablename__ = "work_order_photos"
+
+    id:             UUID               = Field(default_factory=uuid4, primary_key=True)
+    work_order_id:  UUID               = Field(foreign_key="work_orders.id", index=True)
+    file_key:       str                = Field(max_length=512)
+    file_url:       Optional[str]      = Field(default=None, max_length=1000)
+    file_name:      Optional[str]      = Field(default=None, max_length=255)
+    file_size_bytes: Optional[int]     = Field(default=None)
+    mime_type:      Optional[str]      = Field(default=None, max_length=128)
+    photo_type:     WorkOrderPhotoType = Field(default=WorkOrderPhotoType.COMPLETION, index=True)
+    uploaded_by_name: Optional[str]   = Field(default=None, max_length=255)
+    uploaded_at:    datetime           = Field(default_factory=utc_now, nullable=False)
+
+    work_order: Mapped["WorkOrder"] = Relationship(back_populates="photos")
+
+
+class WorkOrderServiceForm(SQLModel, table=True):
+    """İş emrine bağlı servis formu (bakım için zorunlu)."""
+
+    __tablename__ = "work_order_service_forms"
+
+    id:               UUID           = Field(default_factory=uuid4, primary_key=True)
+    work_order_id:    UUID           = Field(foreign_key="work_orders.id", index=True)
+    project_id:       UUID           = Field(foreign_key="projects.id", index=True)
+    year:             int            = Field(index=True)
+    month:            int            = Field(index=True)
+    file_key:         str            = Field(max_length=512)
+    file_url:         Optional[str]  = Field(default=None, max_length=1000)
+    file_name:        Optional[str]  = Field(default=None, max_length=255)
+    file_size_bytes:  Optional[int]  = Field(default=None)
+    uploaded_by_name: Optional[str]  = Field(default=None, max_length=255)
+    uploaded_at:      datetime       = Field(default_factory=utc_now, nullable=False)
+
+    work_order: Mapped["WorkOrder"] = Relationship(back_populates="service_forms")
+
+
+class WorkOrderWhatsappMessage(SQLModel, table=True):
+    """WhatsApp mesaj gönderim kaydı."""
+
+    __tablename__ = "work_order_whatsapp_messages"
+
+    id:                   UUID                    = Field(default_factory=uuid4, primary_key=True)
+    work_order_id:        UUID                    = Field(foreign_key="work_orders.id", index=True)
+    to_phone:             str                     = Field(max_length=30)
+    whatsapp_message_id:  Optional[str]           = Field(default=None, max_length=255, index=True)
+    status:               WorkOrderWhatsappStatus = Field(default=WorkOrderWhatsappStatus.QUEUED, index=True)
+    error_message:        Optional[str]           = Field(default=None, max_length=1000)
+    sent_at:              Optional[datetime]       = Field(default=None)
+    updated_at:           datetime                = Field(default_factory=utc_now, sa_column_kwargs={"onupdate": utc_now})
+
+    work_order: Mapped["WorkOrder"] = Relationship(back_populates="whatsapp_messages")
+
+
+class WorkOrderActivity(SQLModel, table=True):
+    """İş emri aktivite akışı (mağaza kartı son işlemler ile senkronize)."""
+
+    __tablename__ = "work_order_activities"
+
+    id:             UUID           = Field(default_factory=uuid4, primary_key=True)
+    work_order_id:  UUID           = Field(foreign_key="work_orders.id", index=True)
+    project_id:     UUID           = Field(foreign_key="projects.id", index=True)
+    activity_type:  str            = Field(max_length=50, index=True)
+    title:          str            = Field(max_length=500)
+    description:    Optional[str]  = Field(default=None)
+    created_at:     datetime       = Field(default_factory=utc_now, nullable=False, index=True)
+
+    work_order: Mapped["WorkOrder"] = Relationship(back_populates="activities")
+
+
 class StoreApprovalRequest(SQLModel, table=True):
     """Onay talebi — hakkediş, fatura, proje, teklif, mail."""
 

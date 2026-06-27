@@ -7,6 +7,7 @@ import { apiGet } from "@/lib/api";
 
 type ActiveJob = {
   project_id: string; project_name: string; project_no?: string;
+  process_id: string;
   work_type: string; process_title: string; current_stage?: string;
   target_end_date?: string; days_remaining?: number;
 };
@@ -25,7 +26,11 @@ export default function YeniYapimSurecleriPage() {
 
   useEffect(() => {
     apiGet<ActiveJob[]>("/process/active-jobs")
-      .then((d) => setJobs((Array.isArray(d) ? d : []).filter(j => j.work_type === "yeni_yapim")))
+      .then((d) => {
+        const all = (Array.isArray(d) ? d : []).filter(j => j.work_type === "yeni_yapim");
+        const seen = new Set<string>();
+        setJobs(all.filter(j => { if (seen.has(j.process_id)) return false; seen.add(j.process_id); return true; }));
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
@@ -80,7 +85,7 @@ export default function YeniYapimSurecleriPage() {
               {filtered.map((j) => {
                 const cd = calcCountdown(j.days_remaining);
                 return (
-                  <tr key={j.project_id} className="hover:bg-slate-50 transition-colors">
+                  <tr key={j.process_id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <Store className="h-4 w-4 text-slate-300 shrink-0" />

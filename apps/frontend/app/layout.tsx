@@ -21,7 +21,8 @@ function AppShell({ children }: { children: React.ReactNode }) {
     pathname === "/login" ||
     pathname === "/password-reset" ||
     pathname === "/platform" ||
-    pathname.startsWith("/platform/");
+    pathname.startsWith("/platform/") ||
+    pathname.startsWith("/is-emri/");
   const hasToken = typeof window !== "undefined" && !!localStorage.getItem("token");
 
   useEffect(() => {

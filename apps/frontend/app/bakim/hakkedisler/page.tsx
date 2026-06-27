@@ -54,39 +54,43 @@ function isBakim(payment: ProgressPayment, project: Project): boolean {
   return false;
 }
 
-// Her projenin hakkedişlerini mevcut per-project endpoint'ten çeker
-async function fetchAllPayments(projects: Project[]): Promise<{ payment: ProgressPayment; project: Project }[]> {
-  const BATCH = 20;
-  const rows: Row[] = [];
-  for (let i = 0; i < projects.length; i += BATCH) {
-    const batch = projects.slice(i, i + BATCH);
-    const results = await Promise.all(
-      batch.map((p) =>
-        apiGet<ProgressPayment[]>(`/progress-payments/projects/${p.id}`)
-          .then((payments) => (Array.isArray(payments) ? payments.map((pay) => ({ payment: pay, project: p })) : []))
-          .catch(() => [])
-      )
-    );
-    results.forEach((r) => rows.push(...r));
-  }
-  return rows;
-}
-
 export default function BakimHakkedislerPage() {
   const [rows,    setRows]    = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState("");
   const [query,   setQuery]   = useState("");
 
   useEffect(() => {
     (async () => {
+      setLoading(true);
+      setError("");
       try {
-        const projects = await apiGet<Project[]>("/projects?limit=5000").catch(() => [] as Project[]);
-        const allRows  = await fetchAllPayments(Array.isArray(projects) ? projects : []);
-        const filtered = allRows.filter(({ payment, project }) => isBakim(payment, project));
-        filtered.sort((a, b) =>
-          new Date(b.payment.created_at).getTime() - new Date(a.payment.created_at).getTime()
-        );
+        // 2 paralel çağrı — per-project loop yok
+        const [payments, projects] = await Promise.all([
+          apiGet<ProgressPayment[]>("/progress-payments").catch(() => [] as ProgressPayment[]),
+          apiGet<Project[]>("/projects?limit=5000").catch(() => [] as Project[]),
+        ]);
+
+        if (!Array.isArray(payments) || !Array.isArray(projects)) {
+          setError("Veri alınamadı. Lütfen tekrar deneyin.");
+          return;
+        }
+
+        const projectMap = new Map(projects.map((p) => [p.id, p]));
+
+        const filtered = payments
+          .filter((pay) => {
+            const proj = projectMap.get(pay.project_id);
+            return proj ? isBakim(pay, proj) : false;
+          })
+          .map((pay) => ({ payment: pay, project: projectMap.get(pay.project_id)! }))
+          .sort((a, b) =>
+            new Date(b.payment.created_at).getTime() - new Date(a.payment.created_at).getTime()
+          );
+
         setRows(filtered);
+      } catch {
+        setError("Bağlantı hatası. Backend çalışıyor mu?");
       } finally {
         setLoading(false);
       }
@@ -131,6 +135,10 @@ export default function BakimHakkedislerPage() {
           <div className="h-6 w-6 rounded-full border-2 border-sky-500 border-t-transparent animate-spin" />
           <p className="text-xs text-slate-400">Hakkediş kayıtları yükleniyor...</p>
         </div>
+      ) : error ? (
+        <div className="flex flex-col items-center justify-center py-16 gap-3 rounded-2xl border border-dashed border-red-200 bg-red-50">
+          <p className="text-sm font-semibold text-red-600">{error}</p>
+        </div>
       ) : displayed.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 gap-3 rounded-2xl border border-dashed border-slate-200">
           <Receipt className="h-10 w-10 text-slate-200" />
@@ -173,10 +181,7 @@ export default function BakimHakkedislerPage() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <Store className="h-4 w-4 text-slate-300 shrink-0" />
-                        <Link
-                          href={`/projects/${project.id}?tab=hakkediş`}
-                          className="text-sm font-medium text-slate-900 hover:text-blue-600 transition-colors"
-                        >
+                        <Link href={`/bakim/magazalar/${project.id}`} className="text-sm font-medium text-slate-900 hover:text-blue-600 transition-colors">
                           {project.name}
                         </Link>
                       </div>
@@ -193,7 +198,7 @@ export default function BakimHakkedislerPage() {
                         : <span className="text-[11px] text-slate-300">—</span>}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <Link href={`/projects/${project.id}?tab=hakkediş`} className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline">
+                      <Link href={`/bakim/magazalar/${project.id}`} className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline">
                         <FolderOpen className="h-3.5 w-3.5" /> Hakkedişe Git
                       </Link>
                     </td>

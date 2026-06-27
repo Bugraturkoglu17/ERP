@@ -9,8 +9,9 @@ from typing import List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, and_
 from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Optional
 
 from app.core.dependencies import get_current_user, get_db
 from app.db.models import StoreActivity, StoreInvoiceRecord, User
@@ -29,6 +30,42 @@ INVOICE_TYPE_LABELS = {
     "malzeme_faturasi": "Malzeme Faturası",
     "hizmet_faturasi": "Hizmet Faturası",
 }
+
+
+@router.get("", response_model=List[InvoiceRecordRead])
+async def list_all_invoices(
+    invoice_type: Optional[str] = None,
+    period: Optional[str] = None,
+    db:   AsyncSession = Depends(get_db),
+    user: User         = Depends(get_current_user),
+):
+    """Tenant genelinde tüm fatura kayıtlarını döner (isteğe bağlı tür/dönem filtresi)."""
+    filters = [StoreInvoiceRecord.tenant_id == user.tenant_id]
+    if invoice_type:
+        filters.append(StoreInvoiceRecord.invoice_type == invoice_type)
+    if period:
+        filters.append(StoreInvoiceRecord.period == period)
+    result = await db.execute(
+        select(StoreInvoiceRecord)
+        .where(and_(*filters))
+        .order_by(desc(StoreInvoiceRecord.created_at))
+        .limit(5000)
+    )
+    return [InvoiceRecordRead.model_validate(i) for i in result.scalars().all()]
+
+
+@router.delete("/{invoice_id}", status_code=204)
+async def delete_invoice(
+    invoice_id: UUID,
+    db:   AsyncSession = Depends(get_db),
+    user: User         = Depends(get_current_user),
+):
+    result = await db.execute(select(StoreInvoiceRecord).where(StoreInvoiceRecord.id == invoice_id))
+    inv = result.scalar_one_or_none()
+    if not inv:
+        raise HTTPException(status_code=404, detail="Fatura kaydı bulunamadı.")
+    await db.delete(inv)
+    await db.commit()
 
 
 @router.get("/projects/{project_id}", response_model=List[InvoiceRecordRead])

@@ -15,9 +15,6 @@ type Project = {
   id: string; name: string; project_no?: string; status: string;
   description?: string; region_id?: string; customer_id?: string; branch_id?: string;
 };
-type Customer = { id: string; name: string };
-type Region   = { id: string; name: string; city: string; customer_id: string };
-type Branch   = { id: string; name: string; city: string; region_id: string };
 type StoreProcess = {
   id: string; project_id: string; work_type: string; title: string;
   description?: string; status: string; start_date?: string;
@@ -193,10 +190,10 @@ function ActionMenu({
 type WizardMode = "new_store" | "existing_store";
 
 function Wizard({
-  onClose, onDone, existingProjects, customers,
+  onClose, onDone, existingProjects,
 }: {
   onClose: () => void; onDone: (projectId: string) => void;
-  existingProjects: Project[]; customers: Customer[];
+  existingProjects: Project[];
 }) {
   const [mode,    setMode]    = useState<WizardMode | null>(null);
   const [step,    setStep]    = useState(1);
@@ -205,12 +202,9 @@ function Wizard({
 
   // New store form
   const [ns, setNs] = useState({
-    customer_id: "", region_id: "", branch_id: "",
-    name: "", project_no: "", description: "", responsible_name: "",
-    start_date: new Date().toISOString().split("T")[0], target_end_date: "",
+    name: "", project_no: "", bolge: "", sehir: "",
+    start_date: new Date().toISOString().split("T")[0],
   });
-  const [regions,  setRegions]  = useState<Region[]>([]);
-  const [branches, setBranches] = useState<Branch[]>([]);
 
   // Existing store selection
   const [searchQ,    setSearchQ]    = useState("");
@@ -228,21 +222,6 @@ function Wizard({
 
   const [createdProjectId, setCreatedProjectId] = useState<string | null>(null);
 
-  const onCustChange = async (id: string) => {
-    setNs(p => ({ ...p, customer_id: id, region_id: "", branch_id: "" }));
-    setRegions([]); setBranches([]);
-    if (!id) return;
-    const d = await apiGet<Region[]>(`/projects/regions/${id}`).catch(() => [] as Region[]);
-    setRegions(Array.isArray(d) ? d : []);
-  };
-  const onRegChange = async (id: string) => {
-    setNs(p => ({ ...p, region_id: id, branch_id: "" }));
-    setBranches([]);
-    if (!id) return;
-    const d = await apiGet<Branch[]>(`/projects/branches/${id}`).catch(() => [] as Branch[]);
-    setBranches(Array.isArray(d) ? d : []);
-  };
-
   // Check for existing active process on a project
   const checkDuplicate = async (projectId: string): Promise<boolean> => {
     try {
@@ -254,14 +233,13 @@ function Wizard({
   };
 
   const handleCreateStore = async () => {
-    if (!ns.customer_id || !ns.region_id || !ns.branch_id) { setErr("Konum bilgisi zorunludur."); return; }
     if (!ns.name.trim()) { setErr("Mağaza adı zorunludur."); return; }
+    if (!ns.project_no.trim()) { setErr("Mağaza kodu zorunludur."); return; }
     setBusy(true); setErr("");
     try {
-      const desc = JSON.stringify({ store_type: "new_build" });
+      const desc = JSON.stringify({ store_type: "new_build", bolge: ns.bolge, sehir: ns.sehir });
       const created = await apiPost<{ id: string }>("/projects", {
-        customer_id: ns.customer_id, region_id: ns.region_id, branch_id: ns.branch_id,
-        name: ns.name.trim(), project_no: ns.project_no.trim() || null,
+        name: ns.name.trim(), project_no: ns.project_no.trim(),
         description: desc, status: "inquiry",
         scope_codes: ["yeni_yapim"],
         start_date: ns.start_date ? `${ns.start_date}T00:00:00` : null,
@@ -414,54 +392,46 @@ function Wizard({
           {mode === "new_store" && step === 1 && (
             <div className="space-y-3">
               <p className="text-[11px] text-slate-400 bg-slate-50 rounded-xl px-3 py-2.5 border border-slate-100">
-                Mağaza adı ve konum bilgisi zorunludur.
+                Mağaza adı ve kodu zorunludur. Bölge ve şehir bilgisi isteğe bağlıdır.
               </p>
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Mağaza Zinciri *</label>
-                <select value={ns.customer_id} onChange={e => onCustChange(e.target.value)}
-                  className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
-                  <option value="">Zincir seçin...</option>
-                  {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Mağaza Adı *</label>
+                <input value={ns.name} onChange={e => setNs(p => ({ ...p, name: e.target.value }))}
+                  placeholder="Örn: Migros Ataşehir MMM" autoFocus
+                  className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Mağaza Kodu *</label>
+                <input value={ns.project_no} onChange={e => setNs(p => ({ ...p, project_no: e.target.value }))}
+                  placeholder="Örn: 3421"
+                  className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Şehir *</label>
-                  <select value={ns.region_id} onChange={e => onRegChange(e.target.value)}
-                    disabled={!ns.customer_id}
-                    className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none disabled:opacity-50">
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Bölge</label>
+                  <select value={ns.bolge} onChange={e => setNs(p => ({ ...p, bolge: e.target.value }))}
+                    className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
                     <option value="">Seçin...</option>
-                    {regions.map(r => <option key={r.id} value={r.id}>{r.city}</option>)}
+                    {["Marmara", "Ege", "İç Anadolu", "Akdeniz", "Karadeniz", "Doğu Anadolu", "Güneydoğu Anadolu"].map(b => (
+                      <option key={b} value={b}>{b}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Lokasyon *</label>
-                  <select value={ns.branch_id} onChange={e => setNs(p => ({ ...p, branch_id: e.target.value }))}
-                    disabled={!ns.region_id}
-                    className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none disabled:opacity-50">
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Şehir</label>
+                  <select value={ns.sehir} onChange={e => setNs(p => ({ ...p, sehir: e.target.value }))}
+                    className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
                     <option value="">Seçin...</option>
-                    {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                    {["İstanbul", "Ankara", "İzmir", "Kocaeli", "Konya", "Antalya", "Bursa", "Adana", "Mersin", "Sivas", "Diyarbakır"].map(s => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
                   </select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="col-span-2">
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Mağaza Adı *</label>
-                  <input value={ns.name} onChange={e => setNs(p => ({ ...p, name: e.target.value }))}
-                    placeholder="Örn: Migros Ataşehir MMM" autoFocus
-                    className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Mağaza Kodu</label>
-                  <input value={ns.project_no} onChange={e => setNs(p => ({ ...p, project_no: e.target.value }))}
-                    placeholder="Örn: 3421"
-                    className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Başlangıç</label>
-                  <input type="date" value={ns.start_date} onChange={e => setNs(p => ({ ...p, start_date: e.target.value }))}
-                    className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
-                </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Başlangıç Tarihi</label>
+                <input type="date" value={ns.start_date} onChange={e => setNs(p => ({ ...p, start_date: e.target.value }))}
+                  className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
               </div>
             </div>
           )}
@@ -593,7 +563,7 @@ function Wizard({
               disabled={busy}
               className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
               {busy && <Loader2 className="h-4 w-4 animate-spin" />}
-              {mode === "new_store" ? "Mağazayı Oluştur →" : "Seç ve Devam Et →"}
+              {mode === "new_store" ? "Mağazayı Oluştur ve Devam Et →" : "Seç ve Devam Et →"}
             </button>
           ) : step === 2 ? (
             <button onClick={() => {
@@ -714,27 +684,24 @@ function ProjectRow({
 
 export default function YeniYapimPage() {
   const router = useRouter();
-  const [jobs,      setJobs]      = useState<ActiveJob[]>([]);
-  const [projects,  setProjects]  = useState<Project[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [grouped,   setGrouped]   = useState<ProjectWithProcesses[]>([]);
+  const [jobs,     setJobs]     = useState<ActiveJob[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [grouped,  setGrouped]  = useState<ProjectWithProcesses[]>([]);
   const [loading,   setLoading]   = useState(true);
   const [wizard,    setWizard]    = useState(false);
   const [search,    setSearch]    = useState("");
 
   const load = async () => {
     setLoading(true);
-    const [j, p, c] = await Promise.all([
+    const [j, p] = await Promise.all([
       apiGet<ActiveJob[]>("/process/active-jobs").catch(() => [] as ActiveJob[]),
       apiGet<Project[]>("/projects?limit=5000").catch(() => [] as Project[]),
-      apiGet<Customer[]>("/projects/customers").catch(() => [] as Customer[]),
     ]);
 
     const activeJobs = (Array.isArray(j) ? j : []).filter(jb => jb.work_type === "yeni_yapim");
     const allProjects = Array.isArray(p) ? p : [];
     setJobs(activeJobs);
     setProjects(allProjects);
-    setCustomers(Array.isArray(c) ? c : []);
 
     // Yeni yapım mağazaları: store_type=new_build VEYA aktif yeni yapım süreci olanlar
     const newBuildIds = new Set(activeJobs.map(jb => jb.project_id));
@@ -834,7 +801,6 @@ export default function YeniYapimPage() {
           onClose={() => setWizard(false)}
           onDone={handleWizardDone}
           existingProjects={projects}
-          customers={customers}
         />
       )}
     </div>

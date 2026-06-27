@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import {
   Activity,
+  AlertCircle,
   ChevronRight,
   Download,
   Edit2,
@@ -16,13 +17,10 @@ import {
   NotebookPen,
   Phone,
   Plus,
-  RefreshCw,
   Save,
   StickyNote,
   Store,
   Tag,
-  Trash2,
-  Upload,
   X,
 } from "lucide-react";
 import { apiGet, apiPatch, apiDelete, buildApiUrl } from "@/lib/api";
@@ -30,6 +28,7 @@ import ProcessTab from "./ProcessTab";
 import ServisFormTab from "./ServisFormTab";
 import HakkedisTab from "./HakkedisTab";
 import FaturaTab from "./FaturaTab";
+import WorkOrdersTab from "./WorkOrdersTab";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -79,11 +78,12 @@ type Note = {
 
 // ── Tab Config ─────────────────────────────────────────────────────────────────
 
-type TabKey = "identity" | "project_files" | "revisions" | "servisform" | "hakkediş" | "fatura" | "notes" | "activity" | "process";
+type TabKey = "identity" | "project_files" | "revisions" | "servisform" | "hakkediş" | "fatura" | "notes" | "activity" | "process" | "work-orders";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "identity",      label: "Kimlik"          },
   { key: "process",       label: "Süreç Takibi"    },
+  { key: "work-orders",   label: "İş Emirleri"     },
   { key: "project_files", label: "Proje Dosyaları" },
   { key: "revisions",     label: "Revizyonlar"     },
   { key: "servisform",    label: "Servis Formları" },
@@ -426,13 +426,10 @@ function HistoryDrawer({ doc, onClose }: { doc: Document; onClose: () => void })
 // ── Doc List ───────────────────────────────────────────────────────────────────
 
 function DocList({
-  docs, onRevise, onHistory, onDelete, onUpload,
+  docs, onHistory,
 }: {
   docs: Document[];
-  onRevise: (d: Document) => void;
   onHistory: (d: Document) => void;
-  onDelete: (d: Document) => void;
-  onUpload: () => void;
 }) {
   const handleDownload = async (doc: Document) => {
     try {
@@ -446,10 +443,6 @@ function DocList({
       <div className="flex flex-col items-center justify-center py-12 gap-3">
         <Folder className="h-8 w-8 text-slate-200" />
         <p className="text-sm text-slate-400">Bu klasörde henüz dosya yok.</p>
-        <button onClick={onUpload}
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:underline">
-          <Upload className="h-3.5 w-3.5" /> Dosya Yükle
-        </button>
       </div>
     );
   }
@@ -490,12 +483,8 @@ function DocList({
             <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
               <button onClick={() => onHistory(doc)} title="Revizyon Geçmişi"
                 className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700"><History className="h-3.5 w-3.5" /></button>
-              <button onClick={() => onRevise(doc)} title="Yeni Revizyon"
-                className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-blue-50 hover:text-blue-600"><RefreshCw className="h-3.5 w-3.5" /></button>
               <button onClick={() => handleDownload(doc)} title="İndir"
                 className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-green-50 hover:text-green-600"><Download className="h-3.5 w-3.5" /></button>
-              <button onClick={() => onDelete(doc)} title="Arşivle"
-                className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></button>
             </div>
             <div className="shrink-0 text-[11px] text-slate-400 ml-1">
               {new Date(doc.created_at).toLocaleDateString("tr-TR")}
@@ -634,11 +623,8 @@ export default function MagazaDetailPage() {
   const [loading, setLoading] = useState(true);
   const [tab,     setTab]     = useState<TabKey>("identity");
 
-  const [uploadOpen,        setUploadOpen]        = useState(false);
-  const [uploadForRevision, setUploadForRevision] = useState(false);
-  const [editOpen,          setEditOpen]          = useState(false);
-  const [reviseDoc,         setReviseDoc]         = useState<Document | null>(null);
-  const [historyDoc,        setHistoryDoc]        = useState<Document | null>(null);
+  const [editOpen,   setEditOpen]   = useState(false);
+  const [historyDoc, setHistoryDoc] = useState<Document | null>(null);
   const [projFileFilter,    setProjFileFilter]    = useState<string>("all");
 
   // TODO: Notlar backend endpoint gerekiyor (POST /projects/{id}/notes). Şimdilik localStorage kullanılıyor.
@@ -703,14 +689,6 @@ export default function MagazaDetailPage() {
     saveNotes(notes.filter((n) => n.id !== noteId));
   };
 
-  const handleDeleteDoc = async (doc: Document) => {
-    if (!confirm(`"${doc.original_name}" arşivlensin mi?`)) return;
-    try {
-      await apiDelete(`/documents/${doc.id}`);
-      await loadDocs();
-    } catch { alert("Dosya arşivlenemedi."); }
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -755,15 +733,16 @@ export default function MagazaDetailPage() {
   const phones = [extra.tel1, extra.tel2, extra.tel3, extra.tel4].filter((t) => t && t.trim());
 
   const tabCounts: Record<TabKey, number | null> = {
-    identity:      null,
-    process:       null,
-    project_files: projectFileDocs.length || null,
-    revisions:     revisionDocs.length    || null,
-    servisform:    null,
-    "hakkediş":    null,
-    fatura:        null,
-    activity:      null,
-    notes:         notes.length           || null,
+    identity:       null,
+    process:        null,
+    "work-orders":  null,
+    project_files:  projectFileDocs.length || null,
+    revisions:      revisionDocs.length    || null,
+    servisform:     null,
+    "hakkediş":     null,
+    fatura:         null,
+    activity:       null,
+    notes:          notes.length           || null,
   };
 
   return (
@@ -808,14 +787,6 @@ export default function MagazaDetailPage() {
               className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
               <Edit2 className="h-3.5 w-3.5" /> Düzenle
             </button>
-            {(tab === "project_files" || tab === "revisions") && (
-              <button
-                onClick={() => { setUploadForRevision(tab === "revisions"); setUploadOpen(true); }}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 transition-colors">
-                <Upload className="h-3.5 w-3.5" />
-                {tab === "revisions" ? "Revize Proje Yükle" : "Proje Dosyası Yükle"}
-              </button>
-            )}
           </div>
         </div>
 
@@ -927,6 +898,10 @@ export default function MagazaDetailPage() {
           {/* ── Proje Dosyaları ── */}
           {tab === "project_files" && (
             <div className="space-y-4">
+              <div className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <AlertCircle className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" />
+                <p className="text-xs text-slate-500">Bu alan sadece görüntüleme içindir. Dosya yükleme ve düzenleme işlemleri ilgili modülden yapılır.</p>
+              </div>
               {/* Filtre Chipleri */}
               {projectFileDocs.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
@@ -949,57 +924,48 @@ export default function MagazaDetailPage() {
                   ))}
                 </div>
               )}
-              <DocList
-                docs={filteredProjectDocs}
-                onRevise={setReviseDoc}
-                onHistory={setHistoryDoc}
-                onDelete={handleDeleteDoc}
-                onUpload={() => { setUploadForRevision(false); setUploadOpen(true); }}
-              />
+              <DocList docs={filteredProjectDocs} onHistory={setHistoryDoc} />
             </div>
           )}
 
           {/* ── Revizyonlar ── */}
           {tab === "revisions" && (
-            revisionDocs.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 gap-3">
-                <History className="h-8 w-8 text-slate-200" />
-                <p className="text-sm text-slate-400">Henüz revizyon kaydı yok.</p>
-                <button
-                  onClick={() => { setUploadForRevision(true); setUploadOpen(true); }}
-                  className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:underline">
-                  <Upload className="h-3.5 w-3.5" /> Revize Proje Yükle
-                </button>
+            <div className="space-y-4">
+              <div className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <AlertCircle className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" />
+                <p className="text-xs text-slate-500">Bu alan sadece görüntüleme içindir. Dosya yükleme ve düzenleme işlemleri ilgili modülden yapılır.</p>
               </div>
-            ) : (
-              <div className="space-y-2">
-                {[...revisionDocs]
-                  .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-                  .map((doc) => (
-                    <div key={doc.id} className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 group">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 border border-blue-100 text-[11px] font-bold text-blue-700">
-                        v{doc.version}
+              {revisionDocs.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 gap-3">
+                  <History className="h-8 w-8 text-slate-200" />
+                  <p className="text-sm text-slate-400">Henüz revizyon kaydı yok.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {[...revisionDocs]
+                    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                    .map((doc) => (
+                      <div key={doc.id} className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 group">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 border border-blue-100 text-[11px] font-bold text-blue-700">
+                          v{doc.version}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-slate-800 truncate">{doc.original_name}</p>
+                          <p className="text-[11px] text-slate-400 mt-0.5">
+                            {doc.uploaded_by_name ?? "—"} · {fmtBytes(doc.file_size_bytes)}
+                          </p>
+                          {doc.revision_note && <p className="text-[11px] text-slate-500 italic mt-0.5">{doc.revision_note}</p>}
+                        </div>
+                        <div className="shrink-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => setHistoryDoc(doc)} title="Tüm versiyonlar"
+                            className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700"><History className="h-3.5 w-3.5" /></button>
+                        </div>
+                        <p className="text-[11px] text-slate-400 shrink-0 ml-1">{new Date(doc.created_at).toLocaleDateString("tr-TR")}</p>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-slate-800 truncate">{doc.original_name}</p>
-                        <p className="text-[11px] text-slate-400 mt-0.5">
-                          {doc.uploaded_by_name ?? "—"} · {fmtBytes(doc.file_size_bytes)}
-                        </p>
-                        {doc.revision_note && <p className="text-[11px] text-slate-500 italic mt-0.5">{doc.revision_note}</p>}
-                      </div>
-                      <div className="shrink-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => setHistoryDoc(doc)} title="Tüm versiyonlar"
-                          className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700"><History className="h-3.5 w-3.5" /></button>
-                        <button onClick={() => setReviseDoc(doc)} title="Yeni revizyon"
-                          className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-blue-50 hover:text-blue-600"><RefreshCw className="h-3.5 w-3.5" /></button>
-                        <button onClick={() => handleDeleteDoc(doc)} title="Arşivle"
-                          className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></button>
-                      </div>
-                      <p className="text-[11px] text-slate-400 shrink-0 ml-1">{new Date(doc.created_at).toLocaleDateString("tr-TR")}</p>
-                    </div>
-                  ))}
-              </div>
-            )
+                    ))}
+                </div>
+              )}
+            </div>
           )}
 
 
@@ -1010,6 +976,11 @@ export default function MagazaDetailPage() {
               workType={project.scope_codes?.includes("bakim") ? "bakim" : "tadilat"}
               onTabSwitch={(t) => switchTab(t as TabKey)}
             />
+          )}
+
+          {/* ── İş Emirleri ── */}
+          {tab === "work-orders" && project && (
+            <WorkOrdersTab projectId={project.id} />
           )}
 
           {/* ── Servis Formları ── */}
@@ -1114,9 +1085,7 @@ export default function MagazaDetailPage() {
       </div>
 
       {/* Modals */}
-      {uploadOpen && id && <UploadModal projectId={id} forRevision={uploadForRevision} onClose={() => { setUploadOpen(false); setUploadForRevision(false); }} onDone={loadDocs} />}
       {editOpen   && project && <EditModal project={project} onClose={() => setEditOpen(false)} onDone={(p) => setProject(p)} />}
-      {reviseDoc  && <ReviseModal doc={reviseDoc} onClose={() => setReviseDoc(null)} onDone={loadDocs} />}
       {historyDoc && <HistoryDrawer doc={historyDoc} onClose={() => setHistoryDoc(null)} />}
     </div>
   );

@@ -999,9 +999,10 @@ class ProgressPaymentRead(BaseModel):
 
 
 class ProgressPaymentUpdate(BaseModel):
-    approval_status: str | None = None
-    amount:          float | None = None
-    description:     str | None = None
+    approval_status:        str | None  = None
+    amount:                 float | None = None
+    description:            str | None  = None
+    submitted_for_approval: bool | None = None
 
 
 # ── Phase 6: Faturalar ────────────────────────────────────────────────────────

@@ -1,49 +1,85 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
 import {
-  CheckCircle2, Clock, Download, Eye, FileText, Loader2,
-  Paperclip, Plus, Receipt, Trash2, Upload, X, XCircle,
+  AlertCircle, ArrowRight, CheckCircle2, Clock, Download,
+  Eye, FileText, Loader2, Paperclip, Receipt, XCircle,
 } from "lucide-react";
-import { apiDelete, apiGet, apiPost, buildApiUrl } from "@/lib/api";
-
-// ── Types ──────────────────────────────────────────────────────────────────────
+import { apiGet, buildApiUrl } from "@/lib/api";
 
 type InvoiceRecord = {
-  id: string;
-  invoice_type: string;
-  invoice_no?: string;
-  period?: string;
-  amount?: number;
-  currency: string;
-  file_url?: string;
-  file_name?: string;
-  description?: string;
-  approval_status: string;
-  submitted_for_approval?: boolean;
-  submitted_by_name?: string;
-  created_at: string;
+  id: string; invoice_type: string; invoice_no?: string; period?: string;
+  amount?: number; currency: string; file_url?: string; file_name?: string;
+  description?: string; approval_status: string; submitted_by_name?: string; created_at: string;
 };
 
-const INVOICE_TYPE_LABELS: Record<string, string> = {
-  bakim_faturasi:      "Bakım Faturası",
-  tadilat_faturasi:    "Tadilat Faturası",
-  yeni_yapim_faturasi: "Yeni Yapım Faturası",
-  ara_fatura:          "Ara Fatura",
-  final_fatura:        "Final Fatura",
-  malzeme_faturasi:    "Malzeme Faturası",
-  hizmet_faturasi:     "Hizmet Faturası",
+// ── İş türü eşlemeleri ────────────────────────────────────────────────────────
+
+type WorkInfo = {
+  label: string;
+  badge: string;
+  btnLabel: string;
+  btnCls: string;
+  route: string;
 };
+
+function getWorkInfo(invoiceType: string): WorkInfo {
+  if (
+    invoiceType === "bakim_faturasi" ||
+    invoiceType === "ara_fatura" ||
+    invoiceType === "final_fatura" ||
+    invoiceType === "malzeme_faturasi" ||
+    invoiceType === "hizmet_faturasi"
+  ) {
+    return {
+      label:    "Bakım - Fatura",
+      badge:    "bg-sky-50 text-sky-700",
+      btnLabel: "Bakım & Onarım'a Git",
+      btnCls:   "text-sky-700 border-sky-200 bg-sky-50 hover:bg-sky-100",
+      route:    "/bakim/faturalar",
+    };
+  }
+  if (
+    invoiceType === "tadilat_faturasi" ||
+    invoiceType === "tadilat_avansli" ||
+    invoiceType === "tadilat_avanssiz"
+  ) {
+    return {
+      label:    "Tadilat - Fatura",
+      badge:    "bg-amber-50 text-amber-700",
+      btnLabel: "Tadilat'a Git",
+      btnCls:   "text-amber-700 border-amber-200 bg-amber-50 hover:bg-amber-100",
+      route:    "/tadilat/faturalar",
+    };
+  }
+  if (invoiceType === "yeni_yapim_faturasi") {
+    return {
+      label:    "Yeni Yapım - Fatura",
+      badge:    "bg-purple-50 text-purple-700",
+      btnLabel: "Yeni Yapım'a Git",
+      btnCls:   "text-purple-700 border-purple-200 bg-purple-50 hover:bg-purple-100",
+      route:    "/yeni-yapim/faturalar",
+    };
+  }
+  return {
+    label:    "Fatura",
+    badge:    "bg-slate-100 text-slate-600",
+    btnLabel: "Modüle Git",
+    btnCls:   "text-slate-600 border-slate-200 bg-slate-50 hover:bg-slate-100",
+    route:    "/",
+  };
+}
+
+// ── Yardımcılar ───────────────────────────────────────────────────────────────
 
 const APPROVAL_STATUS: Record<string, { label: string; icon: typeof CheckCircle2; cls: string }> = {
-  draft:       { label: "Taslak",           icon: Clock,        cls: "bg-slate-50 text-slate-600"   },
-  pending:     { label: "Onay Bekliyor",    icon: Clock,        cls: "bg-amber-50 text-amber-700"   },
-  onaylandi:   { label: "Onaylandı",        icon: CheckCircle2, cls: "bg-green-50 text-green-700"   },
-  reddedildi:  { label: "Reddedildi",       icon: XCircle,      cls: "bg-red-50 text-red-700"       },
-  revizyon:    { label: "Revizyon İstendi", icon: Clock,        cls: "bg-purple-50 text-purple-700" },
+  draft:      { label: "Taslak",           icon: Clock,        cls: "bg-slate-50 text-slate-600"   },
+  pending:    { label: "Onay Bekliyor",    icon: Clock,        cls: "bg-amber-50 text-amber-700"   },
+  onaylandi:  { label: "Onaylandı",        icon: CheckCircle2, cls: "bg-green-50 text-green-700"   },
+  reddedildi: { label: "Reddedildi",       icon: XCircle,      cls: "bg-red-50 text-red-700"       },
+  revizyon:   { label: "Revizyon İstendi", icon: Clock,        cls: "bg-purple-50 text-purple-700" },
 };
-
-// ── Helpers ────────────────────────────────────────────────────────────────────
 
 function fmtDate(d: string) {
   return new Date(d).toLocaleDateString("tr-TR", { day: "2-digit", month: "short", year: "numeric" });
@@ -52,36 +88,6 @@ function fmtDate(d: string) {
 function fmtTRY(amount?: number, currency?: string) {
   if (amount == null) return "—";
   return new Intl.NumberFormat("tr-TR", { style: "currency", currency: currency ?? "TRY" }).format(amount);
-}
-
-function parseTRY(input: string): number {
-  const cleaned = input.trim().replace(/\./g, "").replace(",", ".");
-  const num = parseFloat(cleaned);
-  return isNaN(num) ? 0 : num;
-}
-
-function displayTRY(input: string): string {
-  const num = parseTRY(input);
-  if (num <= 0) return "";
-  return new Intl.NumberFormat("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
-}
-
-async function uploadDocumentFile(file: File, projectId: string): Promise<{ id: string; original_name: string }> {
-  const fd = new FormData();
-  fd.append("project_id", projectId);
-  fd.append("doc_type", "invoice_doc");
-  fd.append("file", file);
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-  const res = await fetch(buildApiUrl("/documents/upload"), {
-    method: "POST",
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-    body: fd,
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err?.detail ?? "Dosya yüklenemedi");
-  }
-  return res.json();
 }
 
 async function openDocument(docId: string) {
@@ -98,220 +104,11 @@ async function openDocument(docId: string) {
   }
 }
 
-// ── CurrencyInput ──────────────────────────────────────────────────────────────
-
-function CurrencyInput({ value, onChange, className }: {
-  value: string; onChange: (v: string) => void; className?: string;
-}) {
-  const [focused, setFocused] = useState(false);
-  return (
-    <div className="relative">
-      <input
-        type="text"
-        value={focused ? value : (value ? displayTRY(value) || value : "")}
-        onFocus={() => setFocused(true)}
-        onChange={(e) => onChange(e.target.value)}
-        onBlur={() => { setFocused(false); const n = parseTRY(value); if (n > 0) onChange(displayTRY(value)); }}
-        placeholder="0,00"
-        className={className}
-        inputMode="decimal"
-      />
-      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">₺</span>
-    </div>
-  );
-}
-
-// ── FileDropzone ───────────────────────────────────────────────────────────────
-
-function FileDropzone({ file, onFile, accept }: { file: File | null; onFile: (f: File | null) => void; accept?: string }) {
-  const ref = useRef<HTMLInputElement>(null);
-  const [dragging, setDragging] = useState(false);
-  const handleDrop = (e: React.DragEvent) => { e.preventDefault(); setDragging(false); const f = e.dataTransfer.files[0]; if (f) onFile(f); };
-  return (
-    <>
-      <input ref={ref} type="file" className="hidden" accept={accept} onChange={(e) => onFile(e.target.files?.[0] ?? null)} />
-      <div
-        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={handleDrop}
-        onClick={() => !file && ref.current?.click()}
-        className={`relative flex items-center gap-3 rounded-xl border-2 border-dashed px-4 py-3 transition-colors cursor-pointer ${dragging ? "border-blue-400 bg-blue-50" : file ? "border-green-300 bg-green-50/60 cursor-default" : "border-slate-200 hover:border-blue-300 hover:bg-blue-50/40"}`}
-      >
-        {file ? (
-          <>
-            <FileText className="h-4 w-4 text-green-600 shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-slate-700 truncate">{file.name}</p>
-              <p className="text-[11px] text-slate-400">{(file.size / 1024).toFixed(0)} KB</p>
-            </div>
-            <button type="button" onClick={(e) => { e.stopPropagation(); onFile(null); if (ref.current) ref.current.value = ""; }}
-              className="shrink-0 flex h-6 w-6 items-center justify-center rounded-full bg-white border border-slate-200 text-slate-400 hover:text-red-500">
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </>
-        ) : (
-          <>
-            <Upload className="h-4 w-4 text-slate-300 shrink-0" />
-            <div className="flex-1">
-              <p className="text-xs text-slate-500">Sürükle & Bırak <span className="text-slate-400">veya</span></p>
-              <button type="button" onClick={(e) => { e.stopPropagation(); ref.current?.click(); }}
-                className="text-xs font-semibold text-blue-600 hover:underline">Dosya Seç</button>
-            </div>
-          </>
-        )}
-      </div>
-    </>
-  );
-}
-
-// ── AddModal ───────────────────────────────────────────────────────────────────
-
-function AddModal({ projectId, onClose, onDone }: { projectId: string; onClose: () => void; onDone: () => void }) {
-  const [file, setFile] = useState<File | null>(null);
-  const [form, setForm] = useState({
-    invoice_type: "ara_fatura",
-    invoice_no: "",
-    period: new Date().toISOString().slice(0, 7),
-    amountRaw: "",
-    description: "",
-  });
-  const [busy, setBusy] = useState(false);
-  const [err, setErr]   = useState("");
-
-  const handleSubmit = async () => {
-    const numericAmount = parseTRY(form.amountRaw);
-    if (numericAmount <= 0) { setErr("Geçerli bir tutar giriniz."); return; }
-    setBusy(true); setErr("");
-    try {
-      let file_url: string | null = null;
-      let file_name: string | null = null;
-      if (file) {
-        const doc = await uploadDocumentFile(file, projectId);
-        file_url = doc.id;
-        file_name = doc.original_name;
-      }
-      await apiPost(`/invoice-records/projects/${projectId}`, {
-        invoice_type: form.invoice_type,
-        invoice_no: form.invoice_no || null,
-        period: form.period || null,
-        amount: numericAmount,
-        file_url,
-        file_name,
-        description: form.description || null,
-      });
-      onDone(); onClose();
-    } catch (ex: any) {
-      setErr(ex?.message ?? ex?.response?.data?.detail ?? "Kayıt oluşturulamadı.");
-    } finally { setBusy(false); }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-          <h3 className="text-sm font-bold text-slate-900">Fatura Ekle</h3>
-          <button onClick={onClose}><X className="h-5 w-5 text-slate-300 hover:text-slate-600" /></button>
-        </div>
-        <div className="px-5 py-5 space-y-3">
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Fatura Tipi *</label>
-            <select value={form.invoice_type} onChange={(e) => setForm(p => ({...p, invoice_type: e.target.value}))}
-              className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
-              {Object.entries(INVOICE_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-            </select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Fatura No</label>
-              <input value={form.invoice_no} onChange={(e) => setForm(p => ({...p, invoice_no: e.target.value}))}
-                placeholder="2026-0001"
-                className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Tutar *</label>
-              <CurrencyInput value={form.amountRaw} onChange={(v) => setForm(p => ({...p, amountRaw: v}))}
-                className="w-full rounded-lg border px-3 pr-7 py-2 text-sm focus:border-blue-500 focus:outline-none" />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Dönem</label>
-            <input value={form.period} onChange={(e) => setForm(p => ({...p, period: e.target.value}))}
-              placeholder="2026-06"
-              className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Fatura Dosyası</label>
-            <FileDropzone file={file} onFile={setFile} accept=".pdf,.xlsx,.docx,.jpg,.png,.zip" />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Açıklama</label>
-            <textarea rows={2} value={form.description} onChange={(e) => setForm(p => ({...p, description: e.target.value}))}
-              className="w-full resize-none rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
-          </div>
-
-          {err && <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{err}</p>}
-        </div>
-        <div className="flex justify-end gap-2 border-t border-slate-100 px-5 py-4">
-          <button onClick={onClose}
-            className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Vazgeç</button>
-          <button onClick={handleSubmit} disabled={busy}
-            className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50">
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Receipt className="h-4 w-4" />}
-            {busy ? "Kaydediliyor..." : "Kaydet"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Delete Confirm ─────────────────────────────────────────────────────────────
-
-function DeleteConfirm({ invoice, onClose, onDone }: { invoice: InvoiceRecord; onClose: () => void; onDone: () => void }) {
-  const [busy, setBusy] = useState(false);
-  const handleDelete = async () => {
-    setBusy(true);
-    try {
-      await apiDelete(`/invoice-records/${invoice.id}`);
-      if (invoice.file_url) await apiDelete(`/documents/${invoice.file_url}`).catch(() => {});
-      onDone(); onClose();
-    } catch { alert("Silme işlemi başarısız."); }
-    finally { setBusy(false); }
-  };
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white shadow-2xl p-5 space-y-4">
-        <div className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-50">
-            <Trash2 className="h-4 w-4 text-red-500" />
-          </div>
-          <h3 className="text-sm font-bold text-slate-900">Fatura Sil</h3>
-        </div>
-        <p className="text-sm text-slate-600">Bu fatura kaydı silinecek. Devam etmek istiyor musunuz?</p>
-        <div className="flex justify-end gap-2">
-          <button onClick={onClose}
-            className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Vazgeç</button>
-          <button onClick={handleDelete} disabled={busy}
-            className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50">
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />} Sil
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Main Tab ───────────────────────────────────────────────────────────────────
+// ── Bileşen ───────────────────────────────────────────────────────────────────
 
 export default function FaturaTab({ projectId }: { projectId: string }) {
   const [invoices, setInvoices] = useState<InvoiceRecord[]>([]);
   const [loading,  setLoading]  = useState(true);
-  const [showAdd,  setShowAdd]  = useState(false);
-  const [deleting, setDeleting] = useState<InvoiceRecord | null>(null);
   const [opening,  setOpening]  = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -334,23 +131,26 @@ export default function FaturaTab({ projectId }: { projectId: string }) {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-sm font-semibold text-slate-800">Faturalar</h3>
-          <p className="text-[11px] text-slate-400 mt-0.5">Mağazaya ait fatura kayıtları</p>
-        </div>
-        <button onClick={() => setShowAdd(true)}
-          className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 transition-colors">
-          <Plus className="h-3.5 w-3.5" /> Fatura Ekle
-        </button>
+      <div>
+        <h3 className="text-sm font-semibold text-slate-800">Faturalar</h3>
+        <p className="text-[11px] text-slate-400 mt-0.5">Mağazaya ait tüm modüllerden fatura kayıtları</p>
+      </div>
+
+      {/* Read-only banner */}
+      <div className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+        <AlertCircle className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" />
+        <p className="text-xs text-slate-500">
+          Bu alan sadece görüntüleme içindir. Fatura yükleme ve düzenleme işlemleri ilgili modülden yapılır.
+          Her kaydın yanındaki butona tıklayarak ilgili modüle gidebilirsiniz.
+        </p>
       </div>
 
       {invoices.length > 0 && (
         <div className="grid grid-cols-3 gap-3">
           {[
-            { label: "Toplam Fatura", value: invoices.length,                                                color: "text-slate-700" },
-            { label: "Onay Bekliyor", value: invoices.filter(i => i.approval_status === "pending").length,   color: "text-amber-600" },
-            { label: "Toplam Tutar",  value: fmtTRY(totalAmount),                                            color: "text-blue-600"  },
+            { label: "Toplam Fatura", value: invoices.length,                                               color: "text-slate-700" },
+            { label: "Onay Bekliyor", value: invoices.filter(i => i.approval_status === "pending").length,  color: "text-amber-600" },
+            { label: "Toplam Tutar",  value: fmtTRY(totalAmount),                                           color: "text-blue-600"  },
           ].map((s) => (
             <div key={s.label} className="rounded-xl border border-slate-100 bg-white p-3 text-center">
               <p className={`text-sm font-bold ${s.color}`}>{s.value}</p>
@@ -368,13 +168,14 @@ export default function FaturaTab({ projectId }: { projectId: string }) {
         <div className="flex flex-col items-center justify-center py-12 gap-3 rounded-2xl border border-dashed border-slate-200">
           <Receipt className="h-8 w-8 text-slate-200" />
           <p className="text-sm font-medium text-slate-500">Fatura kaydı yok</p>
-          <p className="text-xs text-slate-400">Süreç tamamlandıktan sonra fatura ekleyebilirsiniz.</p>
+          <p className="text-xs text-slate-400">Fatura eklemek için Bakım, Tadilat veya Yeni Yapım modülünü kullanın.</p>
         </div>
       ) : (
         <div className="space-y-2">
           {invoices.map((inv) => {
-            const st = APPROVAL_STATUS[inv.approval_status] ?? APPROVAL_STATUS.draft;
+            const st   = APPROVAL_STATUS[inv.approval_status] ?? APPROVAL_STATUS.draft;
             const Icon = st.icon;
+            const wi   = getWorkInfo(inv.invoice_type);
             return (
               <div key={inv.id} className="rounded-xl border border-slate-100 bg-white p-4">
                 <div className="flex items-start gap-3">
@@ -383,10 +184,15 @@ export default function FaturaTab({ projectId }: { projectId: string }) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <p className="text-sm font-semibold text-slate-900">
-                        {INVOICE_TYPE_LABELS[inv.invoice_type] ?? inv.invoice_type}
-                      </p>
-                      {inv.invoice_no && <span className="text-[11px] font-mono text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded">{inv.invoice_no}</span>}
+                      {/* İş türü etiketi */}
+                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${wi.badge}`}>
+                        {wi.label}
+                      </span>
+                      {inv.invoice_no && (
+                        <span className="text-[11px] font-mono text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded">
+                          {inv.invoice_no}
+                        </span>
+                      )}
                       {inv.period && <span className="text-[11px] text-slate-400">{inv.period}</span>}
                     </div>
                     <div className="flex items-center gap-3 flex-wrap">
@@ -419,10 +225,11 @@ export default function FaturaTab({ projectId }: { projectId: string }) {
                         <Download className="h-3.5 w-3.5" /> İndir
                       </button>
                     )}
-                    <button onClick={() => setDeleting(inv)}
-                      className="flex items-center gap-1 text-[11px] text-red-500 border border-red-100 rounded-lg px-2 py-1 hover:bg-red-50">
-                      <Trash2 className="h-3.5 w-3.5" /> Sil
-                    </button>
+                    {/* Kayıt bazlı modül yönlendirmesi */}
+                    <Link href={wi.route}
+                      className={`flex items-center gap-1 text-[11px] border rounded-lg px-2 py-1 font-medium ${wi.btnCls}`}>
+                      <ArrowRight className="h-3.5 w-3.5" /> {wi.btnLabel}
+                    </Link>
                   </div>
                 </div>
               </div>
@@ -430,9 +237,6 @@ export default function FaturaTab({ projectId }: { projectId: string }) {
           })}
         </div>
       )}
-
-      {showAdd && <AddModal projectId={projectId} onClose={() => setShowAdd(false)} onDone={load} />}
-      {deleting && <DeleteConfirm invoice={deleting} onClose={() => setDeleting(null)} onDone={load} />}
     </div>
   );
 }
