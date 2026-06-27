@@ -22,7 +22,9 @@ class TestTemplateRequest(BaseModel):
     phone_number: str
     technician_name: str
     project_name: str
-    form_url: str
+    form_token: Optional[str] = None
+    form_url: Optional[str] = None
+    template_name: str = "servis_gorev_atamasi_v2"
 
 router = APIRouter()
 
@@ -103,12 +105,13 @@ async def test_template(
         "technician_name": body.technician_name,
         "project_name": body.project_name,
         "form_url": body.form_url,
+        "form_token": body.form_token,
     }
     
     audit = OutboundWhatsAppAudit(
         tenant_id=body.tenant_id,
         phone_number=body.phone_number,
-        template_name="servis_gorev_atamasi",
+        template_name=body.template_name,
         status="queued",
         payload_json=json.dumps(payload, ensure_ascii=False)
     )

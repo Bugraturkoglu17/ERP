@@ -121,30 +121,10 @@ def send_tenant_email_task(self, payload: dict) -> dict:
                             error_message=str(exc)[:2000],
                         )
                     )
-# ─────────────────────────────────────────────────────────────────────────────
-#  Sismik Mekanik ERP — Celery Worker Tasks
-# ─────────────────────────────────────────────────────────────────────────────
+                    await session.commit()
 
-from __future__ import annotations
-
-import asyncio
-import json
-import logging
-from uuid import UUID
-
-from sqlalchemy import func, select
-
-from app.core.config import settings
-from app.core.database import AsyncSessionLocal
-from app.core.emailing import send_tenant_email
-from app.core.workers import celery_app
-from app.core.whatsapp_service import send_whatsapp_template
-from app.db.models import LowStockAlert, Material, OutboundEmailDeadLetter, PlatformTenantSettings, Stock, OutboundWhatsAppAudit
-
-logger = logging.getLogger(__name__)
-
-EMAIL_MAX_RETRIES = max(0, int(settings.EMAIL_MAX_RETRIES))
-EMAIL_RETRY_DELAY_SECONDS = max(1, int(settings.EMAIL_RETRY_DELAY_SECONDS))
+            asyncio.run(_dead_letter())
+        raise
 
 
 @celery_app.task(name="tasks.check_low_stock", bind=True)
@@ -273,16 +253,35 @@ def send_whatsapp_message_task(self, audit_id: str) -> dict:
 
             payload = json.loads(audit.payload_json) if audit.payload_json else {}
             
-            components = [
-                {
-                    "type": "body",
-                    "parameters": [
-                        {"type": "text", "text": payload.get("technician_name", "-")},
-                        {"type": "text", "text": payload.get("project_name", "-")},
-                        {"type": "text", "text": payload.get("form_url", "-")}
-                    ]
-                }
-            ]
+            if audit.template_name == "servis_gorev_atamasi_v2":
+                components = [
+                    {
+                        "type": "body",
+                        "parameters": [
+                            {"type": "text", "text": payload.get("technician_name", "-")},
+                            {"type": "text", "text": payload.get("project_name", "-")}
+                        ]
+                    },
+                    {
+                        "type": "button",
+                        "sub_type": "url",
+                        "index": "0",
+                        "parameters": [
+                            {"type": "text", "text": payload.get("form_token", "-")}
+                        ]
+                    }
+                ]
+            else:
+                components = [
+                    {
+                        "type": "body",
+                        "parameters": [
+                            {"type": "text", "text": payload.get("technician_name", "-")},
+                            {"type": "text", "text": payload.get("project_name", "-")},
+                            {"type": "text", "text": payload.get("form_url", "-")}
+                        ]
+                    }
+                ]
 
             try:
                 resp = await send_whatsapp_template(
