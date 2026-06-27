@@ -45,7 +45,21 @@ PY
 if [ "$AUTO_MIGRATE" = "true" ]; then
   log "Waiting for database (${WAIT_SECONDS}s timeout)"
   wait_for_db
-  
+  log "Clearing old alembic_version for squash compatibility..."
+  python - <<'PY'
+import os, asyncio, asyncpg
+async def main():
+    url = os.environ.get("DATABASE_URL", "").replace("postgresql+asyncpg://", "postgresql://")
+    try:
+        conn = await asyncpg.connect(url)
+        await conn.execute("TRUNCATE TABLE alembic_version;")
+        await conn.close()
+        print("Successfully truncated alembic_version")
+    except Exception as e:
+        print(f"Failed to truncate alembic_version (might be empty/missing): {e}")
+asyncio.run(main())
+PY
+
   log "Stamping alembic head for Squash Migration (one-time fix)"
   alembic stamp head || true
 
