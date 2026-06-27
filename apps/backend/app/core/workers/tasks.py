@@ -241,7 +241,13 @@ def send_tenant_email_task(self, payload: dict) -> dict:
 def send_whatsapp_message_task(self, audit_id: str) -> dict:
     async def _run() -> dict:
         async with AsyncSessionLocal() as session:
-            audit = await session.get(OutboundWhatsAppAudit, UUID(audit_id))
+            # with_for_update() for idempotency
+            result = await session.execute(
+                select(OutboundWhatsAppAudit)
+                .where(OutboundWhatsAppAudit.id == UUID(audit_id))
+                .with_for_update()
+            )
+            audit = result.scalars().first()
             if not audit:
                 logger.error(f"WhatsApp Audit record {audit_id} not found.")
                 return {}
@@ -253,35 +259,9 @@ def send_whatsapp_message_task(self, audit_id: str) -> dict:
 
             payload = json.loads(audit.payload_json) if audit.payload_json else {}
             
-            if audit.template_name == "servis_gorev_atamasi_v2":
-                components = [
-                    {
-                        "type": "body",
-                        "parameters": [
-                            {"type": "text", "text": payload.get("technician_name", "-")},
-                            {"type": "text", "text": payload.get("project_name", "-")}
-                        ]
-                    },
-                    {
-                        "type": "button",
-                        "sub_type": "url",
-                        "index": "0",
-                        "parameters": [
-                            {"type": "text", "text": payload.get("form_token", "-")}
-                        ]
-                    }
-                ]
-            else:
-                components = [
-                    {
-                        "type": "body",
-                        "parameters": [
-                            {"type": "text", "text": payload.get("technician_name", "-")},
-                            {"type": "text", "text": payload.get("project_name", "-")},
-                            {"type": "text", "text": payload.get("form_url", "-")}
-                        ]
-                    }
-                ]
+            # The payload is now expected to contain a "components" list directly
+            # If not provided, fallback to empty list
+            components = payload.get("components", [])
 
             try:
                 resp = await send_whatsapp_template(

@@ -813,6 +813,8 @@ class OutboundWhatsAppAudit(SQLModel, table=True):
     phone_number: str = Field(max_length=50, index=True)
     template_name: str = Field(max_length=120, index=True)
     provider_message_id: Optional[str] = Field(default=None, max_length=255, index=True)
+    conversation_id: Optional[str] = Field(default=None, max_length=255, index=True)
+    pricing_category: Optional[str] = Field(default=None, max_length=100)
     status: str = Field(default="queued", max_length=40, index=True)
     error_message: Optional[str] = Field(default=None, max_length=2000)
     payload_json: Optional[str] = Field(default=None)

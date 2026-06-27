@@ -8,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from pydantic import BaseModel
 import json
+import hmac
+import hashlib
 from uuid import UUID
 
 from app.core.config import settings
@@ -25,6 +27,10 @@ class TestTemplateRequest(BaseModel):
     form_token: Optional[str] = None
     form_url: Optional[str] = None
     template_name: str = "servis_gorev_atamasi_v2"
+    location_lat: Optional[str] = "41.0082"
+    location_long: Optional[str] = "28.9784"
+    location_name: Optional[str] = "Proje Konumu"
+    location_address: Optional[str] = "İstanbul, Türkiye"
 
 router = APIRouter()
 
@@ -49,7 +55,23 @@ async def receive_webhook(
     db: AsyncSession = Depends(get_db)
 ):
     """Handle incoming webhook events from Meta (messages, statuses)."""
-    payload = await request.json()
+    # 1. Signature Verification
+    body_bytes = await request.body()
+    signature = request.headers.get("X-Hub-Signature-256")
+    
+    if settings.WHATSAPP_APP_SECRET and signature:
+        expected_sig = hmac.new(
+            settings.WHATSAPP_APP_SECRET.encode('utf-8'),
+            body_bytes,
+            hashlib.sha256
+        ).hexdigest()
+        
+        # Meta sends signature as "sha256=..."
+        if not signature.startswith("sha256=") or not hmac.compare_digest(expected_sig, signature[7:]):
+            logger.warning("Invalid X-Hub-Signature-256")
+            raise HTTPException(status_code=403, detail="Invalid signature")
+
+    payload = json.loads(body_bytes.decode('utf-8'))
     logger.info(f"WhatsApp Webhook Payload: {payload}")
     
     try:
@@ -73,6 +95,15 @@ async def receive_webhook(
                                 if audit:
                                     audit.status = status
                                     
+                                    # Extract pricing and conversation info
+                                    conversation = status_event.get("conversation", {})
+                                    pricing = status_event.get("pricing", {})
+                                    
+                                    if conversation.get("id"):
+                                        audit.conversation_id = conversation.get("id")
+                                    if pricing.get("pricing_model") or pricing.get("category"):
+                                        audit.pricing_category = pricing.get("category", "unknown")
+
                                     if timestamp_str:
                                         ts = datetime.fromtimestamp(int(timestamp_str))
                                         if status == "delivered":
@@ -101,11 +132,54 @@ async def test_template(
     Uçtan uca WhatsApp şablon test endpoint'i.
     Servis görev ataması şablonu (servis_gorev_atamasi) gönderimi için kuyruğa atar.
     """
+    components = []
+    
+    if body.template_name == "servis_gorev_atamasi_v2":
+        components = [
+            {
+                "type": "header",
+                "parameters": [
+                    {
+                        "type": "location",
+                        "location": {
+                            "latitude": body.location_lat,
+                            "longitude": body.location_long,
+                            "name": body.location_name,
+                            "address": body.location_address
+                        }
+                    }
+                ]
+            },
+            {
+                "type": "body",
+                "parameters": [
+                    {"type": "text", "text": body.technician_name or "-"},
+                    {"type": "text", "text": body.project_name or "-"}
+                ]
+            },
+            {
+                "type": "button",
+                "sub_type": "url",
+                "index": "0",
+                "parameters": [
+                    {"type": "text", "text": body.form_token or "-"}
+                ]
+            }
+        ]
+    else:
+        components = [
+            {
+                "type": "body",
+                "parameters": [
+                    {"type": "text", "text": body.technician_name or "-"},
+                    {"type": "text", "text": body.project_name or "-"},
+                    {"type": "text", "text": body.form_url or "-"}
+                ]
+            }
+        ]
+
     payload = {
-        "technician_name": body.technician_name,
-        "project_name": body.project_name,
-        "form_url": body.form_url,
-        "form_token": body.form_token,
+        "components": components
     }
     
     audit = OutboundWhatsAppAudit(
