@@ -45,6 +45,10 @@ PY
 if [ "$AUTO_MIGRATE" = "true" ]; then
   log "Waiting for database (${WAIT_SECONDS}s timeout)"
   wait_for_db
+  
+  log "Stamping alembic head for Squash Migration (one-time fix)"
+  alembic stamp head || true
+
   log "Running alembic migrations"
   alembic upgrade head
 
