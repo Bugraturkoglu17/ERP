@@ -98,16 +98,17 @@ def upgrade() -> None:
         ).bindparams(id=LEGACY_TENANT_ID)
     )
 
-    op.execute(
-        sa.text(
-            """
-            UPDATE users
-            SET tenant_id = :id
-            WHERE tenant_id IS NULL
-              AND (default_role IS NULL OR default_role NOT LIKE '%platform_admin%')
-            """
-        ).bindparams(id=LEGACY_TENANT_ID)
-    )
+    if inspector.has_table("users"):
+        op.execute(
+            sa.text(
+                """
+                UPDATE users
+                SET tenant_id = :id
+                WHERE tenant_id IS NULL
+                  AND (default_role IS NULL OR default_role NOT LIKE '%platform_admin%')
+                """
+            ).bindparams(id=LEGACY_TENANT_ID)
+        )
     for table_name in ["customers", "regions", "branches", "projects"]:
         if inspector.has_table(table_name):
             op.execute(

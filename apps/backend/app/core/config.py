@@ -63,6 +63,13 @@ class Settings(BaseSettings):
     EMAIL_RETRY_DELAY_SECONDS: int = 60
     FRONTEND_URL: str = "http://localhost:3000"
 
+    # ── WhatsApp Cloud API ──────────────────────────────────────────────────
+    WHATSAPP_ACCESS_TOKEN: str = ""
+    WHATSAPP_PHONE_NUMBER_ID: str = ""
+    WHATSAPP_BUSINESS_ACCOUNT_ID: str = ""
+    WHATSAPP_VERIFY_TOKEN: str = ""
+    WHATSAPP_API_VERSION: str = "v23.0"
+
     @property
     def is_production(self) -> bool:
         return self.ENV == "production"

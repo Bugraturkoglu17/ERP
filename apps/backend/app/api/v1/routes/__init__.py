@@ -4,7 +4,7 @@
 
 from fastapi import APIRouter
 
-from app.api.v1.routes import auth, projects, inventory, finance, documents, platform, procurement, field_reports
+from app.api.v1.routes import auth, projects, inventory, finance, documents, platform, procurement, field_reports, whatsapp
 
 router = APIRouter()
 
@@ -16,3 +16,5 @@ router.include_router(documents.router,     prefix="/documents",     tags=["docu
 router.include_router(platform.router,      prefix="/platform",      tags=["platform"])
 router.include_router(procurement.router,   prefix="/procurement",   tags=["procurement"])
 router.include_router(field_reports.router, prefix="/field-reports", tags=["field-reports"])
+router.include_router(whatsapp.router,      prefix="/whatsapp",      tags=["whatsapp"])
+
