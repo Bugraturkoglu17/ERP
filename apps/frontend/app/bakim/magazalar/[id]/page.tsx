@@ -209,15 +209,28 @@ function FileRow({
                 <Clock className="h-3 w-3" /> Bekleniyor
               </span>
             )}
-            {status && status !== "draft" && (
-              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                status === "onaylandi" ? "bg-green-100 text-green-800" :
-                status === "pending" ? "bg-amber-50 text-amber-700" :
-                "bg-slate-100 text-slate-600"
-              }`}>
-                {status === "onaylandi" ? "Onaylandı" : status === "pending" ? "Onay Bekliyor" : status}
-              </span>
-            )}
+            {status && status !== "draft" && (() => {
+              const HAKEDIS_STATUS: Record<string, { label: string; cls: string }> = {
+                internal_pending:   { label: "İç Onay Bekliyor",          cls: "bg-amber-50 text-amber-700"    },
+                bekliyor:           { label: "İç Onay Bekliyor",          cls: "bg-amber-50 text-amber-700"    },
+                pending:            { label: "İç Onay Bekliyor",          cls: "bg-amber-50 text-amber-700"    },
+                internal_approved:  { label: "İç Onay Alındı",           cls: "bg-blue-50 text-blue-700"      },
+                migros_pending:     { label: "Migros Onayı Bekleniyor",   cls: "bg-indigo-50 text-indigo-700"  },
+                invoice_stage:      { label: "Faturalandırma Aşamasında", cls: "bg-emerald-50 text-emerald-700"},
+                invoiced:           { label: "Faturalandırıldı",          cls: "bg-green-100 text-green-800"   },
+                revision_requested: { label: "Revizyon İstendi",          cls: "bg-purple-50 text-purple-700"  },
+                rejected:           { label: "Reddedildi",                cls: "bg-red-50 text-red-600"        },
+                onaylandi:          { label: "Onaylandı",                 cls: "bg-green-100 text-green-800"   },
+                reddedildi:         { label: "Reddedildi",                cls: "bg-red-50 text-red-600"        },
+                revizyon:           { label: "Revizyon İstendi",          cls: "bg-purple-50 text-purple-700"  },
+              };
+              const cfg = HAKEDIS_STATUS[status] ?? { label: status, cls: "bg-slate-100 text-slate-600" };
+              return (
+                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${cfg.cls}`}>
+                  {cfg.label}
+                </span>
+              );
+            })()}
           </div>
           {fileName && <p className="text-xs text-slate-500 truncate mt-0.5">{fileName}</p>}
           {amount != null && <p className="text-xs font-semibold text-slate-700 mt-0.5">{fmtTRY(amount, currency)}</p>}

@@ -8,15 +8,21 @@ from datetime import datetime, timezone
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+import time
+
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user, get_db
-from app.db.models import StoreActivity, StoreApprovalRequest, StoreProgressPayment, User
+from app.core.storage import storage, sanitize_filename
+from app.db.models import (
+    Document, StoreActivity, StoreApprovalRequest,
+    StoreInvoiceRecord, StoreProgressPayment, User,
+)
 from app.db.schemas import (
     ProgressPaymentCreate, ProgressPaymentRead, ProgressPaymentUpdate,
-    ApprovalRequestRead,
+    ApprovalRequestRead, InvoiceRecordRead,
 )
 
 router = APIRouter()
@@ -102,7 +108,7 @@ async def create_payment(
         file_url=body.file_url,
         file_name=body.file_name,
         description=body.description,
-        approval_status="pending" if body.submitted_for_approval else "draft",
+        approval_status="internal_pending" if body.submitted_for_approval else "draft",
         submitted_for_approval=body.submitted_for_approval,
         submitted_by=user.id,
         submitted_by_name=user.full_name or user.email,
@@ -133,7 +139,7 @@ async def create_payment(
             amount=body.amount,
             file_url=body.file_url,
             file_name=body.file_name,
-            status="bekliyor",
+            status="internal_pending",
             requested_by=user.id,
             requested_by_name=user.full_name or user.email,
             requested_at=utc_now(),
@@ -162,13 +168,12 @@ async def delete_payment(
     if not payment:
         raise HTTPException(status_code=404, detail="Hakkediş bulunamadı.")
 
-    # Bağlı onay taleplerini iptal et
+    # Bağlı onay taleplerini sil (FK kısıtı nedeniyle payment silinmeden önce)
     approval_result = await db.execute(
         select(StoreApprovalRequest).where(StoreApprovalRequest.related_payment_id == payment_id)
     )
     for approval in approval_result.scalars().all():
-        approval.status = "iptal"
-        approval.updated_at = utc_now()
+        await db.delete(approval)
 
     label = PAYMENT_TYPE_LABELS.get(payment.payment_type, payment.payment_type)
     await _log_activity(
@@ -273,7 +278,7 @@ async def sync_payment_approvals(
             amount=payment.amount,
             file_url=payment.file_url,
             file_name=payment.file_name,
-            status="bekliyor",
+            status="internal_pending",
             requested_by=user.id,
             requested_by_name=user.full_name or user.email,
             requested_at=utc_now(),
@@ -281,10 +286,138 @@ async def sync_payment_approvals(
             updated_at=utc_now(),
         ))
         # approval_status'u da güncelle
-        if payment.approval_status not in ("pending", "onaylandi", "reddedildi", "revizyon"):
-            payment.approval_status = "pending"
+        terminal = {"internal_approved", "migros_pending", "ready_for_invoice", "invoiced", "rejected"}
+        if payment.approval_status not in terminal:
+            payment.approval_status = "internal_pending"
             payment.updated_at = utc_now()
         created += 1
 
     await db.commit()
     return {"synced": created, "message": f"{created} eksik onay talebi oluşturuldu."}
+
+
+# ── POST /progress-payments/{payment_id}/invoice ─────────────────────────────
+
+PAYMENT_TYPE_TO_INVOICE_TYPE = {
+    "bakim":     "bakim_faturasi",
+    "tadilat":   "tadilat_faturasi",
+    "yeni_yapim": "yeni_yapim_faturasi",
+    "ara":       "ara_fatura",
+    "final":     "final_fatura",
+}
+
+INVOICE_TYPE_LABELS = {
+    "bakim_faturasi":      "Bakım - Fatura",
+    "tadilat_faturasi":    "Tadilat - Fatura",
+    "yeni_yapim_faturasi": "Yeni Yapım - Fatura",
+    "ara_fatura":          "Ara Hakkediş Faturası",
+    "final_fatura":        "Final Hakkediş Faturası",
+}
+
+
+@router.post("/{payment_id}/invoice", response_model=InvoiceRecordRead, status_code=201)
+async def upload_payment_invoice(
+    payment_id:   UUID,
+    file:         UploadFile = File(...),
+    amount:       Optional[float] = Form(None),
+    invoice_no:   Optional[str]   = Form(None),
+    invoice_date: Optional[str]   = Form(None),
+    description:  Optional[str]   = Form(None),
+    db:   AsyncSession = Depends(get_db),
+    user: User         = Depends(get_current_user),
+):
+    """Hakkedişe bağlı fatura yükle. Sadece invoice_stage durumundaki hakkedişler için."""
+    result = await db.execute(
+        select(StoreProgressPayment).where(StoreProgressPayment.id == payment_id)
+    )
+    payment = result.scalar_one_or_none()
+    if not payment:
+        raise HTTPException(status_code=404, detail="Hakkediş bulunamadı.")
+    if payment.approval_status != "invoice_stage":
+        raise HTTPException(
+            status_code=400,
+            detail="Bu hakkediş için Migros onayı alınmadan fatura yüklenemez.",
+        )
+
+    # Dosyayı OCI/S3'e yükle
+    content = await file.read()
+    safe_name = sanitize_filename(file.filename or "fatura")
+    file_key = f"projects/{payment.project_id}/faturalar/{int(time.time())}_{safe_name}"
+    try:
+        uploaded_key = await storage.upload_file(
+            file_content=content,
+            file_key=file_key,
+            content_type=file.content_type,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Dosya yükleme hatası: {e}")
+
+    # Document kaydı oluştur (download endpoint'i için)
+    doc = Document(
+        project_id=payment.project_id,
+        doc_type="fatura",
+        original_name=file.filename,
+        file_key=uploaded_key,
+        bucket_name=storage.bucket_name,
+        file_size_bytes=len(content),
+        mime_type=file.content_type,
+        version=1,
+        uploaded_by=user.id,
+    )
+    db.add(doc)
+    await db.flush()
+
+    invoice_type = PAYMENT_TYPE_TO_INVOICE_TYPE.get(payment.payment_type, "hakkediş_faturasi")
+    label = INVOICE_TYPE_LABELS.get(invoice_type, invoice_type)
+
+    inv = StoreInvoiceRecord(
+        tenant_id=payment.tenant_id,
+        project_id=payment.project_id,
+        process_id=payment.process_id,
+        invoice_type=invoice_type,
+        invoice_no=invoice_no,
+        invoice_date=invoice_date,
+        period=payment.period,
+        amount=amount,
+        currency=payment.currency,
+        file_url=str(doc.id),
+        file_name=file.filename,
+        description=description,
+        related_payment_id=payment.id,
+        approval_status="uploaded",
+        submitted_by=user.id,
+        submitted_by_name=user.full_name or user.email,
+        created_at=utc_now(),
+        updated_at=utc_now(),
+    )
+    db.add(inv)
+
+    # Hakkediş durumunu güncelle
+    now = utc_now()
+    payment.approval_status = "invoiced"
+    payment.invoiced_at = now
+    payment.updated_at = now
+
+    # Bağlı onay taleplerini güncelle
+    appr_result = await db.execute(
+        select(StoreApprovalRequest).where(StoreApprovalRequest.related_payment_id == payment_id)
+    )
+    for appr in appr_result.scalars().all():
+        appr.status = "invoiced"
+        appr.updated_at = now
+
+    act = StoreActivity(
+        tenant_id=payment.tenant_id,
+        project_id=payment.project_id,
+        user_id=user.id,
+        user_name=user.full_name or user.email,
+        activity_type="invoice_uploaded",
+        title=f"Hakkedişe bağlı fatura yüklendi: {label}",
+        description=f"Tutar: {amount} {payment.currency}" if amount else None,
+        created_at=now,
+    )
+    db.add(act)
+
+    await db.commit()
+    await db.refresh(inv)
+    return InvoiceRecordRead.model_validate(inv)

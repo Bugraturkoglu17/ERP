@@ -29,11 +29,20 @@ type ProgressPayment = {
 type Row = { payment: ProgressPayment; project: Project };
 
 const STATUS_CFG: Record<string, { label: string; cls: string }> = {
-  draft:       { label: "Giriş Yapıldı",    cls: "bg-slate-100 text-slate-600"  },
-  pending:     { label: "Onay Bekliyor",    cls: "bg-amber-50 text-amber-700"   },
-  onaylandi:   { label: "Onaylandı",        cls: "bg-green-50 text-green-700"   },
-  reddedildi:  { label: "Reddedildi",       cls: "bg-red-50 text-red-600"       },
-  revizyon:    { label: "Revizyon İstendi", cls: "bg-purple-50 text-purple-700" },
+  draft:              { label: "Giriş Yapıldı",             cls: "bg-slate-100 text-slate-600"    },
+  internal_pending:   { label: "İç Onay Bekliyor",          cls: "bg-amber-50 text-amber-700"     },
+  pending:            { label: "İç Onay Bekliyor",          cls: "bg-amber-50 text-amber-700"     },
+  bekliyor:           { label: "İç Onay Bekliyor",          cls: "bg-amber-50 text-amber-700"     },
+  internal_approved:  { label: "İç Onay Alındı",            cls: "bg-blue-50 text-blue-700"       },
+  migros_pending:     { label: "Migros Onayı Bekleniyor",   cls: "bg-indigo-50 text-indigo-700"   },
+  migros_approved:    { label: "Migros Onayı Verildi",      cls: "bg-teal-50 text-teal-700"       },
+  invoice_stage:      { label: "Faturalandırma Aşamasında", cls: "bg-emerald-50 text-emerald-700" },
+  invoiced:           { label: "Faturalandırıldı",          cls: "bg-green-100 text-green-800"    },
+  revision_requested: { label: "Revizyon İstendi",          cls: "bg-purple-50 text-purple-700"   },
+  rejected:           { label: "Reddedildi",                cls: "bg-red-50 text-red-600"         },
+  onaylandi:          { label: "İç Onay Alındı",            cls: "bg-blue-50 text-blue-700"       },
+  reddedildi:         { label: "Reddedildi",                cls: "bg-red-50 text-red-600"         },
+  revizyon:           { label: "Revizyon İstendi",          cls: "bg-purple-50 text-purple-700"   },
 };
 
 function fmtTRY(amount?: number, currency?: string) {
@@ -43,7 +52,7 @@ function fmtTRY(amount?: number, currency?: string) {
 
 function getStatus(p: ProgressPayment): { label: string; cls: string } {
   if (!p.submitted_for_approval) return STATUS_CFG.draft;
-  return STATUS_CFG[p.approval_status] ?? STATUS_CFG.pending;
+  return STATUS_CFG[p.approval_status] ?? STATUS_CFG.internal_pending;
 }
 
 function isBakim(payment: ProgressPayment, project: Project): boolean {

@@ -57,10 +57,18 @@ function fmtAmount(n: number) {
 }
 
 const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
-  none:       { label: "Yok",           cls: "bg-slate-100 text-slate-500" },
-  pending:    { label: "Onay Bekliyor", cls: "bg-amber-50 text-amber-700"  },
-  onaylandi:  { label: "Onaylandı",     cls: "bg-green-50 text-green-700"  },
-  reddedildi: { label: "Reddedildi",   cls: "bg-red-50 text-red-700"      },
+  none:               { label: "Yok",                       cls: "bg-slate-100 text-slate-500"    },
+  pending:            { label: "İç Onay Bekliyor",          cls: "bg-amber-50 text-amber-700"     },
+  bekliyor:           { label: "İç Onay Bekliyor",          cls: "bg-amber-50 text-amber-700"     },
+  internal_pending:   { label: "İç Onay Bekliyor",          cls: "bg-amber-50 text-amber-700"     },
+  internal_approved:  { label: "İç Onay Alındı",           cls: "bg-blue-50 text-blue-700"       },
+  migros_pending:     { label: "Migros Onayı Bekleniyor",   cls: "bg-indigo-50 text-indigo-700"   },
+  invoice_stage:      { label: "Faturalandırma Aşamasında", cls: "bg-emerald-50 text-emerald-700" },
+  invoiced:           { label: "Faturalandırıldı",          cls: "bg-green-100 text-green-800"    },
+  revision_requested: { label: "Revizyon İstendi",          cls: "bg-purple-50 text-purple-700"   },
+  rejected:           { label: "Reddedildi",                cls: "bg-red-50 text-red-700"         },
+  onaylandi:          { label: "Onaylandı",                 cls: "bg-green-50 text-green-700"     },
+  reddedildi:         { label: "Reddedildi",                cls: "bg-red-50 text-red-700"         },
 };
 
 export default function TamamlananTadilatlarPage() {

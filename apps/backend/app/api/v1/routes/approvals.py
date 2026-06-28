@@ -95,7 +95,7 @@ async def create_approval(
         amount=body.amount,
         file_url=body.file_url,
         file_name=body.file_name,
-        status="bekliyor",
+        status="internal_pending",
         requested_by=user.id,
         requested_by_name=user.full_name or user.email,
         requested_at=utc_now(),
@@ -134,39 +134,70 @@ async def update_approval(
     approval.status = body.status
     if body.note:
         approval.note = body.note
-    if body.status == "onaylandi":
+
+    now = utc_now()
+    payment = None
+
+    # İç onay → approved_by alanlarını da doldur
+    if body.status == "internal_approved":
         approval.approved_by = user.id
         approval.approved_by_name = user.full_name or user.email
-        approval.approved_at = utc_now()
-    approval.updated_at = utc_now()
+        approval.approved_at = now
+    approval.updated_at = now
 
-    # Bağlı hakkediş kaydının approval_status'unu güncelle
+    # Bağlı hakkediş kaydının approval_status'unu ve zaman damgalarını güncelle
     if approval.related_payment_id:
         pay_result = await db.execute(
             select(StoreProgressPayment).where(StoreProgressPayment.id == approval.related_payment_id)
         )
         payment = pay_result.scalar_one_or_none()
         if payment:
-            # Onay durumunu hakkediş kaydına yansıt
             status_map = {
-                "onaylandi": "onaylandi",
-                "reddedildi": "reddedildi",
-                "revizyon": "revizyon",
-                "iptal": "draft",
+                "internal_approved":  "internal_approved",
+                "revision_requested": "revision_requested",
+                "rejected":           "rejected",
+                "migros_pending":     "migros_pending",
+                "invoice_stage":      "invoice_stage",
+                "invoiced":           "invoiced",
+                "iptal":              "draft",
+                # eski / uyumluluk değerleri
+                "ready_for_invoice":  "invoice_stage",
+                "onaylandi":          "internal_approved",
+                "reddedildi":         "rejected",
+                "revizyon":           "revision_requested",
             }
             payment.approval_status = status_map.get(body.status, payment.approval_status)
-            payment.updated_at = utc_now()
+            if body.status == "internal_approved":
+                payment.internal_approved_by_name = user.full_name or user.email
+                payment.internal_approved_at = now
+            elif body.status == "migros_pending":
+                payment.sent_to_migros_by_name = user.full_name or user.email
+                payment.sent_to_migros_at = now
+            elif body.status in ("invoice_stage", "ready_for_invoice"):
+                payment.migros_approved_by_name = user.full_name or user.email
+                payment.migros_approved_at = now
+            elif body.status == "invoiced":
+                payment.invoiced_at = now
+            payment.updated_at = now
 
     status_labels = {
-        "onaylandi": "onaylandı", "reddedildi": "reddedildi",
-        "revizyon": "revizyon istendi", "tamamlandi": "tamamlandı",
+        "internal_approved":  "iç onay verildi",
+        "revision_requested": "revizyon istendi",
+        "rejected":           "reddedildi",
+        "migros_pending":     "Migros'a gönderildi",
+        "invoice_stage":      "Migros onayı alındı, faturalandırma aşamasına geçildi",
+        "invoiced":           "faturalandırıldı",
+        "onaylandi":          "onaylandı",
+        "reddedildi":         "reddedildi",
+        "revizyon":           "revizyon istendi",
+        "tamamlandi":         "tamamlandı",
     }
     act = StoreActivity(
         tenant_id=approval.tenant_id, project_id=approval.project_id,
         user_id=user.id, user_name=user.full_name or user.email,
         activity_type=f"approval_{body.status}",
         title=f"Onay talebi {status_labels.get(body.status, body.status)}: {approval.title}",
-        created_at=utc_now(),
+        created_at=now,
     )
     db.add(act)
 

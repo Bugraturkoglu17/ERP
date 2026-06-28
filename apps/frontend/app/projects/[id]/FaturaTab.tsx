@@ -74,11 +74,20 @@ function getWorkInfo(invoiceType: string): WorkInfo {
 // ── Yardımcılar ───────────────────────────────────────────────────────────────
 
 const APPROVAL_STATUS: Record<string, { label: string; icon: typeof CheckCircle2; cls: string }> = {
-  draft:      { label: "Taslak",           icon: Clock,        cls: "bg-slate-50 text-slate-600"   },
-  pending:    { label: "Onay Bekliyor",    icon: Clock,        cls: "bg-amber-50 text-amber-700"   },
-  onaylandi:  { label: "Onaylandı",        icon: CheckCircle2, cls: "bg-green-50 text-green-700"   },
-  reddedildi: { label: "Reddedildi",       icon: XCircle,      cls: "bg-red-50 text-red-700"       },
-  revizyon:   { label: "Revizyon İstendi", icon: Clock,        cls: "bg-purple-50 text-purple-700" },
+  draft:              { label: "Taslak",                     icon: Clock,        cls: "bg-slate-50 text-slate-600"    },
+  internal_pending:   { label: "İç Onay Bekliyor",           icon: Clock,        cls: "bg-amber-50 text-amber-700"    },
+  pending:            { label: "İç Onay Bekliyor",           icon: Clock,        cls: "bg-amber-50 text-amber-700"    },
+  bekliyor:           { label: "İç Onay Bekliyor",           icon: Clock,        cls: "bg-amber-50 text-amber-700"    },
+  internal_approved:  { label: "İç Onay Alındı",             icon: CheckCircle2, cls: "bg-blue-50 text-blue-700"      },
+  migros_pending:     { label: "Migros Onayı Bekleniyor",    icon: Clock,        cls: "bg-indigo-50 text-indigo-700"  },
+  migros_approved:    { label: "Migros Onayı Verildi",       icon: CheckCircle2, cls: "bg-teal-50 text-teal-700"      },
+  invoice_stage:      { label: "Faturalandırma Aşamasında",  icon: Clock,        cls: "bg-emerald-50 text-emerald-700"},
+  invoiced:           { label: "Faturalandırıldı",           icon: CheckCircle2, cls: "bg-green-100 text-green-800"   },
+  revision_requested: { label: "Revizyon İstendi",           icon: Clock,        cls: "bg-purple-50 text-purple-700"  },
+  rejected:           { label: "Reddedildi",                 icon: XCircle,      cls: "bg-red-50 text-red-700"        },
+  onaylandi:          { label: "İç Onay Alındı",             icon: CheckCircle2, cls: "bg-blue-50 text-blue-700"      },
+  reddedildi:         { label: "Reddedildi",                 icon: XCircle,      cls: "bg-red-50 text-red-700"        },
+  revizyon:           { label: "Revizyon İstendi",           icon: Clock,        cls: "bg-purple-50 text-purple-700"  },
 };
 
 function fmtDate(d: string) {

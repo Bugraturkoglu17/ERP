@@ -990,11 +990,18 @@ class ProgressPaymentRead(BaseModel):
     file_url:                str | None
     file_name:               str | None
     description:             str | None
-    approval_status:         str
-    submitted_for_approval:  bool
-    submitted_by:            UUID | None
-    submitted_by_name:       str | None
-    created_at:              datetime
+    approval_status:           str
+    submitted_for_approval:    bool
+    submitted_by:              UUID | None
+    submitted_by_name:         str | None
+    internal_approved_by_name: str | None = None
+    internal_approved_at:      datetime | None = None
+    sent_to_migros_by_name:    str | None = None
+    sent_to_migros_at:         datetime | None = None
+    migros_approved_by_name:   str | None = None
+    migros_approved_at:        datetime | None = None
+    invoiced_at:               datetime | None = None
+    created_at:                datetime
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -1008,33 +1015,37 @@ class ProgressPaymentUpdate(BaseModel):
 # ── Phase 6: Faturalar ────────────────────────────────────────────────────────
 
 class InvoiceRecordCreate(BaseModel):
-    invoice_type:  str
-    invoice_no:    str | None = None
-    period:        str | None = None
-    amount:        float | None = None
-    currency:      str = "TRY"
-    file_url:      str | None = None
-    file_name:     str | None = None
-    description:   str | None = None
-    process_id:    UUID | None = None
+    invoice_type:       str
+    invoice_no:         str | None = None
+    invoice_date:       str | None = None
+    period:             str | None = None
+    amount:             float | None = None
+    currency:           str = "TRY"
+    file_url:           str | None = None
+    file_name:          str | None = None
+    description:        str | None = None
+    process_id:         UUID | None = None
+    related_payment_id: UUID | None = None
 
 
 class InvoiceRecordRead(BaseModel):
-    id:             UUID
-    project_id:     UUID
-    process_id:     UUID | None
-    invoice_type:   str
-    invoice_no:     str | None
-    period:         str | None
-    amount:         float | None
-    currency:       str
-    file_url:       str | None
-    file_name:      str | None
-    description:    str | None
-    approval_status: str
-    submitted_by:   UUID | None
-    submitted_by_name: str | None
-    created_at:     datetime
+    id:                 UUID
+    project_id:         UUID
+    process_id:         UUID | None
+    invoice_type:       str
+    invoice_no:         str | None
+    invoice_date:       str | None = None
+    period:             str | None
+    amount:             float | None
+    currency:           str
+    file_url:           str | None
+    file_name:          str | None
+    description:        str | None
+    related_payment_id: UUID | None = None
+    approval_status:    str
+    submitted_by:       UUID | None
+    submitted_by_name:  str | None
+    created_at:         datetime
     model_config = ConfigDict(from_attributes=True)
 
 

@@ -213,7 +213,7 @@ export default function ImportPage() {
         const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: "" });
         if (rows.length === 0) { setParseError("Excel dosyası boş görünüyor."); return; }
         const headers = Object.keys(rows[0]);
-        const strRows = rows.map((r) => Object.fromEntries(Object.entries(r).map(([k, v]) => [k, String(v ?? "").trim()])));
+        const strRows = rows.map((r: Record<string, unknown>) => Object.fromEntries(Object.entries(r).map(([k, v]) => [k, String(v ?? "").trim()])));
         setRawHeaders(headers);
         setRawRows(strRows);
         setFileName(file.name);

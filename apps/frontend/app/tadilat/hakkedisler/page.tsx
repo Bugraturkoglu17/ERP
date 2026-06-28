@@ -28,11 +28,19 @@ type ProgressPayment = {
 type Row = { payment: ProgressPayment; project: Project };
 
 const STATUS_CFG: Record<string, { label: string; cls: string }> = {
-  draft:       { label: "Giriş Yapıldı",    cls: "bg-slate-100 text-slate-600"  },
-  pending:     { label: "Onay Bekliyor",    cls: "bg-amber-50 text-amber-700"   },
-  onaylandi:   { label: "Onaylandı",        cls: "bg-green-50 text-green-700"   },
-  reddedildi:  { label: "Reddedildi",       cls: "bg-red-50 text-red-600"       },
-  revizyon:    { label: "Revizyon İstendi", cls: "bg-purple-50 text-purple-700" },
+  draft:              { label: "Giriş Yapıldı",             cls: "bg-slate-100 text-slate-600"    },
+  pending:            { label: "İç Onay Bekliyor",          cls: "bg-amber-50 text-amber-700"     },
+  bekliyor:           { label: "İç Onay Bekliyor",          cls: "bg-amber-50 text-amber-700"     },
+  internal_pending:   { label: "İç Onay Bekliyor",          cls: "bg-amber-50 text-amber-700"     },
+  internal_approved:  { label: "İç Onay Alındı",           cls: "bg-blue-50 text-blue-700"       },
+  migros_pending:     { label: "Migros Onayı Bekleniyor",   cls: "bg-indigo-50 text-indigo-700"   },
+  invoice_stage:      { label: "Faturalandırma Aşamasında", cls: "bg-emerald-50 text-emerald-700" },
+  invoiced:           { label: "Faturalandırıldı",          cls: "bg-green-100 text-green-800"    },
+  revision_requested: { label: "Revizyon İstendi",          cls: "bg-purple-50 text-purple-700"   },
+  rejected:           { label: "Reddedildi",                cls: "bg-red-50 text-red-600"         },
+  onaylandi:          { label: "Onaylandı",                 cls: "bg-green-50 text-green-700"     },
+  reddedildi:         { label: "Reddedildi",                cls: "bg-red-50 text-red-600"         },
+  revizyon:           { label: "Revizyon İstendi",          cls: "bg-purple-50 text-purple-700"   },
 };
 
 function fmtTRY(amount?: number, currency?: string) {
@@ -146,8 +154,8 @@ export default function TadilatHakkedislerPage() {
           <div className="grid grid-cols-3 border-b border-slate-100 bg-slate-50 divide-x divide-slate-100">
             {[
               { label: "Toplam",        value: displayed.length },
-              { label: "Onay Bekliyor", value: displayed.filter((r) => r.payment.submitted_for_approval && r.payment.approval_status === "pending").length },
-              { label: "Onaylanan",     value: displayed.filter((r) => r.payment.approval_status === "onaylandi").length },
+              { label: "İç Onay Bekliyor", value: displayed.filter((r) => r.payment.submitted_for_approval && ["pending","bekliyor","internal_pending"].includes(r.payment.approval_status)).length },
+              { label: "Onaylanan",        value: displayed.filter((r) => ["onaylandi","internal_approved","invoice_stage","invoiced"].includes(r.payment.approval_status)).length },
             ].map((s) => (
               <div key={s.label} className="px-4 py-3 text-center">
                 <p className="text-base font-bold text-slate-800">{s.value}</p>

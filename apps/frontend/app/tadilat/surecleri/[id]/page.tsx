@@ -134,11 +134,19 @@ const STAGE_STATUS: Record<StageStatus, { label: string; icon: React.ElementType
 };
 
 const APPROVAL_STATUS: Record<string, { label: string; cls: string }> = {
-  draft:       { label: "Taslak",           cls: "bg-slate-100 text-slate-600"  },
-  pending:     { label: "Onay Bekliyor",    cls: "bg-amber-50 text-amber-700"   },
-  onaylandi:   { label: "Onaylandı",        cls: "bg-green-50 text-green-700"   },
-  reddedildi:  { label: "Reddedildi",       cls: "bg-red-50 text-red-600"       },
-  revizyon:    { label: "Revizyon İstendi", cls: "bg-purple-50 text-purple-700" },
+  draft:              { label: "Taslak",                    cls: "bg-slate-100 text-slate-600"    },
+  pending:            { label: "İç Onay Bekliyor",          cls: "bg-amber-50 text-amber-700"     },
+  bekliyor:           { label: "İç Onay Bekliyor",          cls: "bg-amber-50 text-amber-700"     },
+  internal_pending:   { label: "İç Onay Bekliyor",          cls: "bg-amber-50 text-amber-700"     },
+  internal_approved:  { label: "İç Onay Alındı",           cls: "bg-blue-50 text-blue-700"       },
+  migros_pending:     { label: "Migros Onayı Bekleniyor",   cls: "bg-indigo-50 text-indigo-700"   },
+  invoice_stage:      { label: "Faturalandırma Aşamasında", cls: "bg-emerald-50 text-emerald-700" },
+  invoiced:           { label: "Faturalandırıldı",          cls: "bg-green-100 text-green-800"    },
+  revision_requested: { label: "Revizyon İstendi",          cls: "bg-purple-50 text-purple-700"   },
+  rejected:           { label: "Reddedildi",                cls: "bg-red-50 text-red-600"         },
+  onaylandi:          { label: "Onaylandı",                 cls: "bg-green-50 text-green-700"     },
+  reddedildi:         { label: "Reddedildi",                cls: "bg-red-50 text-red-600"         },
+  revizyon:           { label: "Revizyon İstendi",          cls: "bg-purple-50 text-purple-700"   },
 };
 
 const NOTE_TYPE_LABELS: Record<string, string> = {
@@ -898,7 +906,7 @@ function HakkedislerTab({ payments, projectId, onAdd, onDelete, onRefresh }: {
         <div className="grid grid-cols-3 gap-3">
           {[
             { label: "Toplam",        value: payments.length,                                                color: "text-slate-700" },
-            { label: "Onay Bekliyor", value: payments.filter(p => p.approval_status === "pending").length,  color: "text-amber-600" },
+            { label: "İç Onay Bekliyor", value: payments.filter(p => ["pending","bekliyor","internal_pending"].includes(p.approval_status)).length, color: "text-amber-600" },
             { label: "Toplam Tutar",  value: fmtTRY(total),                                                 color: "text-green-600" },
           ].map(s => (
             <div key={s.label} className="rounded-xl border border-slate-100 bg-white p-3 text-center">

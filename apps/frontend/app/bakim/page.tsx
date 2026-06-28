@@ -242,7 +242,7 @@ export default function BakimPage() {
     if (tab === "bekleyen")   list = list.filter(p => !sfSet.has(p.id) || !paySet.has(p.id) || !invSet.has(p.id));
     if (tab === "tamamlanan") list = list.filter(p =>  sfSet.has(p.id) &&  paySet.has(p.id) &&  invSet.has(p.id));
     return list;
-  }, [projects, query, tab, sfSet, paySet, invSet, icmSet]);
+  }, [projects, query, tab, sfSet, paySet, invSet]);
 
   const handleRemove = async (p: Project) => {
     if (!confirm(`"${p.name}" bakım takip listesinden çıkarılacak. Mağaza arşivinden silinmez. Devam etmek istiyor musunuz?`)) return;
@@ -355,7 +355,6 @@ export default function BakimPage() {
                 <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wide">Servis Formu</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell">Fatura</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell">Hakkediş</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wide hidden lg:table-cell">İcmal</th>
                 <th className="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">İşlem</th>
               </tr>
             </thead>
@@ -375,7 +374,6 @@ export default function BakimPage() {
                   <td className="px-4 py-3 text-center"><StatusDot ok={sfSet.has(p.id)} /></td>
                   <td className="px-4 py-3 text-center hidden sm:table-cell"><StatusDot ok={invSet.has(p.id)} /></td>
                   <td className="px-4 py-3 text-center hidden sm:table-cell"><StatusDot ok={paySet.has(p.id)} /></td>
-                  <td className="px-4 py-3 text-center hidden lg:table-cell"><StatusDot ok={icmSet.has(p.id)} /></td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <Link href={`/bakim/magazalar/${p.id}`}
