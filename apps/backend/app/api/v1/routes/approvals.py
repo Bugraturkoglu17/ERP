@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import get_current_user, get_db
 from app.db.models import Project, StoreApprovalRequest, StoreActivity, StoreProgressPayment, User
 from app.db.schemas import ApprovalRequestCreate, ApprovalRequestRead, ApprovalRequestUpdate
+from sqlalchemy import outerjoin
 
 router = APIRouter()
 
@@ -39,18 +40,20 @@ async def list_approvals(
         filters.append(StoreApprovalRequest.status == status)
 
     result = await db.execute(
-        select(StoreApprovalRequest, Project.name, Project.project_no)
+        select(StoreApprovalRequest, Project.name, Project.project_no, StoreProgressPayment.payment_type)
         .join(Project, StoreApprovalRequest.project_id == Project.id)
+        .outerjoin(StoreProgressPayment, StoreApprovalRequest.related_payment_id == StoreProgressPayment.id)
         .where(*filters)
         .order_by(desc(StoreApprovalRequest.created_at))
         .limit(200)
     )
     rows = result.all()
     out = []
-    for approval, proj_name, proj_no in rows:
+    for approval, proj_name, proj_no, payment_type in rows:
         data = ApprovalRequestRead.model_validate(approval)
         data.project_name = proj_name
         data.project_no = proj_no
+        data.payment_type = payment_type
         out.append(data)
     return out
 

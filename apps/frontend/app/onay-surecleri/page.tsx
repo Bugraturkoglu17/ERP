@@ -12,9 +12,11 @@ import { apiGet, apiPatch, apiPost, buildApiUrl } from "@/lib/api";
 type ApprovalRequest = {
   id: string;
   project_id: string;
+  process_id?: string;
   project_name?: string;
   project_no?: string;
   approval_type: string;
+  payment_type?: string;
   title: string;
   description?: string;
   amount?: number;
@@ -27,6 +29,30 @@ type ApprovalRequest = {
   approved_at?: string;
   note?: string;
 };
+
+const PAYMENT_TYPE_MODULE_LABELS: Record<string, string> = {
+  bakim:      "Bakım - Hakkediş",
+  tadilat:    "Tadilat - Hakkediş",
+  yeni_yapim: "Yeni Yapım - Hakkediş",
+  ara:        "Ara Hakkediş",
+  final:      "Final Hakkediş",
+};
+
+function buildDetailHref(a: ApprovalRequest): string {
+  if (a.approval_type === "hakkediş") {
+    if (a.payment_type === "bakim")      return `/bakim/magazalar/${a.project_id}`;
+    if (a.payment_type === "tadilat")    return a.process_id ? `/tadilat/surecleri/${a.process_id}` : `/tadilat`;
+    if (a.payment_type === "yeni_yapim") return a.process_id ? `/yeni-yapim/surecleri/${a.process_id}` : `/yeni-yapim`;
+  }
+  return `/projects/${a.project_id}`;
+}
+
+function getApprovalLabel(a: ApprovalRequest): string {
+  if (a.approval_type === "hakkediş" && a.payment_type) {
+    return PAYMENT_TYPE_MODULE_LABELS[a.payment_type] ?? "Hakkediş";
+  }
+  return APPROVAL_TYPE_LABELS[a.approval_type] ?? a.approval_type;
+}
 
 // Sidebar'daki ?tip= değerleri ile DB'deki approval_type değerlerinin eşlemesi
 // Sidebar: ?tip=hakkediş  → DB: approval_type="hakkediş"
@@ -252,7 +278,7 @@ function OnayPage() {
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap mb-0.5">
                           <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 bg-slate-100 rounded px-1.5 py-0.5">
-                            {APPROVAL_TYPE_LABELS[a.approval_type] ?? a.approval_type}
+                            {getApprovalLabel(a)}
                           </span>
                           {a.project_no && (
                             <span className="text-[10px] font-mono text-slate-400">{a.project_no}</span>
@@ -287,7 +313,7 @@ function OnayPage() {
                     {/* Aksiyonlar */}
                     <div className="flex items-center gap-2 mt-3 flex-wrap">
                       <Link
-                        href={`/projects/${a.project_id}`}
+                        href={buildDetailHref(a)}
                         className="flex items-center gap-1 text-[11px] text-slate-600 border border-slate-200 rounded-lg px-2.5 py-1 hover:bg-slate-50"
                       >
                         <FolderOpen className="h-3 w-3" /> Detaya Git

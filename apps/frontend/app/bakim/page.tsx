@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertCircle, CalendarDays, CheckCircle2, Clock,
-  FileText, FolderOpen, Loader2, Plus, Receipt,
+  FolderOpen, Loader2, Plus, Receipt,
   Search, Store, Trash2, Wrench, X,
 } from "lucide-react";
 import { apiGet, apiPatch, apiPost } from "@/lib/api";
@@ -197,7 +197,6 @@ export default function BakimPage() {
   const [forms,       setForms]       = useState<ServiceForm[]>([]);
   const [payments,    setPayments]    = useState<ProgressPayment[]>([]);
   const [invoices,    setInvoices]    = useState<InvoiceRecord[]>([]);
-  const [icmaller,    setIcmaller]    = useState<InvoiceRecord[]>([]);
   const [loading,     setLoading]     = useState(true);
   const [query,       setQuery]       = useState("");
   const [tab,         setTab]         = useState<"tumu" | "bekleyen" | "tamamlanan">("tumu");
@@ -211,20 +210,18 @@ export default function BakimPage() {
 
   const loadAll = async () => {
     setLoading(true);
-    const [ps, allPs, fs, pays, invs, icms] = await Promise.all([
+    const [ps, allPs, fs, pays, invs] = await Promise.all([
       apiGet<Project[]>("/maintenance/stores").catch(() => [] as Project[]),
       apiGet<Project[]>("/projects?limit=5000").catch(() => [] as Project[]),
       apiGet<ServiceForm[]>(`/service-forms?year=${year}&month=${month}`).catch(() => [] as ServiceForm[]),
       apiGet<ProgressPayment[]>("/progress-payments?payment_type=bakim").catch(() => [] as ProgressPayment[]),
       apiGet<InvoiceRecord[]>("/invoice-records?invoice_type=bakım_faturası").catch(() => [] as InvoiceRecord[]),
-      apiGet<InvoiceRecord[]>("/invoice-records?invoice_type=bakım_icmali").catch(() => [] as InvoiceRecord[]),
     ]);
     setProjects(Array.isArray(ps) ? ps : []);
     setAllProjects(Array.isArray(allPs) ? allPs : []);
     setForms(Array.isArray(fs) ? fs : []);
     setPayments(Array.isArray(pays) ? pays : []);
     setInvoices(Array.isArray(invs) ? invs : []);
-    setIcmaller(Array.isArray(icms) ? icms : []);
     setLoading(false);
   };
 
@@ -233,7 +230,6 @@ export default function BakimPage() {
   const sfSet  = useMemo(() => new Set(forms.filter(f => f.year === year && f.month === month).map(f => f.project_id)), [forms, year, month]);
   const paySet = useMemo(() => new Set(payments.filter(p => p.period === period).map(p => p.project_id)), [payments, period]);
   const invSet = useMemo(() => new Set(invoices.filter(i => i.period === period).map(i => i.project_id)), [invoices, period]);
-  const icmSet = useMemo(() => new Set(icmaller.filter(i => i.period === period).map(i => i.project_id)), [icmaller, period]);
 
   const assignedIds = useMemo(() => new Set(projects.map(p => p.id)), [projects]);
 
@@ -243,8 +239,8 @@ export default function BakimPage() {
       const q = query.toLowerCase();
       list = list.filter(p => p.name.toLowerCase().includes(q) || (p.project_no ?? "").toLowerCase().includes(q));
     }
-    if (tab === "bekleyen")   list = list.filter(p => !sfSet.has(p.id) || !paySet.has(p.id) || !invSet.has(p.id) || !icmSet.has(p.id));
-    if (tab === "tamamlanan") list = list.filter(p =>  sfSet.has(p.id) &&  paySet.has(p.id) &&  invSet.has(p.id) &&  icmSet.has(p.id));
+    if (tab === "bekleyen")   list = list.filter(p => !sfSet.has(p.id) || !paySet.has(p.id) || !invSet.has(p.id));
+    if (tab === "tamamlanan") list = list.filter(p =>  sfSet.has(p.id) &&  paySet.has(p.id) &&  invSet.has(p.id));
     return list;
   }, [projects, query, tab, sfSet, paySet, invSet, icmSet]);
 
@@ -263,7 +259,6 @@ export default function BakimPage() {
   const sfDone  = projects.filter(p =>  sfSet.has(p.id)).length;
   const payWait = projects.filter(p => !paySet.has(p.id)).length;
   const invWait = projects.filter(p => !invSet.has(p.id)).length;
-  const icmWait = projects.filter(p => !icmSet.has(p.id)).length;
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -275,7 +270,7 @@ export default function BakimPage() {
           </div>
           <div>
             <h1 className="text-lg font-bold text-slate-900">Bakım & Onarım</h1>
-            <p className="text-xs text-slate-500">Aylık servis formu, fatura, hakkediş ve icmal takibi</p>
+            <p className="text-xs text-slate-500">Aylık servis formu, fatura ve hakkediş takibi</p>
           </div>
         </div>
         <button onClick={() => setShowAssign(true)}
@@ -285,14 +280,13 @@ export default function BakimPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {[
           { label: "Bakım Mağazası",   value: projects.length,                    color: "text-slate-800",  icon: Store         },
           { label: "SF Bekleyen",       value: sfWait,                             color: "text-amber-600",  icon: AlertCircle   },
           { label: "SF Yüklenen",       value: sfDone,                             color: "text-green-600",  icon: CheckCircle2  },
           { label: "Fatura Bekleyen",   value: invWait,                            color: "text-orange-600", icon: Receipt       },
           { label: "Hakkediş Bekleyen", value: payWait,                            color: "text-red-600",    icon: Receipt       },
-          { label: "İcmal Bekleyen",    value: icmWait,                            color: "text-purple-600", icon: FileText      },
           { label: "Bu Ay",             value: `${MONTHS_TR[month]} ${year}`,      color: "text-sky-700",    icon: CalendarDays  },
         ].map(s => {
           const Icon = s.icon;

@@ -1076,6 +1076,7 @@ class ApprovalRequestRead(BaseModel):
     # enriched fields (joined)
     project_name:        str | None = None
     project_no:          str | None = None
+    payment_type:        str | None = None  # from related progress payment
     model_config = ConfigDict(from_attributes=True)
 
 

@@ -44,7 +44,7 @@ type StoreActivity = {
 
 type Note = { id: string; content: string; created_by_name?: string; created_at: string };
 
-type TabKey = "servis" | "fatura" | "hakkediş" | "icmal" | "aktivite" | "notlar";
+type TabKey = "servis" | "fatura" | "hakkediş" | "aktivite" | "notlar";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -279,7 +279,6 @@ export default function BakimKlasoruPage() {
   const [forms,     setForms]     = useState<ServiceForm[]>([]);
   const [payments,  setPayments]  = useState<ProgressPayment[]>([]);
   const [invoices,  setInvoices]  = useState<InvoiceRecord[]>([]);
-  const [icmaller,  setIcmaller]  = useState<InvoiceRecord[]>([]);
   const [activities, setActivities] = useState<StoreActivity[]>([]);
   const [tabLoading, setTabLoading] = useState(false);
 
@@ -309,9 +308,6 @@ export default function BakimKlasoruPage() {
       } else if (activeTab === "fatura") {
         const d = await apiGet<InvoiceRecord[]>(`/invoice-records/projects/${projectId}`).catch(() => []);
         setInvoices((Array.isArray(d) ? d : []).filter(i => i.invoice_type === "bakım_faturası"));
-      } else if (activeTab === "icmal") {
-        const d = await apiGet<InvoiceRecord[]>(`/invoice-records/projects/${projectId}`).catch(() => []);
-        setIcmaller((Array.isArray(d) ? d : []).filter(i => i.invoice_type === "bakım_icmali"));
       } else if (activeTab === "aktivite") {
         const d = await apiGet<StoreActivity[]>(`/projects/${projectId}/activity`).catch(() => []);
         setActivities(Array.isArray(d) ? d : []);
@@ -378,29 +374,15 @@ export default function BakimKlasoruPage() {
     },
   });
 
-  const openIcmalUpload = (existingId?: string) => setUploadCfg({
-    title: `${periodLabel} Bakım İcmali Yükle`,
-    docType: "invoice_doc",
-    onSubmit: async (docId, fileName) => {
-      if (existingId) { await apiDelete(`/invoice-records/${existingId}`); }
-      await apiPost(`/invoice-records/projects/${projectId}`, {
-        invoice_type: "bakım_icmali", period, file_url: docId, file_name: fileName,
-      });
-      loadTab();
-    },
-  });
-
   // Current period records
   const currentForms    = forms.filter(f => f.year === year && f.month === month);
   const currentPayments = payments.filter(p => p.period === period);
   const currentInvoices = invoices.filter(i => i.period === period);
-  const currentIcmaller = icmaller.filter(i => i.period === period);
 
   const TAB_DEFS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
     { key: "servis",    label: "Servis Formları", icon: <FileText className="h-4 w-4" /> },
     { key: "fatura",    label: "Faturalar",        icon: <Receipt className="h-4 w-4" /> },
     { key: "hakkediş",  label: "Hakkedişler",      icon: <Receipt className="h-4 w-4" /> },
-    { key: "icmal",     label: "İcmaller",         icon: <FileText className="h-4 w-4" /> },
     { key: "aktivite",  label: "Son İşlemler",     icon: <Clock className="h-4 w-4" /> },
     { key: "notlar",    label: "Notlar",            icon: <StickyNote className="h-4 w-4" /> },
   ];
@@ -495,8 +477,8 @@ export default function BakimKlasoruPage() {
                   uploadedBy={f.uploaded_by_name} uploadedAt={f.created_at}
                   onDelete={async () => {
                     if (!confirm("Servis formu silinsin mi?")) return;
-                    await apiDelete(`/service-forms/${f.id}`);
-                    loadTab();
+                    try { await apiDelete(`/service-forms/${f.id}`); loadTab(); }
+                    catch { alert("Silme işlemi tamamlanamadı. Sunucu bağlantısı kontrol edilmeli."); }
                   }}
                   onReplace={openServisUpload}
                 />
@@ -513,8 +495,8 @@ export default function BakimKlasoruPage() {
                         uploadedBy={f.uploaded_by_name} uploadedAt={f.created_at}
                         onDelete={async () => {
                           if (!confirm("Silinsin mi?")) return;
-                          await apiDelete(`/service-forms/${f.id}`);
-                          loadTab();
+                          try { await apiDelete(`/service-forms/${f.id}`); loadTab(); }
+                          catch { alert("Silme işlemi tamamlanamadı. Sunucu bağlantısı kontrol edilmeli."); }
                         }}
                       />
                     ))}
@@ -547,8 +529,8 @@ export default function BakimKlasoruPage() {
                   uploadedBy={inv.submitted_by_name} uploadedAt={inv.created_at}
                   onDelete={async () => {
                     if (!confirm("Fatura kaydı silinsin mi?")) return;
-                    await apiDelete(`/invoice-records/${inv.id}`);
-                    loadTab();
+                    try { await apiDelete(`/invoice-records/${inv.id}`); loadTab(); }
+                    catch { alert("Silme işlemi tamamlanamadı. Sunucu bağlantısı kontrol edilmeli."); }
                   }}
                   onReplace={() => openFaturaUpload(inv.id)}
                 />
@@ -566,8 +548,8 @@ export default function BakimKlasoruPage() {
                         uploadedBy={inv.submitted_by_name} uploadedAt={inv.created_at}
                         onDelete={async () => {
                           if (!confirm("Silinsin mi?")) return;
-                          await apiDelete(`/invoice-records/${inv.id}`);
-                          loadTab();
+                          try { await apiDelete(`/invoice-records/${inv.id}`); loadTab(); }
+                          catch { alert("Silme işlemi tamamlanamadı. Sunucu bağlantısı kontrol edilmeli."); }
                         }}
                       />
                     ))}
@@ -602,8 +584,8 @@ export default function BakimKlasoruPage() {
                     uploadedBy={pay.submitted_by_name} uploadedAt={pay.created_at}
                     onDelete={async () => {
                       if (!confirm("Hakkediş silinsin mi? Bağlı onay talebi de iptal edilecek.")) return;
-                      await apiDelete(`/progress-payments/${pay.id}`);
-                      loadTab();
+                      try { await apiDelete(`/progress-payments/${pay.id}`); loadTab(); }
+                      catch { alert("Silme işlemi tamamlanamadı. Sunucu bağlantısı kontrol edilmeli."); }
                     }}
                     onReplace={() => openHakkedisCUpload(pay.id)}
                   />
@@ -635,56 +617,6 @@ export default function BakimKlasoruPage() {
                         amount={pay.amount} currency={pay.currency}
                         status={pay.approval_status}
                         uploadedBy={pay.submitted_by_name} uploadedAt={pay.created_at}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-
-          {/* ── İcmaller ── */}
-          {activeTab === "icmal" && (
-            <>
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold text-slate-700">{periodLabel} İcmal</p>
-                <button onClick={() => openIcmalUpload()}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-700">
-                  <Plus className="h-3.5 w-3.5" /> İcmal Yükle
-                </button>
-              </div>
-              {currentIcmaller.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 py-12 flex flex-col items-center gap-3">
-                  <FileText className="h-8 w-8 text-slate-200" />
-                  <p className="text-sm text-slate-400">{periodLabel} için henüz icmal yüklenmemiş.</p>
-                </div>
-              ) : currentIcmaller.map(icm => (
-                <FileRow key={icm.id}
-                  label={`${periodLabel} İcmal`}
-                  period={icm.period} fileUrl={icm.file_url} fileName={icm.file_name}
-                  uploadedBy={icm.submitted_by_name} uploadedAt={icm.created_at}
-                  onDelete={async () => {
-                    if (!confirm("İcmal silinsin mi?")) return;
-                    await apiDelete(`/invoice-records/${icm.id}`);
-                    loadTab();
-                  }}
-                  onReplace={() => openIcmalUpload(icm.id)}
-                />
-              ))}
-              {icmaller.filter(i => i.period !== period).length > 0 && (
-                <div className="mt-4">
-                  <p className="text-xs font-semibold text-slate-400 mb-2">Diğer Dönemler</p>
-                  <div className="space-y-2">
-                    {icmaller.filter(i => i.period !== period).map(icm => (
-                      <FileRow key={icm.id}
-                        label={`${icm.period ?? "—"} İcmal`}
-                        period={icm.period} fileUrl={icm.file_url} fileName={icm.file_name}
-                        uploadedBy={icm.submitted_by_name} uploadedAt={icm.created_at}
-                        onDelete={async () => {
-                          if (!confirm("Silinsin mi?")) return;
-                          await apiDelete(`/invoice-records/${icm.id}`);
-                          loadTab();
-                        }}
                       />
                     ))}
                   </div>
