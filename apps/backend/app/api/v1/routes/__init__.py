@@ -8,7 +8,7 @@ from app.api.v1.routes import (
     auth, projects, inventory, finance, documents, platform,
     procurement, field_reports, store_process,
     service_forms, progress_payments, approvals, invoice_records,
-    work_orders,
+    work_orders, store_assignments,
 )
 
 router = APIRouter()
@@ -26,6 +26,7 @@ router.include_router(service_forms.router,     prefix="/service-forms",     tag
 router.include_router(progress_payments.router, prefix="/progress-payments", tags=["progress-payments"])
 router.include_router(approvals.router,         prefix="/approvals",         tags=["approvals"])
 router.include_router(invoice_records.router,   prefix="/invoice-records",   tags=["invoice-records"])
-router.include_router(work_orders.router,       prefix="/work-orders",       tags=["work-orders"])
-router.include_router(work_orders.public_router, prefix="/public",           tags=["public"])
-router.include_router(work_orders.webhook_router, prefix="/webhooks",        tags=["webhooks"])
+router.include_router(work_orders.router,         prefix="/work-orders",       tags=["work-orders"])
+router.include_router(work_orders.public_router,  prefix="/public",           tags=["public"])
+router.include_router(work_orders.webhook_router, prefix="/webhooks",         tags=["webhooks"])
+router.include_router(store_assignments.router,   prefix="",                  tags=["store-assignments"])

@@ -504,7 +504,6 @@ function EditModal({ project, onClose, onDone }: { project: Project; onClose: ()
     project_no:  project.project_no ?? "",
     description: project.description ?? "",
     status:      project.status,
-    is_tipi:     project.scope_codes?.find((c) => ["bakim","tadilat","yeni_yapim"].includes(c)) ?? "bakim",
     disiplinler: (project.scope_codes ?? []).filter((c) => ["seismic","hvac","fire","mep"].includes(c)),
     start_date:  project.start_date ? project.start_date.split("T")[0] : "",
     due_date:    project.due_date ? project.due_date.split("T")[0] : "",
@@ -521,7 +520,9 @@ function EditModal({ project, onClose, onDone }: { project: Project; onClose: ()
     e.preventDefault();
     setBusy(true); setErr("");
     try {
-      const scope_codes = [form.is_tipi, ...form.disiplinler];
+      // Mevcut modül atamalarını (bakim/tadilat/yeni_yapim) koru — EditModal bunları değiştirmez
+      const moduleScopes = (project.scope_codes ?? []).filter(c => ["bakim","tadilat","yeni_yapim"].includes(c));
+      const scope_codes = [...moduleScopes, ...form.disiplinler];
       const updated = await apiPatch<Project>(`/projects/${project.id}`, {
         name:        form.name.trim(),
         project_no:  form.project_no.trim() || null,
@@ -562,13 +563,6 @@ function EditModal({ project, onClose, onDone }: { project: Project; onClose: ()
               <select value={form.status} onChange={(e) => setForm((p) => ({ ...p, status: e.target.value }))}
                 className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
                 {STATUS_OPTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">İş Tipi</label>
-              <select value={form.is_tipi} onChange={(e) => setForm((p) => ({ ...p, is_tipi: e.target.value }))}
-                className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
-                {IS_TIPI_OPTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </div>
             <div>
