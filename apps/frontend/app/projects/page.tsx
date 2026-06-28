@@ -23,9 +23,10 @@ type Region   = { id: string; name: string; city: string; customer_id: string };
 type Branch   = { id: string; name: string; city: string; region_id: string };
 
 type DescExtra = {
-  format?: string; tel1?: string; tel2?: string; tel3?: string; tel4?: string;
-  adres?: string; acilis_tarihi?: string;
-  store_type?: string;
+  store_type?: string; format?: string;
+  bolge?: string; sehir?: string;
+  tel1?: string; tel2?: string; tel3?: string; tel4?: string;
+  adres?: string; konum_link?: string; acilis_tarihi?: string;
 };
 
 function parseDesc(desc?: string): DescExtra {
@@ -49,11 +50,6 @@ const STORE_TYPE_BADGE: Record<string, string> = {
   facility:       "bg-purple-50 text-purple-700",
 };
 
-const IS_TIPI_OPTS = [
-  { value: "bakim",      label: "Bakım"      },
-  { value: "tadilat",    label: "Tadilat"    },
-  { value: "yeni_yapim", label: "Yeni Yapım" },
-];
 
 const STATUS_OPTS = [
   { value: "inquiry",      label: "Keşif"        },
@@ -64,15 +60,12 @@ const STATUS_OPTS = [
   { value: "cancelled",    label: "İptal Edildi" },
 ];
 
-const DISIPLIN_OPTS = [
-  { value: "seismic", label: "Sismik" },
-  { value: "hvac",    label: "HVAC"   },
-  { value: "fire",    label: "Yangın" },
-  { value: "mep",     label: "MEP"    },
-];
 
 function getIstipi(codes: string[] = []) {
-  return IS_TIPI_OPTS.find((o) => codes.includes(o.value));
+  if (codes.includes("bakim"))      return { value: "bakim",      label: "Bakım"      };
+  if (codes.includes("tadilat"))    return { value: "tadilat",    label: "Tadilat"    };
+  if (codes.includes("yeni_yapim")) return { value: "yeni_yapim", label: "Yeni Yapım" };
+  return undefined;
 }
 
 const IS_TIPI_BADGE: Record<string, string> = {
@@ -172,48 +165,42 @@ function MagazaKart({ p, regionName, onEdit, onDeactivate }: {
 
 type StoreFormState = {
   customer_id: string; region_id: string; branch_id: string;
-  name: string; project_no: string;
-  is_tipi: string; disiplinler: string[];
-  status: string; start_date: string; due_date: string;
-  description: string; store_type: string;
+  name: string; project_no: string; status: string;
+  bolge: string; sehir: string; adres: string; tel1: string; konum_link: string;
 };
 
 function defaultForm(): StoreFormState {
   return {
-    customer_id: "", region_id: "", branch_id: "", name: "", project_no: "",
-    is_tipi: "bakim", disiplinler: [], status: "inquiry",
-    start_date: new Date().toISOString().split("T")[0],
-    due_date: new Date(Date.now() + 60 * 86400000).toISOString().split("T")[0],
-    description: "", store_type: "existing_store",
+    customer_id: "", region_id: "", branch_id: "",
+    name: "", project_no: "", status: "inquiry",
+    bolge: "", sehir: "", adres: "", tel1: "", konum_link: "",
   };
 }
 
 function editForm(p: Project): StoreFormState {
   const extra = parseDesc(p.description);
-  const descWithoutType = { ...extra } as Record<string, unknown>;
-  delete descWithoutType.store_type;
   return {
     customer_id: p.customer_id ?? "", region_id: p.region_id ?? "", branch_id: p.branch_id ?? "",
-    name: p.name, project_no: p.project_no ?? "",
-    is_tipi: p.scope_codes?.find(c => ["bakim","tadilat","yeni_yapim"].includes(c)) ?? "bakim",
-    disiplinler: (p.scope_codes ?? []).filter(c => ["seismic","hvac","fire","mep"].includes(c)),
-    status: p.status.toLowerCase(),
-    start_date: p.start_date?.split("T")[0] ?? "",
-    due_date: p.due_date?.split("T")[0] ?? "",
-    description: JSON.stringify(descWithoutType) === "{}" ? (p.description ?? "") : "",
-    store_type: extra.store_type ?? "existing_store",
+    name: p.name, project_no: p.project_no ?? "", status: p.status.toLowerCase(),
+    bolge: extra.bolge ?? "", sehir: extra.sehir ?? "", adres: extra.adres ?? "",
+    tel1: extra.tel1 ?? "", konum_link: extra.konum_link ?? "",
   };
 }
 
-function buildDescription(form: StoreFormState): string {
+function buildDescription(existing: string | undefined, form: StoreFormState): string {
   let base: DescExtra = {};
-  try { base = JSON.parse(form.description || "{}"); } catch {}
-  base.store_type = form.store_type;
+  try { base = JSON.parse(existing || "{}"); } catch {}
+  if (form.bolge.trim())      base.bolge      = form.bolge.trim();      else delete base.bolge;
+  if (form.sehir.trim())      base.sehir      = form.sehir.trim();      else delete base.sehir;
+  if (form.adres.trim())      base.adres      = form.adres.trim();      else delete base.adres;
+  if (form.tel1.trim())       base.tel1       = form.tel1.trim();       else delete base.tel1;
+  if (form.konum_link.trim()) base.konum_link = form.konum_link.trim(); else delete base.konum_link;
   return JSON.stringify(base);
 }
 
-function StoreFormModal({ mode, initial, projectId, customers, onClose, onDone }: {
+function StoreFormModal({ mode, initial, projectId, existingDescription, existingScopeCodes, customers, onClose, onDone }: {
   mode: "create" | "edit"; initial: StoreFormState; projectId?: string;
+  existingDescription?: string; existingScopeCodes?: string[];
   customers: Customer[]; onClose: () => void; onDone: () => void;
 }) {
   const [form,     setForm]     = useState<StoreFormState>(initial);
@@ -258,19 +245,16 @@ function StoreFormModal({ mode, initial, projectId, customers, onClose, onDone }
     }
     setBusy(true); setErr("");
     try {
-      const scope_codes = [form.is_tipi, ...form.disiplinler];
-      const desc = buildDescription(form);
+      const desc = buildDescription(existingDescription, form);
       const payload: Record<string, unknown> = {
         name: form.name.trim(), project_no: form.project_no.trim() || null,
-        description: desc,
-        start_date: form.start_date ? `${form.start_date}T00:00:00` : null,
-        due_date: form.due_date ? `${form.due_date}T00:00:00` : null,
-        scope_codes, status: form.status, contract_value: null,
+        description: desc, status: form.status, contract_value: null,
       };
       if (mode === "create") {
         await apiPost("/projects", { ...payload, customer_id: form.customer_id, region_id: form.region_id, branch_id: form.branch_id });
       } else {
-        await apiPatch(`/projects/${projectId}`, payload);
+        // scope_codes değiştirilmez — bakım/tadilat/yeni_yapım modüllerinden yönetilir
+        await apiPatch(`/projects/${projectId}`, { ...payload, scope_codes: existingScopeCodes ?? [] });
       }
       onDone(); onClose();
     } catch (ex: any) {
@@ -335,50 +319,34 @@ function StoreFormModal({ mode, initial, projectId, customers, onClose, onDone }
                 placeholder="Örn: 3421" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Mağaza Türü</label>
-              <select value={form.store_type} onChange={e => setForm(p => ({ ...p, store_type: e.target.value }))}
-                className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
-                {STORE_TYPE_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Bölge</label>
+              <input value={form.bolge} onChange={e => setForm(p => ({ ...p, bolge: e.target.value }))}
+                className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                placeholder="Örn: İç Anadolu" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">İş Tipi</label>
-              <select value={form.is_tipi} onChange={e => setForm(p => ({ ...p, is_tipi: e.target.value }))}
-                className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
-                {IS_TIPI_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Şehir</label>
+              <input value={form.sehir} onChange={e => setForm(p => ({ ...p, sehir: e.target.value }))}
+                className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                placeholder="Örn: Ankara" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Başlangıç</label>
-              <input type="date" value={form.start_date} onChange={e => setForm(p => ({ ...p, start_date: e.target.value }))}
-                className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+              <label className="block text-xs font-medium text-slate-600 mb-1">Telefon</label>
+              <input value={form.tel1} onChange={e => setForm(p => ({ ...p, tel1: e.target.value }))}
+                className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                placeholder="0XXX XXX XX XX" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Hedef Bitiş</label>
-              <input type="date" value={form.due_date} onChange={e => setForm(p => ({ ...p, due_date: e.target.value }))}
-                className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+              <label className="block text-xs font-medium text-slate-600 mb-1">Konum Linki</label>
+              <input value={form.konum_link} onChange={e => setForm(p => ({ ...p, konum_link: e.target.value }))}
+                className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                placeholder="maps.google.com/..." />
             </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-2">Disiplinler</label>
-            <div className="flex flex-wrap gap-2">
-              {DISIPLIN_OPTS.map(d => (
-                <button key={d.value} type="button"
-                  onClick={() => setForm(p => ({
-                    ...p,
-                    disiplinler: p.disiplinler.includes(d.value)
-                      ? p.disiplinler.filter(x => x !== d.value)
-                      : [...p.disiplinler, d.value],
-                  }))}
-                  className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
-                    form.disiplinler.includes(d.value)
-                      ? "bg-blue-600 text-white border-blue-600"
-                      : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
-                  }`}>
-                  {d.label}
-                </button>
-              ))}
+            <div className="col-span-2">
+              <label className="block text-xs font-medium text-slate-600 mb-1">Adres</label>
+              <textarea rows={2} value={form.adres} onChange={e => setForm(p => ({ ...p, adres: e.target.value }))}
+                className="w-full rounded-lg border px-3 py-2 text-sm resize-none focus:border-blue-500 focus:outline-none"
+                placeholder="Tam adres..." />
             </div>
           </div>
 
@@ -545,7 +513,9 @@ export default function MagazalarPage() {
         <select value={filterTipi} onChange={e => setFilterTipi(e.target.value)}
           className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:border-blue-500 focus:outline-none">
           <option value="all">Tüm İş Tipleri</option>
-          {IS_TIPI_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          <option value="bakim">Bakım</option>
+          <option value="tadilat">Tadilat</option>
+          <option value="yeni_yapim">Yeni Yapım</option>
         </select>
 
         {allRegions.length > 0 && (
@@ -603,6 +573,7 @@ export default function MagazalarPage() {
       )}
       {editProject && (
         <StoreFormModal mode="edit" initial={editForm(editProject)} projectId={editProject.id}
+          existingDescription={editProject.description} existingScopeCodes={editProject.scope_codes}
           customers={customers} onClose={() => setEditProject(null)} onDone={load} />
       )}
       {deactivateProj && (
