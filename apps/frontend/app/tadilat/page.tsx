@@ -175,12 +175,12 @@ function StoreAssignModal({ allStores, assignedIds, onClose, onDone }: {
 
 // ── Tadilat Başlat Modal ──────────────────────────────────────────────────────
 
-function TadilatBaslatModal({ projects, onClose, onDone }: {
-  projects: Project[]; onClose: () => void; onDone: () => void;
+function TadilatBaslatModal({ projects, initialStore, onClose, onDone }: {
+  projects: Project[]; initialStore?: Project | null; onClose: () => void; onDone: () => void;
 }) {
-  const [step,       setStep]       = useState<1 | 2 | 3>(1);
+  const [step,       setStep]       = useState<1 | 2 | 3>(initialStore ? 2 : 1);
   const [query,      setQuery]      = useState("");
-  const [selProject, setSelProject] = useState<Project | null>(null);
+  const [selProject, setSelProject] = useState<Project | null>(initialStore ?? null);
   const [scopeCodes, setScopeCodes] = useState<ScopeValue[]>([]);
   const [form,       setForm]       = useState({ title: "", description: "", start_date: new Date().toISOString().split("T")[0], target_end_date: "", responsible_name: "" });
   const [busy,       setBusy]       = useState(false);
@@ -224,25 +224,40 @@ function TadilatBaslatModal({ projects, onClose, onDone }: {
     } finally { setBusy(false); }
   };
 
+  // initialStore varsa step 1 atlanır — sadece 2 adım gösterilir
+  const totalSteps = initialStore ? 2 : 3;
+  const displayStep = initialStore ? step - 1 : step;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
           <div>
             <h3 className="text-sm font-bold text-slate-900">Tadilat Başlat</h3>
-            <p className="text-[11px] text-slate-400">Adım {step} / 3</p>
+            <p className="text-[11px] text-slate-400">Adım {displayStep} / {totalSteps}</p>
           </div>
           <button onClick={onClose}><X className="h-5 w-5 text-slate-300 hover:text-slate-600" /></button>
         </div>
 
+        {/* Seçili mağaza özeti — sadece satırdan açıldığında gösterilir */}
+        {initialStore && (
+          <div className="mx-6 mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 flex items-center gap-2">
+            <Store className="h-4 w-4 text-amber-500 shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-slate-800 truncate">{initialStore.name}</p>
+              <p className="text-[10px] font-mono text-slate-400">{initialStore.project_no ?? "—"}</p>
+            </div>
+          </div>
+        )}
+
         <div className="flex px-6 pt-4 gap-2">
-          {[1, 2, 3].map(i => (
-            <div key={i} className={`flex-1 h-1 rounded-full ${i <= step ? "bg-amber-500" : "bg-slate-100"}`} />
+          {Array.from({ length: totalSteps }).map((_, i) => (
+            <div key={i} className={`flex-1 h-1 rounded-full ${i < displayStep ? "bg-amber-500" : "bg-slate-100"}`} />
           ))}
         </div>
 
         <div className="px-6 py-5 space-y-3 min-h-[280px]">
-          {step === 1 && (
+          {step === 1 && !initialStore && (
             <div className="space-y-3">
               <p className="text-sm font-semibold text-slate-800">Mağaza Seçin</p>
               <div className="relative">
@@ -347,9 +362,13 @@ function TadilatBaslatModal({ projects, onClose, onDone }: {
 
         <div className="flex justify-between border-t border-slate-100 px-6 py-4">
           <button type="button"
-            onClick={() => step > 1 ? setStep(s => (s - 1) as 1 | 2 | 3) : onClose()}
+            onClick={() => {
+              // initialStore varsa step 2 minimum adım — geri basınca modal kapanır
+              if (step === 1 || (initialStore && step === 2)) { onClose(); return; }
+              setStep(s => (s - 1) as 1 | 2 | 3);
+            }}
             className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            {step > 1 ? "Geri" : "Vazgeç"}
+            {(step === 1 || (initialStore && step === 2)) ? "Vazgeç" : "Geri"}
           </button>
           {step < 3 ? (
             <button type="button"
@@ -390,7 +409,7 @@ export default function TadilatPage() {
   const [loading,        setLoading]        = useState(true);
   const [query,          setQuery]          = useState("");
   const [activeTab,      setActiveTab]      = useState<"aktif" | "magazalar">("aktif");
-  const [showBaslat,     setShowBaslat]     = useState(false);
+  const [startingStore,  setStartingStore]  = useState<Project | null | undefined>(undefined);
   const [showAssign,     setShowAssign]     = useState(false);
   const [removing,       setRemoving]       = useState<string | null>(null);
 
@@ -456,7 +475,7 @@ export default function TadilatPage() {
             className="inline-flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-100 transition-colors">
             <Plus className="h-3.5 w-3.5" /> Tadilat Mağazası Ekle
           </button>
-          <button onClick={() => setShowBaslat(true)}
+          <button onClick={() => setStartingStore(null)}
             className="inline-flex items-center gap-1.5 rounded-xl bg-amber-600 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-700 transition-colors">
             <Plus className="h-3.5 w-3.5" /> Tadilat Başlat
           </button>
@@ -510,7 +529,7 @@ export default function TadilatPage() {
               {jobs.length === 0 ? "Henüz aktif tadilat süreci yok." : "Arama sonucu bulunamadı."}
             </p>
             {jobs.length === 0 && (
-              <button onClick={() => setShowBaslat(true)}
+              <button onClick={() => setStartingStore(null)}
                 className="inline-flex items-center gap-1.5 rounded-xl bg-amber-600 px-4 py-2 text-xs font-semibold text-white hover:bg-amber-700">
                 <Plus className="h-3.5 w-3.5" /> Tadilat Başlat
               </button>
@@ -611,7 +630,7 @@ export default function TadilatPage() {
                               <FolderOpen className="h-3.5 w-3.5" /> Tadilat Klasörü
                             </Link>
                           ) : (
-                            <button onClick={() => { setShowBaslat(true); }}
+                            <button onClick={() => setStartingStore(p)}
                               className="inline-flex items-center gap-1 text-xs text-slate-600 border border-slate-200 rounded-lg px-2.5 py-1 hover:bg-slate-50">
                               <Plus className="h-3.5 w-3.5" /> Tadilat Başlat
                             </button>
@@ -642,11 +661,12 @@ export default function TadilatPage() {
         />
       )}
 
-      {showBaslat && (
+      {startingStore !== undefined && (
         <TadilatBaslatModal
           projects={allProjects}
-          onClose={() => setShowBaslat(false)}
-          onDone={() => { setShowBaslat(false); loadAll(); }}
+          initialStore={startingStore}
+          onClose={() => setStartingStore(undefined)}
+          onDone={() => { setStartingStore(undefined); loadAll(); }}
         />
       )}
     </div>
