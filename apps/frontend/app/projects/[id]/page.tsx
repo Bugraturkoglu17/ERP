@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { ChangeEvent, FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import {
   Activity,
   AlertCircle,
@@ -94,12 +94,16 @@ const TABS: { key: TabKey; label: string }[] = [
 ];
 
 type DescExtra = {
+  store_type?: string;
   format?: string;
+  bolge?: string;
+  sehir?: string;
   tel1?: string;
   tel2?: string;
   tel3?: string;
   tel4?: string;
   adres?: string;
+  konum_link?: string;
   acilis_tarihi?: string;
 };
 
@@ -183,8 +187,10 @@ function fmtBytes(n?: number): string {
 }
 
 function getIstipi(codes: string[] = []): { value: string; label: string } {
-  const found = IS_TIPI_OPTS.find((o) => codes.includes(o.value));
-  return found ?? { value: "", label: "Belirtilmemiş" };
+  if (codes.includes("bakim"))      return { value: "bakim",      label: "Bakım & Onarım" };
+  if (codes.includes("tadilat"))    return { value: "tadilat",    label: "Tadilat" };
+  if (codes.includes("yeni_yapim")) return { value: "yeni_yapim", label: "Yeni Yapım" };
+  return { value: "", label: "Belirtilmemiş" };
 }
 
 function getDisiplinler(codes: string[] = []): string[] {
@@ -493,38 +499,43 @@ function DocList({
 // ── Edit Modal ─────────────────────────────────────────────────────────────────
 
 function EditModal({ project, onClose, onDone }: { project: Project; onClose: () => void; onDone: (p: Project) => void }) {
+  const extra = parseDesc(project.description);
   const [form, setForm] = useState({
-    name:        project.name,
-    project_no:  project.project_no ?? "",
-    description: project.description ?? "",
-    status:      project.status,
-    disiplinler: (project.scope_codes ?? []).filter((c) => ["seismic","hvac","fire","mep"].includes(c)),
-    start_date:  project.start_date ? project.start_date.split("T")[0] : "",
-    due_date:    project.due_date ? project.due_date.split("T")[0] : "",
+    name:       project.name,
+    project_no: project.project_no ?? "",
+    status:     project.status,
+    bolge:      extra.bolge      ?? "",
+    sehir:      extra.sehir      ?? "",
+    adres:      extra.adres      ?? "",
+    tel1:       extra.tel1       ?? "",
+    konum_link: extra.konum_link ?? "",
   });
   const [busy, setBusy] = useState(false);
   const [err, setErr]   = useState("");
 
-  const toggleDisiplin = (v: string) => setForm((p) => ({
-    ...p,
-    disiplinler: p.disiplinler.includes(v) ? p.disiplinler.filter((d) => d !== v) : [...p.disiplinler, v],
-  }));
+  const set = (k: keyof typeof form) => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+    setForm((p) => ({ ...p, [k]: e.target.value }));
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true); setErr("");
     try {
-      // Mevcut modül atamalarını (bakim/tadilat/yeni_yapim) koru — EditModal bunları değiştirmez
-      const moduleScopes = (project.scope_codes ?? []).filter(c => ["bakim","tadilat","yeni_yapim"].includes(c));
-      const scope_codes = [...moduleScopes, ...form.disiplinler];
+      // description JSON'u yeniden oluştur — store_type, acilis_tarihi gibi alanları koru
+      const prevDesc = parseDesc(project.description);
+      const newDesc: Record<string, string> = { ...prevDesc as Record<string, string> };
+      if (form.bolge.trim())      newDesc.bolge      = form.bolge.trim();      else delete newDesc.bolge;
+      if (form.sehir.trim())      newDesc.sehir      = form.sehir.trim();      else delete newDesc.sehir;
+      if (form.adres.trim())      newDesc.adres      = form.adres.trim();      else delete newDesc.adres;
+      if (form.tel1.trim())       newDesc.tel1       = form.tel1.trim();       else delete newDesc.tel1;
+      if (form.konum_link.trim()) newDesc.konum_link = form.konum_link.trim(); else delete newDesc.konum_link;
+
       const updated = await apiPatch<Project>(`/projects/${project.id}`, {
         name:        form.name.trim(),
         project_no:  form.project_no.trim() || null,
-        description: form.description.trim() || null,
+        description: JSON.stringify(newDesc),
         status:      form.status,
-        scope_codes,
-        start_date:  form.start_date ? `${form.start_date}T00:00:00` : null,
-        due_date:    form.due_date   ? `${form.due_date}T00:00:00`   : null,
+        // scope_codes değiştirilmez — bakım/tadilat/yeni_yapım modüllerinden yönetilir
+        scope_codes: project.scope_codes ?? [],
       });
       onDone(updated);
       onClose();
@@ -544,47 +555,47 @@ function EditModal({ project, onClose, onDone }: { project: Project; onClose: ()
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">
               <label className="block text-xs font-medium text-slate-600 mb-1">Mağaza Adı *</label>
-              <input required value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+              <input required value={form.name} onChange={set("name")}
                 className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">Mağaza Kodu</label>
-              <input value={form.project_no} onChange={(e) => setForm((p) => ({ ...p, project_no: e.target.value }))}
+              <input value={form.project_no} onChange={set("project_no")}
                 className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">Durum</label>
-              <select value={form.status} onChange={(e) => setForm((p) => ({ ...p, status: e.target.value }))}
+              <select value={form.status} onChange={set("status")}
                 className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
                 {STATUS_OPTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Başlangıç</label>
-              <input type="date" value={form.start_date} onChange={(e) => setForm((p) => ({ ...p, start_date: e.target.value }))}
+              <label className="block text-xs font-medium text-slate-600 mb-1">Bölge</label>
+              <input value={form.bolge} onChange={set("bolge")} placeholder="Örn: İç Anadolu"
+                className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Şehir</label>
+              <input value={form.sehir} onChange={set("sehir")} placeholder="Örn: Ankara"
+                className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Telefon</label>
+              <input value={form.tel1} onChange={set("tel1")} placeholder="0XXX XXX XX XX"
+                className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Konum Linki</label>
+              <input value={form.konum_link} onChange={set("konum_link")} placeholder="maps.google.com/..."
                 className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
             </div>
             <div className="col-span-2">
-              <label className="block text-xs font-medium text-slate-600 mb-1">Hedef Bitiş</label>
-              <input type="date" value={form.due_date} onChange={(e) => setForm((p) => ({ ...p, due_date: e.target.value }))}
-                className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+              <label className="block text-xs font-medium text-slate-600 mb-1">Adres</label>
+              <textarea rows={2} value={form.adres} onChange={set("adres")}
+                placeholder="Tam adres..."
+                className="w-full rounded-lg border px-3 py-2 text-sm resize-none focus:border-blue-500 focus:outline-none" />
             </div>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-2">Disiplinler</label>
-            <div className="flex flex-wrap gap-2">
-              {DISIPLIN_OPTS.map((d) => (
-                <button key={d.value} type="button" onClick={() => toggleDisiplin(d.value)}
-                  className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${form.disiplinler.includes(d.value) ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"}`}>
-                  {d.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Açıklama / Notlar</label>
-            <textarea rows={3} value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
-              className="w-full rounded-lg border px-3 py-2 text-sm resize-none focus:border-blue-500 focus:outline-none" />
           </div>
           {err && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{err}</p>}
           <div className="flex justify-end gap-2 pt-1">
@@ -842,16 +853,16 @@ export default function MagazaDetailPage() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <InfoCard label="Mağaza Adı" value={project.name} />
                 <InfoCard label="Mağaza Kodu" value={project.project_no ?? "—"} mono />
-                <InfoCard label="İş Tipi" value={istipi.label} />
                 <InfoCard label="Durum" value={statusInfo.label} />
+                {istipi.value && <InfoCard label="Kapsam" value={istipi.label} />}
+                {extra.bolge && <InfoCard label="Bölge" value={extra.bolge} />}
+                {extra.sehir && <InfoCard label="Şehir" value={extra.sehir} />}
+                {extra.tel1  && <InfoCard label="Telefon" value={extra.tel1} mono />}
                 {disiplinler.length > 0 && (
                   <InfoCard label="Disiplinler" value={disiplinler.join(", ").toUpperCase()} />
                 )}
                 {project.start_date && (
                   <InfoCard label="Başlangıç Tarihi" value={new Date(project.start_date).toLocaleDateString("tr-TR")} />
-                )}
-                {project.due_date && (
-                  <InfoCard label="Hedef Bitiş" value={new Date(project.due_date).toLocaleDateString("tr-TR")} />
                 )}
                 <InfoCard label="Sisteme Eklenme" value={project.created_at ? new Date(project.created_at).toLocaleDateString("tr-TR") : "—"} />
               </div>
