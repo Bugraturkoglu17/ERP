@@ -40,19 +40,20 @@ type PreviewRow = {
   _idx: number;
   name: string;
   project_no: string;
-  city: string;
-  district: string;
+  bolge: string;
+  format: string;
   address: string;
-  phone: string;
-  manager_name: string;
-  manager_email: string;
-  is_tipi: string;
+  tel1: string;
+  tel2: string;
+  tel3: string;
+  tel4: string;
+  acilis_tarihi: string;
   status: string;
-  description: string;
   rowStatus: RowStatus;
   errors: string[];
   warnings: string[];
   existingId?: string;
+  existingDesc?: string;
 };
 
 type ImportResult = {
@@ -66,24 +67,18 @@ type ImportResult = {
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const SYSTEM_FIELDS: SystemField[] = [
-  { key: "name",          label: "Mağaza Adı",          required: true,  aliases: ["mağaza adı","magaza adi","şube adı","sube adi","store name","ad","isim","mağaza","şube"] },
-  { key: "project_no",    label: "Mağaza Kodu",         required: true,  aliases: ["mağaza kodu","magaza kodu","şube kodu","sube kodu","store code","kod","kodu","no","numara","store no"] },
-  { key: "city",          label: "Şehir",               required: false, aliases: ["şehir","sehir","city","il","şehir/ilçe"] },
-  { key: "district",      label: "İlçe",                required: false, aliases: ["ilçe","ilce","district","semt"] },
-  { key: "address",       label: "Adres",               required: false, aliases: ["adres","address","açık adres","tam adres"] },
-  { key: "phone",         label: "Telefon",             required: false, aliases: ["telefon","tel","phone","iletişim","gsm"] },
-  { key: "manager_name",  label: "Mağaza Müdürü",       required: false, aliases: ["müdür","mudur","yetkili","manager","mağaza müdürü","yetkili kişi","sorumlu"] },
-  { key: "manager_email", label: "Müdür E-posta",       required: false, aliases: ["müdür mail","mudur mail","müdür e-posta","mudur eposta","manager email","email","e-posta","eposta","mail"] },
-  { key: "is_tipi",       label: "İş Tipi",             required: false, aliases: ["iş tipi","is tipi","tip","type","çalışma türü"] },
-  { key: "status",        label: "Durum",               required: false, aliases: ["durum","status","proje durumu","saha durumu"] },
-  { key: "description",   label: "Açıklama / Not",      required: false, aliases: ["açıklama","aciklama","not","description","notlar","detay"] },
+  { key: "name",          label: "Mağaza Adı",    required: true,  aliases: ["mağaza adı","magaza adi","şube adı","sube adi","store name","ad","isim","mağaza","şube"] },
+  { key: "project_no",    label: "Mağaza Kodu",   required: true,  aliases: ["mağaza kodu","magaza kodu","şube kodu","sube kodu","store code","kod","kodu","no","numara","store no"] },
+  { key: "bolge",         label: "Bölge",         required: false, aliases: ["bölge","bolge","region","bölge adı","bolge adi"] },
+  { key: "format",        label: "Format",        required: false, aliases: ["format adı","format adi","format","format_adi"] },
+  { key: "address",       label: "Adres",         required: false, aliases: ["adres","address","açık adres","tam adres"] },
+  { key: "tel1",          label: "Telefon 1",     required: false, aliases: ["telno1","tel no1","tel1","telefon1","telefon","tel","phone","gsm","iletişim"] },
+  { key: "tel2",          label: "Telefon 2",     required: false, aliases: ["telno2","tel no2","tel2","telefon2"] },
+  { key: "tel3",          label: "Telefon 3",     required: false, aliases: ["telno3","tel no3","tel3","telefon3"] },
+  { key: "tel4",          label: "Telefon 4",     required: false, aliases: ["telno4","tel no4","tel4","telefon4"] },
+  { key: "acilis_tarihi", label: "Açılış Tarihi", required: false, aliases: ["acilstarih","açılış tarihi","acilis tarihi","acilis_tarihi","openingdate","opening date"] },
+  { key: "status",        label: "Durum",         required: false, aliases: ["durum","status","proje durumu","saha durumu"] },
 ];
-
-const IS_TIPI_MAP: Record<string, string> = {
-  "bakım": "bakim", "bakim": "bakim", "maintenance": "bakim",
-  "tadilat": "tadilat", "renovation": "tadilat", "tadilaT": "tadilat",
-  "yeni yapım": "yeni_yapim", "yeni yapiim": "yeni_yapim", "yeni yapim": "yeni_yapim", "new build": "yeni_yapim",
-};
 
 const STATUS_MAP: Record<string, string> = {
   "keşif": "inquiry", "kesif": "inquiry",
@@ -109,15 +104,10 @@ function autoMapColumn(colName: string): string {
   return SKIP_FIELD;
 }
 
-function validateEmail(email: string): boolean {
-  if (!email) return true;
-  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
-}
-
 function downloadTemplate() {
   const wb = XLSX.utils.book_new();
-  const headers = ["Mağaza Adı", "Mağaza Kodu", "Şehir", "İlçe", "Adres", "Telefon", "Mağaza Müdürü", "Müdür E-posta", "İş Tipi", "Durum", "Açıklama"];
-  const example = ["Migros Ataşehir MMM", "3421", "İstanbul", "Ataşehir", "Örnek Mah. Ana Cad. No:1", "0216 123 45 67", "Ali Veli", "ali@sirket.com", "Bakım", "Devam Ediyor", "Yıllık bakım projesi"];
+  const headers = ["Mağaza Adı", "Mağaza Kodu", "Bölge", "Format Adı", "Adres", "telNo1", "telNo2", "telNo3", "telNo4", "AcilisTarih", "Durum"];
+  const example = ["Migros Ataşehir MMM", "3421", "İç Anadolu", "MMM", "Örnek Mah. Ana Cad. No:1", "08501234567", "", "", "", "2015-03-15", "Devam Ediyor"];
   const ws = XLSX.utils.aoa_to_sheet([headers, example]);
   ws["!cols"] = headers.map(() => ({ wch: 20 }));
   XLSX.utils.book_append_sheet(wb, ws, "Mağazalar");
@@ -180,7 +170,7 @@ export default function ImportPage() {
 
   // Step 3
   const [previewRows,   setPreviewRows]   = useState<PreviewRow[]>([]);
-  const [existingProjs, setExistingProjs] = useState<{ id: string; project_no?: string }[]>([]);
+  const [existingProjs, setExistingProjs] = useState<{ id: string; project_no?: string; description?: string }[]>([]);
   const [excludeErrors, setExcludeErrors] = useState(true);
 
   // Step 4
@@ -191,7 +181,7 @@ export default function ImportPage() {
   // Load customers on mount
   useEffect(() => {
     apiGet<Customer[]>("/projects/customers").then((d) => setCustomers(Array.isArray(d) ? d : [])).catch(() => {});
-    apiGet<{ id: string; project_no?: string }[]>("/projects").then((d) => setExistingProjs(Array.isArray(d) ? d : [])).catch(() => {});
+    apiGet<{ id: string; project_no?: string; description?: string }[]>("/projects").then((d) => setExistingProjs(Array.isArray(d) ? d : [])).catch(() => {});
   }, []);
 
   const onCustomerChange = async (id: string) => {
@@ -255,36 +245,32 @@ export default function ImportPage() {
         return col ? (row[col] ?? "") : "";
       };
 
-      const name         = get("name");
-      const project_no   = get("project_no");
-      const city         = get("city");
-      const district     = get("district");
-      const address      = get("address");
-      const phone        = get("phone");
-      const manager_name = get("manager_name");
-      const manager_email = get("manager_email");
-      const is_tipi_raw  = get("is_tipi");
-      const status_raw   = get("status");
-      const description  = get("description");
+      const name          = get("name");
+      const project_no    = get("project_no");
+      const bolge         = get("bolge");
+      const format        = get("format");
+      const address       = get("address");
+      const tel1          = get("tel1");
+      const tel2          = get("tel2");
+      const tel3          = get("tel3");
+      const tel4          = get("tel4");
+      const acilis_tarihi = get("acilis_tarihi");
+      const status_raw    = get("status");
 
-      const is_tipi = IS_TIPI_MAP[normalizeKey(is_tipi_raw)] ?? (is_tipi_raw ? "bakim" : "bakim");
-      const status  = STATUS_MAP[normalizeKey(status_raw)] ?? "inquiry";
+      const status = STATUS_MAP[normalizeKey(status_raw)] ?? "inquiry";
 
       const errors: string[] = [];
       const warnings: string[] = [];
 
       if (!name) errors.push("Mağaza adı boş.");
       if (!project_no) errors.push("Mağaza kodu boş.");
-      if (manager_email && !validateEmail(manager_email)) warnings.push("E-posta formatı geçersiz.");
 
-      // Check for duplicate project_no in file
       const dupeInFile = rawRows.slice(0, idx).some((r) => {
         const col = Object.entries(mapping).find(([, fk]) => fk === "project_no")?.[0];
         return col && r[col] === project_no && project_no;
       });
       if (dupeInFile) warnings.push("Bu mağaza kodu listede tekrar ediyor.");
 
-      // Check against existing
       const existing = existingProjs.find((p) => p.project_no && p.project_no === project_no);
 
       let rowStatus: RowStatus = "new";
@@ -292,7 +278,7 @@ export default function ImportPage() {
       else if (existing)             rowStatus = duplicateAction === "update" ? "update" : "error";
       else if (warnings.length > 0) rowStatus = "warning";
 
-      return { _idx: idx, name, project_no, city, district, address, phone, manager_name, manager_email, is_tipi, status, description, rowStatus, errors, warnings, existingId: existing?.id };
+      return { _idx: idx, name, project_no, bolge, format, address, tel1, tel2, tel3, tel4, acilis_tarihi, status, rowStatus, errors, warnings, existingId: existing?.id, existingDesc: existing?.description };
     });
     setPreviewRows(mapped);
     setStep(3);
@@ -316,38 +302,55 @@ export default function ImportPage() {
         continue;
       }
       try {
-        const descExtra = [
-          row.city     && `Şehir: ${row.city}`,
-          row.district && `İlçe: ${row.district}`,
-          row.address  && `Adres: ${row.address}`,
-          row.phone    && `Telefon: ${row.phone}`,
-          row.manager_name  && `Müdür: ${row.manager_name}`,
-          row.manager_email && `Müdür E-posta: ${row.manager_email}`,
-        ].filter(Boolean).join("\n");
-
-        const description = [row.description, descExtra ? `\n---\n${descExtra}` : ""].filter(Boolean).join("");
-
-        const payload = {
-          name:           row.name,
-          project_no:     row.project_no || null,
-          description:    description || null,
-          start_date:     new Date().toISOString(),
-          due_date:       new Date(Date.now() + 90 * 86400000).toISOString(),
-          scope_codes:    [row.is_tipi],
-          status:         row.status,
-          contract_value: null,
-          customer_id:    defaultCustomerId,
-          region_id:      defaultRegionId,
-          branch_id:      defaultBranchId,
-        };
+        let description: string;
 
         if (row.existingId) {
-          const { customer_id, region_id, branch_id, ...updatePayload } = payload;
-          await apiPatch(`/projects/${row.existingId}`, updatePayload);
+          // Mevcut mağaza: sadece boş alanları güncelle
+          let base: Record<string, string> = {};
+          try { base = JSON.parse(row.existingDesc || "{}"); } catch {}
+          if (row.bolge         && !base.bolge)         base.bolge         = row.bolge;
+          if (row.format        && !base.format)        base.format        = row.format;
+          if (row.tel1          && !base.tel1)          base.tel1          = row.tel1;
+          if (row.tel2          && !base.tel2)          base.tel2          = row.tel2;
+          if (row.tel3          && !base.tel3)          base.tel3          = row.tel3;
+          if (row.tel4          && !base.tel4)          base.tel4          = row.tel4;
+          if (row.address       && !base.adres)         base.adres         = row.address;
+          if (row.acilis_tarihi && !base.acilis_tarihi) base.acilis_tarihi = row.acilis_tarihi;
+          description = JSON.stringify(base);
+
+          await apiPatch(`/projects/${row.existingId}`, {
+            name:        row.name,
+            project_no:  row.project_no || null,
+            description,
+            status:      row.status,
+          });
           result.updated++;
           log.push(`✓ Güncellendi: ${row.name} (${row.project_no})`);
         } else {
-          await apiPost("/projects", payload);
+          const descObj: Record<string, string> = {};
+          if (row.bolge)         descObj.bolge         = row.bolge;
+          if (row.format)        descObj.format        = row.format;
+          if (row.tel1)          descObj.tel1          = row.tel1;
+          if (row.tel2)          descObj.tel2          = row.tel2;
+          if (row.tel3)          descObj.tel3          = row.tel3;
+          if (row.tel4)          descObj.tel4          = row.tel4;
+          if (row.address)       descObj.adres         = row.address;
+          if (row.acilis_tarihi) descObj.acilis_tarihi = row.acilis_tarihi;
+          description = JSON.stringify(descObj);
+
+          await apiPost("/projects", {
+            name:           row.name,
+            project_no:     row.project_no || null,
+            description,
+            start_date:     new Date().toISOString(),
+            due_date:       new Date(Date.now() + 90 * 86400000).toISOString(),
+            scope_codes:    [],
+            status:         row.status,
+            contract_value: null,
+            customer_id:    defaultCustomerId,
+            region_id:      defaultRegionId,
+            branch_id:      defaultBranchId,
+          });
           result.created++;
           log.push(`✓ Oluşturuldu: ${row.name} (${row.project_no})`);
         }
@@ -580,9 +583,8 @@ export default function ImportPage() {
                     <th className="text-left py-2 pr-3 font-medium text-slate-500 whitespace-nowrap">Durum</th>
                     <th className="text-left py-2 pr-3 font-medium text-slate-500 whitespace-nowrap">Mağaza Adı</th>
                     <th className="text-left py-2 pr-3 font-medium text-slate-500 whitespace-nowrap">Kodu</th>
-                    <th className="text-left py-2 pr-3 font-medium text-slate-500 whitespace-nowrap">Şehir</th>
-                    <th className="text-left py-2 pr-3 font-medium text-slate-500 whitespace-nowrap">Müdür</th>
-                    <th className="text-left py-2 pr-3 font-medium text-slate-500 whitespace-nowrap">İş Tipi</th>
+                    <th className="text-left py-2 pr-3 font-medium text-slate-500 whitespace-nowrap">Bölge</th>
+                    <th className="text-left py-2 pr-3 font-medium text-slate-500 whitespace-nowrap">Telefon</th>
                     <th className="text-left py-2 font-medium text-slate-500">Uyarı/Hata</th>
                   </tr>
                 </thead>
@@ -603,9 +605,8 @@ export default function ImportPage() {
                         </td>
                         <td className="py-2 pr-3 max-w-[160px] truncate font-medium text-slate-800">{row.name || <span className="text-red-400">Boş</span>}</td>
                         <td className="py-2 pr-3 font-mono text-slate-500">{row.project_no || <span className="text-red-400">Boş</span>}</td>
-                        <td className="py-2 pr-3 text-slate-500">{row.city || "—"}</td>
-                        <td className="py-2 pr-3 text-slate-500 max-w-[100px] truncate">{row.manager_name || "—"}</td>
-                        <td className="py-2 pr-3 text-slate-500">{row.is_tipi}</td>
+                        <td className="py-2 pr-3 text-slate-500">{row.bolge || "—"}</td>
+                        <td className="py-2 pr-3 text-slate-500">{row.tel1 || "—"}</td>
                         <td className="py-2">
                           {row.errors.concat(row.warnings).length > 0 ? (
                             <ul className="space-y-0.5">

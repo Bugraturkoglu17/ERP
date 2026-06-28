@@ -411,14 +411,23 @@ async def send_whatsapp(
     attachment_url = first_photo.file_url if first_photo and first_photo.file_url else None
 
     public_url = whatsapp_service.build_public_url(link.token)
+
+    proj_desc: dict = {}
+    if proj and proj.description:
+        try:
+            import json as _json
+            proj_desc = _json.loads(proj.description)
+        except Exception:
+            pass
+
     notif = WorkOrderNotification(
         store_name=proj.name if proj else "—",
         store_code=proj.project_no if proj else None,
         work_type_label=WORK_TYPE_LABELS.get(wo.work_type, wo.work_type),
         title=wo.title,
         description=wo.description,
-        location_url=wo.location_url,
-        store_phone=None,
+        store_address=proj_desc.get("adres") or None,
+        store_phone=proj_desc.get("tel1") or None,
         public_url=public_url,
         to_phone=wo.assigned_to_phone,
         assigned_name=wo.assigned_to_name,

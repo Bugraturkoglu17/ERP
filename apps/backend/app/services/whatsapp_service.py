@@ -29,7 +29,7 @@ class WorkOrderNotification:
     work_type_label: str
     title: str
     description: Optional[str]
-    location_url: Optional[str]
+    store_address: Optional[str]
     store_phone: Optional[str]
     public_url: str
     to_phone: str
@@ -65,9 +65,11 @@ def _build_message_text(n: WorkOrderNotification) -> str:
     if n.description:
         lines += ["", "Detay:", n.description]
 
+    if n.store_phone:
+        lines.append(f"Telefon: {n.store_phone}")
     lines.append("")
-    lines.append("Konum:")
-    lines.append(n.location_url if n.location_url else "Konum bilgisi bulunmuyor.")
+    lines.append("Adres / Konum:")
+    lines.append(n.store_address if n.store_address else "Adres bilgisi bulunmuyor.")
 
     lines.append("")
     lines.append("Ek Fotoğraf / Dosya:")

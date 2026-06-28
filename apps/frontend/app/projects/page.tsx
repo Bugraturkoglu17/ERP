@@ -26,7 +26,7 @@ type DescExtra = {
   store_type?: string; format?: string;
   bolge?: string; sehir?: string;
   tel1?: string; tel2?: string; tel3?: string; tel4?: string;
-  adres?: string; konum_link?: string; acilis_tarihi?: string;
+  adres?: string; acilis_tarihi?: string;
 };
 
 function parseDesc(desc?: string): DescExtra {
@@ -166,14 +166,14 @@ function MagazaKart({ p, regionName, onEdit, onDeactivate }: {
 type StoreFormState = {
   customer_id: string; region_id: string; branch_id: string;
   name: string; project_no: string; status: string;
-  bolge: string; sehir: string; adres: string; tel1: string; konum_link: string;
+  bolge: string; sehir: string; adres: string; tel1: string;
 };
 
 function defaultForm(): StoreFormState {
   return {
     customer_id: "", region_id: "", branch_id: "",
     name: "", project_no: "", status: "inquiry",
-    bolge: "", sehir: "", adres: "", tel1: "", konum_link: "",
+    bolge: "", sehir: "", adres: "", tel1: "",
   };
 }
 
@@ -183,7 +183,7 @@ function editForm(p: Project): StoreFormState {
     customer_id: p.customer_id ?? "", region_id: p.region_id ?? "", branch_id: p.branch_id ?? "",
     name: p.name, project_no: p.project_no ?? "", status: p.status.toLowerCase(),
     bolge: extra.bolge ?? "", sehir: extra.sehir ?? "", adres: extra.adres ?? "",
-    tel1: extra.tel1 ?? "", konum_link: extra.konum_link ?? "",
+    tel1: extra.tel1 ?? "",
   };
 }
 
@@ -194,7 +194,6 @@ function buildDescription(existing: string | undefined, form: StoreFormState): s
   if (form.sehir.trim())      base.sehir      = form.sehir.trim();      else delete base.sehir;
   if (form.adres.trim())      base.adres      = form.adres.trim();      else delete base.adres;
   if (form.tel1.trim())       base.tel1       = form.tel1.trim();       else delete base.tel1;
-  if (form.konum_link.trim()) base.konum_link = form.konum_link.trim(); else delete base.konum_link;
   return JSON.stringify(base);
 }
 
@@ -335,12 +334,6 @@ function StoreFormModal({ mode, initial, projectId, existingDescription, existin
               <input value={form.tel1} onChange={e => setForm(p => ({ ...p, tel1: e.target.value }))}
                 className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                 placeholder="0XXX XXX XX XX" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Konum Linki</label>
-              <input value={form.konum_link} onChange={e => setForm(p => ({ ...p, konum_link: e.target.value }))}
-                className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                placeholder="maps.google.com/..." />
             </div>
             <div className="col-span-2">
               <label className="block text-xs font-medium text-slate-600 mb-1">Adres</label>

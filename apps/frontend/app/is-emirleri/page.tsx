@@ -66,18 +66,6 @@ function apiErrMsg(ex: unknown, fallback = "Bir hata oluştu."): string {
   return fallback;
 }
 
-/** Proje description JSON'ından veya proje adından Google Maps arama linki üret */
-function buildLocationUrl(project: Project): string {
-  let searchTerm = project.name;
-  if (project.description) {
-    try {
-      const d = JSON.parse(project.description) as Record<string, string>;
-      const parts = [project.name, d.sehir, d.bolge].filter(Boolean);
-      searchTerm = parts.join(" ");
-    } catch {/* description JSON değil, proje adını kullan */}
-  }
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(searchTerm)}`;
-}
 
 // ── Delete Confirm Modal ───────────────────────────────────────────────────────
 
@@ -143,7 +131,7 @@ function CreateModal({ onClose, onDone }: { onClose: () => void; onDone: () => v
   const [form, setForm] = useState({
     work_type: "maintenance", title: "", description: "",
     assigned_to_name: "", assigned_to_phone: "", priority: "normal",
-    due_date: "", location_url: "",
+    due_date: "",
   });
 
   useEffect(() => {
@@ -162,8 +150,6 @@ function CreateModal({ onClose, onDone }: { onClose: () => void; onDone: () => v
 
   const handleSelectProject = (p: Project) => {
     setSelProject(p);
-    // Proje seçilince konum linkini otomatik doldur
-    setForm(prev => ({ ...prev, location_url: buildLocationUrl(p) }));
   };
 
   const handleSelectUser = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -196,7 +182,6 @@ function CreateModal({ onClose, onDone }: { onClose: () => void; onDone: () => v
         assigned_to_phone: form.assigned_to_phone.trim() || null,
         priority: form.priority,
         due_date: form.due_date ? `${form.due_date}T00:00:00` : null,
-        location_url: form.location_url.trim() || null,
       });
       onDone();
     } catch (ex) { setErr(apiErrMsg(ex, "İş emri oluşturulamadı. Sunucu bağlantısı kontrol edilmeli.")); }
@@ -327,24 +312,11 @@ function CreateModal({ onClose, onDone }: { onClose: () => void; onDone: () => v
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Termin Tarihi</label>
-                  <input type="date" value={form.due_date} onChange={e => setForm(p => ({ ...p, due_date: e.target.value }))}
-                    className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Konum Linki</label>
-                  <input value={form.location_url} onChange={e => setForm(p => ({ ...p, location_url: e.target.value }))}
-                    placeholder="Google Maps linki"
-                    className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
-                </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Termin Tarihi</label>
+                <input type="date" value={form.due_date} onChange={e => setForm(p => ({ ...p, due_date: e.target.value }))}
+                  className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
               </div>
-              {form.location_url && (
-                <p className="text-[10px] text-slate-400">
-                  Konum mağaza bilgisinden otomatik oluşturuldu. Düzenleyebilirsiniz.
-                </p>
-              )}
             </>
           )}
 
@@ -385,11 +357,7 @@ function SendWhatsAppBtn({ wo, onRefresh }: { wo: WorkOrder; onRefresh: () => vo
       alert("Atanacak kişinin telefon numarası bulunmuyor.");
       return;
     }
-    if (!wo.location_url) {
-      if (!confirm("Konum bilgisi girilmemiş. Yine de göndermek istiyor musunuz?")) return;
-    } else {
-      if (!confirm(`"${wo.assigned_to_name || wo.assigned_to_phone}" kişisine WhatsApp mesajı gönderilsin mi?`)) return;
-    }
+    if (!confirm(`"${wo.assigned_to_name || wo.assigned_to_phone}" kişisine WhatsApp mesajı gönderilsin mi?`)) return;
     setBusy(true); setErr("");
     try {
       await apiPost(`/work-orders/${wo.id}/send-whatsapp`, {});

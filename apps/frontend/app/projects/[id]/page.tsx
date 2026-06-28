@@ -103,7 +103,6 @@ type DescExtra = {
   tel3?: string;
   tel4?: string;
   adres?: string;
-  konum_link?: string;
   acilis_tarihi?: string;
 };
 
@@ -508,7 +507,6 @@ function EditModal({ project, onClose, onDone }: { project: Project; onClose: ()
     sehir:      extra.sehir      ?? "",
     adres:      extra.adres      ?? "",
     tel1:       extra.tel1       ?? "",
-    konum_link: extra.konum_link ?? "",
   });
   const [busy, setBusy] = useState(false);
   const [err, setErr]   = useState("");
@@ -527,7 +525,6 @@ function EditModal({ project, onClose, onDone }: { project: Project; onClose: ()
       if (form.sehir.trim())      newDesc.sehir      = form.sehir.trim();      else delete newDesc.sehir;
       if (form.adres.trim())      newDesc.adres      = form.adres.trim();      else delete newDesc.adres;
       if (form.tel1.trim())       newDesc.tel1       = form.tel1.trim();       else delete newDesc.tel1;
-      if (form.konum_link.trim()) newDesc.konum_link = form.konum_link.trim(); else delete newDesc.konum_link;
 
       const updated = await apiPatch<Project>(`/projects/${project.id}`, {
         name:        form.name.trim(),
@@ -583,11 +580,6 @@ function EditModal({ project, onClose, onDone }: { project: Project; onClose: ()
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">Telefon</label>
               <input value={form.tel1} onChange={set("tel1")} placeholder="0XXX XXX XX XX"
-                className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Konum Linki</label>
-              <input value={form.konum_link} onChange={set("konum_link")} placeholder="maps.google.com/..."
                 className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
             </div>
             <div className="col-span-2">
