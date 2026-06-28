@@ -160,12 +160,6 @@ const STATUS_STEPS = [
   { key: "completed",    label: "Tamamlandı" },
 ];
 
-const IS_TIPI_OPTS = [
-  { value: "bakim",      label: "Bakım"     },
-  { value: "tadilat",    label: "Tadilat"   },
-  { value: "yeni_yapim", label: "Yeni Yapım"},
-];
-
 const DISIPLIN_OPTS = [
   { value: "seismic", label: "Sismik" },
   { value: "hvac",    label: "HVAC"   },

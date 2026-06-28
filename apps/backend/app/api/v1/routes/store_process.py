@@ -5,6 +5,8 @@ Routes: /api/v1/process/...
 
 from __future__ import annotations
 
+import ast
+import json
 from datetime import datetime, timezone
 from typing import List
 from uuid import UUID
@@ -39,6 +41,36 @@ from app.db.schemas import (
 )
 
 router = APIRouter()
+
+
+async def _mark_project_existing(db: AsyncSession, project_id: UUID) -> None:
+    """Yeni Yapım süreci tamamlandığında mağazayı 'existing_store' olarak işaretle."""
+    result  = await db.execute(select(Project).where(Project.id == project_id))
+    project = result.scalar_one_or_none()
+    if not project:
+        return
+    # description.store_type → "existing_store"
+    desc: dict = {}
+    if project.description:
+        try:
+            desc = json.loads(project.description)
+        except (json.JSONDecodeError, TypeError):
+            try:
+                desc = ast.literal_eval(project.description)
+            except Exception:
+                desc = {}
+    desc["store_type"] = "existing_store"
+    project.description = json.dumps(desc, ensure_ascii=False)
+    # scope_codes'dan "yeni_yapim" kaldır
+    raw = getattr(project, "scope_codes", []) or []
+    if isinstance(raw, str):
+        try:
+            raw = ast.literal_eval(raw)
+        except Exception:
+            raw = []
+    codes = [c for c in raw if c != "yeni_yapim"]
+    project.scope_codes = json.dumps(codes, ensure_ascii=False)
+
 
 # ── Scope'a özel aşama şablonları ─────────────────────────────────────────────
 
@@ -515,6 +547,9 @@ async def update_process(
         setattr(proc, field, value)
     proc.updated_at = utc_now()
 
+    if body.status == "completed" and getattr(proc, "work_type", None) == "yeni_yapim":
+        await _mark_project_existing(db, proc.project_id)
+
     await _log_activity(
         db, proc.project_id, proc.tenant_id, user,
         activity_type="process_updated",
@@ -576,6 +611,8 @@ async def update_stage(
     if proc.progress_percent == 100:
         proc.status = "completed"
         proc.completed_at = utc_now()
+        if getattr(proc, "work_type", None) == "yeni_yapim":
+            await _mark_project_existing(db, proc.project_id)
     proc.updated_at = utc_now()
 
     # Aktivite
