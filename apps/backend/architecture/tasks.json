@@ -1,0 +1,40 @@
+{
+  "tasks": [
+    {
+      "name": "send_whatsapp_message_task",
+      "producer": "app.api.v1.routes.whatsapp",
+      "queue": "whatsapp_queue",
+      "retry_policy": "3 retries, exponential backoff",
+      "idempotency_key": "message_id",
+      "failure_handling": "dead_letter_queue, update_db_status_failed",
+      "related_entity": "WorkOrderWhatsappMessage"
+    },
+    {
+      "name": "process_webhook_delivery_task",
+      "producer": "app.api.v1.routes.work_orders.webhook_router",
+      "queue": "default",
+      "retry_policy": "1 retry",
+      "idempotency_key": "webhook_event_id",
+      "failure_handling": "log_warning",
+      "related_entity": "WorkOrderWhatsappMessage"
+    },
+    {
+      "name": "send_email_notification_task",
+      "producer": "app.api.v1.routes.notifications",
+      "queue": "email_queue",
+      "retry_policy": "5 retries",
+      "idempotency_key": "notification_id",
+      "failure_handling": "dead_letter_queue",
+      "related_entity": "ErpNotification"
+    },
+    {
+      "name": "generate_monthly_invoice_report_task",
+      "producer": "celery_beat_scheduler",
+      "queue": "reports",
+      "retry_policy": "0 retries",
+      "idempotency_key": "tenant_id_month",
+      "failure_handling": "alert_platform_admin",
+      "related_entity": "InvoiceRecord"
+    }
+  ]
+}

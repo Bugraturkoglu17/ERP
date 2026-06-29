@@ -157,3 +157,52 @@ async def architecture_registry() -> Dict[str, Any]:
             "all_events": sorted(list(all_events))
         }
     }
+
+
+@router.get("/meta/impact-analysis", summary="Perform Impact Analysis", dependencies=[Depends(require_role("platform_admin", "admin", "developer"))])
+async def impact_analysis_api(
+    entity: str = None, 
+    domain: str = None, 
+    route: str = None, 
+    event: str = None
+) -> Dict[str, Any]:
+    from app.core.impact import perform_impact_analysis
+    return perform_impact_analysis(entity, domain, route, event)
+
+
+@router.get("/meta/dashboard", summary="Meta Dashboard Data", dependencies=[Depends(require_role("platform_admin"))])
+async def meta_dashboard() -> Dict[str, Any]:
+    import os
+    import json
+    
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_dir))))
+    architecture_dir = os.path.join(backend_dir, "architecture")
+    
+    tasks = []
+    events = []
+    
+    if os.path.exists(architecture_dir):
+        tasks_file = os.path.join(architecture_dir, "tasks.json")
+        events_file = os.path.join(architecture_dir, "events.json")
+        
+        if os.path.exists(tasks_file):
+            with open(tasks_file, "r", encoding="utf-8") as f:
+                try: tasks = json.load(f).get("tasks", [])
+                except: pass
+                
+        if os.path.exists(events_file):
+            with open(events_file, "r", encoding="utf-8") as f:
+                try: events = json.load(f).get("events", [])
+                except: pass
+                
+    # Reuse existing architecture registry logic for domains
+    registry = await architecture_registry()
+    
+    return {
+        "status": "online",
+        "domains": registry.get("domains", []),
+        "summary": registry.get("summary", {}),
+        "events": events,
+        "tasks": tasks
+    }

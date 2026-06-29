@@ -19,7 +19,7 @@ def load_manifests():
         return manifests
 
     for filename in os.listdir(architecture_dir):
-        if filename.endswith(".json"):
+        if filename.endswith(".json") and filename not in ["events.json", "tasks.json"]:
             filepath = os.path.join(architecture_dir, filename)
             with open(filepath, "r", encoding="utf-8") as f:
                 try:
@@ -99,7 +99,64 @@ def generate_dependency_graph(manifests):
         f.write("```\n")
     print(f"Generated {output_path}")
 
+def generate_event_registry():
+    events_path = os.path.join(architecture_dir, "events.json")
+    output_path = os.path.join(docs_dir, "event_registry.md")
+    
+    if not os.path.exists(events_path):
+        return
+        
+    with open(events_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+        
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write("# GOLABS ERP — Event Bus Registry\n\n")
+        f.write("Bu belge sistemdeki asenkron olayları listeler.\n\n")
+        f.write("| Event Name | Producer | Consumers | Payload | Description |\n")
+        f.write("|---|---|---|---|---|\n")
+        
+        for e in data.get("events", []):
+            name = e.get("name", "")
+            producer = e.get("producer", "")
+            consumers = ", ".join(e.get("consumers", []))
+            payload = ", ".join(e.get("payload", []))
+            desc = e.get("description", "")
+            f.write(f"| `{name}` | `{producer}` | `{consumers}` | `{payload}` | {desc} |\n")
+            
+    print(f"Generated {output_path}")
+
+def generate_task_registry():
+    tasks_path = os.path.join(architecture_dir, "tasks.json")
+    output_path = os.path.join(docs_dir, "task_registry.md")
+    
+    if not os.path.exists(tasks_path):
+        return
+        
+    with open(tasks_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+        
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write("# GOLABS ERP — Background Task Registry\n\n")
+        f.write("Bu belge sistemdeki Celery asenkron gorevlerini listeler.\n\n")
+        f.write("| Task Name | Producer | Queue | Retry Policy | Idempotency | Failure Handling | Related Entity |\n")
+        f.write("|---|---|---|---|---|---|---|\n")
+        
+        for t in data.get("tasks", []):
+            name = t.get("name", "")
+            producer = t.get("producer", "")
+            queue = t.get("queue", "")
+            retry = t.get("retry_policy", "")
+            idem = t.get("idempotency_key", "")
+            failure = t.get("failure_handling", "")
+            entity = t.get("related_entity", "")
+            f.write(f"| `{name}` | `{producer}` | `{queue}` | `{retry}` | `{idem}` | `{failure}` | `{entity}` |\n")
+            
+    print(f"Generated {output_path}")
+
 if __name__ == "__main__":
     manifests = load_manifests()
     generate_registry(manifests)
     generate_dependency_graph(manifests)
+    generate_event_registry()
+    generate_task_registry()
+

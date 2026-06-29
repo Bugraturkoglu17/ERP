@@ -1,0 +1,67 @@
+{
+  "events": [
+    {
+      "name": "work_order_created",
+      "producer": "work_orders",
+      "consumers": ["notifications", "whatsapp"],
+      "payload": ["work_order_id", "tenant_id", "created_by"],
+      "description": "Triggered when a new work order is created."
+    },
+    {
+      "name": "work_order_assigned",
+      "producer": "work_orders",
+      "consumers": ["notifications"],
+      "payload": ["work_order_id", "tenant_id", "assigned_to"],
+      "description": "Triggered when a work order is assigned to a technician or team."
+    },
+    {
+      "name": "whatsapp_sent",
+      "producer": "whatsapp",
+      "consumers": ["work_orders"],
+      "payload": ["message_id", "work_order_id", "status"],
+      "description": "Triggered when a WhatsApp template message is dispatched."
+    },
+    {
+      "name": "whatsapp_delivered",
+      "producer": "whatsapp",
+      "consumers": ["work_orders"],
+      "payload": ["message_id", "work_order_id", "status"],
+      "description": "Triggered via Webhook when WhatsApp confirms delivery."
+    },
+    {
+      "name": "whatsapp_read",
+      "producer": "whatsapp",
+      "consumers": ["work_orders"],
+      "payload": ["message_id", "work_order_id", "status"],
+      "description": "Triggered via Webhook when WhatsApp confirms read."
+    },
+    {
+      "name": "service_form_submitted",
+      "producer": "work_orders",
+      "consumers": ["service_forms", "projects"],
+      "payload": ["form_id", "work_order_id", "tenant_id"],
+      "description": "Triggered when a technician submits a service form from the field."
+    },
+    {
+      "name": "approval_requested",
+      "producer": "approvals",
+      "consumers": ["notifications"],
+      "payload": ["approval_id", "requester_id", "tenant_id", "type"],
+      "description": "Triggered when a new approval flow starts."
+    },
+    {
+      "name": "approval_approved",
+      "producer": "approvals",
+      "consumers": ["finance", "documents"],
+      "payload": ["approval_id", "tenant_id", "type"],
+      "description": "Triggered when an approval flow completes successfully."
+    },
+    {
+      "name": "invoice_created",
+      "producer": "finance",
+      "consumers": ["approvals", "notifications"],
+      "payload": ["invoice_id", "tenant_id", "amount"],
+      "description": "Triggered when a new invoice is recorded."
+    }
+  ]
+}
