@@ -62,6 +62,7 @@ async def upload_document(
     doc_type:      str       = Form(...),
     revision_note: str | None = Form(None),
     expense_id:    uuid.UUID | None = Form(None),
+    process_id:    uuid.UUID | None = Form(None),
     file:          UploadFile = File(...),
     db:           AsyncSession = Depends(get_db),
     current_user: User         = Depends(get_current_user),
@@ -93,6 +94,7 @@ async def upload_document(
         version       = 1,
         uploaded_by   = current_user.id,
         expense_id    = expense_id,
+        process_id    = process_id,
     )
     db.add(doc)
     

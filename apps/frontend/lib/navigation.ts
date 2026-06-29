@@ -66,7 +66,6 @@ export const NAV_ENTRIES: NavEntry[] = [
     items: [
       { label: "Bakım Mağazaları",   href: "/bakim",                  icon: Store,         allowedRoles: ["admin", "saha_muhendisi"] },
       { label: "Servis Formları",    href: "/bakim/servis-formlari",  icon: FileText,      allowedRoles: ["admin", "saha_muhendisi"] },
-      { label: "Bakım Faturaları",   href: "/bakim/faturalar",        icon: Receipt,       allowedRoles: ["admin", "saha_muhendisi"] },
       { label: "Bakım Hakkedişleri", href: "/bakim/hakkedisler",      icon: Receipt,       allowedRoles: ["admin", "saha_muhendisi"] },
     ],
   },

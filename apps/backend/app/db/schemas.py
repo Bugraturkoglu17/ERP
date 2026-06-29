@@ -508,6 +508,7 @@ class DocumentCreate(BaseModel):
     original_name: str
     revision_note: str | None = None
     expense_id:   UUID | None = None
+    process_id:   UUID | None = None
  
 class DocumentUpdate(BaseModel):
     doc_type:     str | None = None
@@ -529,6 +530,7 @@ class DocumentRead(BaseModel):
     uploaded_by:     UUID | None
     created_at:      datetime
     expense_id:        UUID | None = None
+    process_id:        UUID | None = None
     uploaded_by_name:  str | None = None
     uploaded_by_email: str | None = None
     model_config    = ConfigDict(from_attributes=True)

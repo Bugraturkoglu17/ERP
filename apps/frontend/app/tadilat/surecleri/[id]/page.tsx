@@ -744,11 +744,11 @@ export default function TadilatKlasorPage() {
       )}
       {historyDoc && <HistoryDrawer doc={historyDoc} onClose={() => setHistoryDoc(null)} />}
       {uploadDocOpen && (
-        <DocUploadModal projectId={projectId} isRevision={false}
+        <DocUploadModal projectId={projectId} processId={processId} isRevision={false}
           onClose={() => setUploadDocOpen(false)} onDone={loadDocs} />
       )}
       {uploadRevOpen && (
-        <DocUploadModal projectId={projectId} isRevision={true}
+        <DocUploadModal projectId={projectId} processId={processId} isRevision={true}
           onClose={() => setUploadRevOpen(false)} onDone={loadDocs} />
       )}
       {addPayOpen && (
@@ -1089,8 +1089,8 @@ function FaturalarTab({ invoices, onAdd, onDelete }: {
 
 // ── Upload Modals ──────────────────────────────────────────────────────────────
 
-function DocUploadModal({ projectId, isRevision, onClose, onDone }: {
-  projectId: string; isRevision: boolean; onClose: () => void; onDone: () => void;
+function DocUploadModal({ projectId, processId, isRevision, onClose, onDone }: {
+  projectId: string; processId: string; isRevision: boolean; onClose: () => void; onDone: () => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [docType, setDocType] = useState(isRevision ? "tadilat_revizyon" : "tadilat_proje");
@@ -1107,6 +1107,7 @@ function DocUploadModal({ projectId, isRevision, onClose, onDone }: {
       fd.append("project_id", projectId);
       fd.append("doc_type", docType);
       fd.append("revision_note", revNote);
+      if (!isRevision && processId) fd.append("process_id", processId);
       fd.append("file", file);
       const token = localStorage.getItem("token") ?? "";
       const res = await fetch(buildApiUrl("/documents/upload"), {

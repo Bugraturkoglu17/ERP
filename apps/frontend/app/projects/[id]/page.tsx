@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Download,
   Edit2,
+  ExternalLink,
   FileText,
   Folder,
   History,
@@ -57,6 +58,7 @@ type Document = {
   uploaded_by_name?: string;
   file_size_bytes?: number;
   created_at: string;
+  process_id?: string;
 };
 
 type DocVersion = {
@@ -123,6 +125,13 @@ const DOC_TYPES: Record<string, { label: string; category: "project_file" | "rev
   drawing_mep:     { label: "MEP Çizim",       category: "project_file", ext: "DWG" },
   project_file:    { label: "Proje Dosyası",   category: "project_file"             },
   contract:        { label: "Sözleşme",        category: "project_file", ext: "PDF" },
+  // Tadilat Proje Dosyaları
+  tadilat_proje:    { label: "Tadilat - Proje",     category: "project_file" },
+  tadilat_onay:     { label: "Tadilat - Onaylı",    category: "project_file" },
+  tadilat_uygulama: { label: "Tadilat - Uygulama",  category: "project_file" },
+  tadilat_teklif:   { label: "Tadilat - Teklif",    category: "project_file" },
+  tadilat_diger:    { label: "Tadilat - Diğer",     category: "project_file" },
+  tadilat_revizyon: { label: "Tadilat - Revizyon",  category: "revision"     },
   // Sadece Revizyonlar sekmesi
   revision:        { label: "Revizyon",        category: "revision"                 },
   // Modül sekmeleri (ServisFormTab, HakkedisTab, FaturaTab, OnayMailTab yönetir)
@@ -425,10 +434,11 @@ function HistoryDrawer({ doc, onClose }: { doc: Document; onClose: () => void })
 // ── Doc List ───────────────────────────────────────────────────────────────────
 
 function DocList({
-  docs, onHistory,
+  docs, onHistory, projectId,
 }: {
   docs: Document[];
   onHistory: (d: Document) => void;
+  projectId?: string;
 }) {
   const handleDownload = async (doc: Document) => {
     try {
@@ -484,6 +494,15 @@ function DocList({
                 className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700"><History className="h-3.5 w-3.5" /></button>
               <button onClick={() => handleDownload(doc)} title="İndir"
                 className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-green-50 hover:text-green-600"><Download className="h-3.5 w-3.5" /></button>
+              {doc.doc_type.startsWith("tadilat_") && doc.process_id && projectId && (
+                <Link
+                  href={`/tadilat/surecleri/${doc.process_id}?p=${projectId}&tab=dosyalar`}
+                  title="Tadilat Klasörüne Git"
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-amber-50 hover:text-amber-600"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </Link>
+              )}
             </div>
             <div className="shrink-0 text-[11px] text-slate-400 ml-1">
               {new Date(doc.created_at).toLocaleDateString("tr-TR")}
@@ -915,7 +934,7 @@ export default function MagazaDetailPage() {
                   ))}
                 </div>
               )}
-              <DocList docs={filteredProjectDocs} onHistory={setHistoryDoc} />
+              <DocList docs={filteredProjectDocs} onHistory={setHistoryDoc} projectId={id} />
             </div>
           )}
 

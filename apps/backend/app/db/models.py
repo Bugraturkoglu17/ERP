@@ -417,6 +417,8 @@ class Document(SQLModel, table=True):
 
     # ── Gider İlişkisi ─────────────────────────────────────
     expense_id:      Optional[UUID] = Field(default=None, foreign_key="expenses.id", index=True)
+    # ── Tadilat/Süreç İlişkisi ─────────────────────────────
+    process_id:      Optional[UUID] = Field(default=None, foreign_key="store_processes.id", index=True, ondelete="SET NULL")
 
     project:   Mapped["Project"] = Relationship(back_populates="documents")
     expense:   Optional["Expense"] = Relationship(back_populates="documents")
