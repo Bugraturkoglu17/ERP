@@ -12,7 +12,8 @@ from fastapi.responses import JSONResponse
 
 from app.core.config import settings
 from app.core.database import close_db, init_db
-from app.core.exceptions import AppException
+from app.core.exceptions import AppException, ErrorCode
+from app.core.middleware.logging_middleware import StructuredLoggingMiddleware
 
 # ── App ────────────────────────────────────────────────────────────────────────
 app = FastAPI(
@@ -42,6 +43,7 @@ app.add_middleware(
     allow_methods    = ["*"],
     allow_headers    = ["*"],
 )
+app.add_middleware(StructuredLoggingMiddleware)
 
 
 # ── Exception Handler ─────────────────────────────────────────────────────────
@@ -49,9 +51,15 @@ app.add_middleware(
 async def app_exception_handler(
     request: Request, exc: AppException
 ) -> JSONResponse:
+    error_type = exc.error_code.value if hasattr(exc, 'error_code') else "GENERIC_ERROR"
+    correlation_id = getattr(request.state, "correlation_id", None)
     return JSONResponse(
         status_code=exc.status_code,
-        content={"detail": exc.detail, "type": type(exc).__name__},
+        content={
+            "detail": exc.detail, 
+            "type": error_type,
+            "correlation_id": correlation_id
+        },
     )
 
 
@@ -66,10 +74,7 @@ async def on_shutdown() -> None:
     await close_db()
 
 
-# ── Health ─────────────────────────────────────────────────────────────────────
-@app.get("/health", tags=["meta"])
-async def health() -> dict:
-    return {"status": "ok", "env": settings.ENV}
+# ── Routers ────────────────────────────────────────────────────────────────────
 
 
 # ── Routers ────────────────────────────────────────────────────────────────────
