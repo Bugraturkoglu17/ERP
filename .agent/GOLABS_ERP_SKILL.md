@@ -11,21 +11,7 @@ Ajan olarak her bir adımı veya talebi bitirdiğinizde **mutlaka** aşağıdaki
 - 1. ...
 - 2. ...
 - 3. ...
-(En fazla 3-5 madde olacak şekilde özetleyin)
+(walkthrougt veya yapılan değişiklikleri kısa notlar halinde yazın)
 
 **Sonraki Adım:**
-- Yapılacak bir sonraki aksiyonu tek cümle ile açıklayın.
-
-**Agent'a Verilecek Prompt:**
-- (Opsiyonel) Eğer kullanıcı süreci devredecekse kullanabileceği tam promptu buraya yazın.
-
-## Örnek Ajan Çıktısı
-
-**Durum:** Onaylı
-**Kısa Not:**
-- Work Orders tablosuna tenant_id eklendi.
-- `lint_architecture.py` başarıyla çalıştı ve sıfır hata döndü.
-**Sonraki Adım:**
-- Frontend kısmında Work Orders listeleme sayfasının güncellenmesi.
-**Agent'a Verilecek Prompt:**
-- `SKILL:GOLABS_ERP Devam: Work Orders frontend listeleme sayfasını Next.js App Router standartlarına göre entegre et.`
+- Yapılacak bir sonraki aksiyonu birkaç cümle ile açıklayın.

@@ -20,10 +20,3 @@ Yeni bir agent (yapay zeka asistanı) oturumu başlattığınızda sistemin karm
 
 ## Yeni Sprint Nasıl Başlatılır?
 Agent bağlamı (context) okuduktan sonra size sistemdeki teknik borçların ve risklerin bir özetini sunacaktır. Ardından, agent'a sprint hedeflerinizi (Örn: "Sprint 12: Finance modülü geliştirmeleri") vererek implementasyona güvenle geçebilirsiniz.
-
-## Agent Çıktısı Nasıl Review Edilir?
-Agent her aksiyonu tamamladığında aşağıdaki formatta cevap verecektir:
-- **Durum:** Onaylı / Eksik / Riskli
-- **Kısa Not:** 3-5 madde özet
-- **Sonraki Adım:** Sıradaki görev
-- **Agent Promptu:** (Gerekirse doğrudan kopyalayabileceğiniz prompt)

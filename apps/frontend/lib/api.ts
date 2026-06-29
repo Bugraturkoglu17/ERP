@@ -66,6 +66,12 @@ api.interceptors.response.use(
         window.location.href = '/login';
       }
     }
+    if (error.response?.status === 403 && typeof window !== 'undefined') {
+      const pathname = window.location.pathname;
+      if (pathname !== '/' && pathname !== '/platform' && pathname !== '/login') {
+        window.location.href = '/';
+      }
+    }
     return Promise.reject(error);
   }
 );
