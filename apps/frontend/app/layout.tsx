@@ -5,7 +5,6 @@ import { Menu } from "lucide-react";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
-import { PlatformSidebar } from "@/components/layout/platform-sidebar";
 import { fetchTenantContext } from "@/lib/tenant-context";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { getTokenPayloadFromStorage, isPlatformAdmin } from "@/lib/auth";
@@ -80,11 +79,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-900 w-full">
-      {isAdmin ? (
-        <PlatformSidebar mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
-      ) : (
-        <Sidebar mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
-      )}
+      <Sidebar mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
       <main className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-16 shrink-0 items-center justify-between border-b bg-white px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">

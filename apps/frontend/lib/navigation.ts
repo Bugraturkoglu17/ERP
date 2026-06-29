@@ -10,6 +10,8 @@ import {
   Users,
   FileText,
   ClipboardList,
+  CreditCard,
+  Cpu,
   type LucideIcon,
 } from "lucide-react";
 
@@ -19,6 +21,7 @@ export type NavItem = {
   href: string;
   icon: LucideIcon;
   allowedRoles?: string[];
+  exact?: boolean;
 };
 
 export type NavGroup = {
@@ -26,6 +29,7 @@ export type NavGroup = {
   icon: LucideIcon;
   href: string;
   allowedRoles?: string[];
+  exact?: boolean;
   items: NavItem[];
 };
 
@@ -36,6 +40,40 @@ export function isNavGroup(entry: NavEntry): entry is NavGroup {
 }
 
 export const NAV_ENTRIES: NavEntry[] = [
+  // ── Platform Yönetimi ──────────────────────────────────────────────────────
+  {
+    label: "Genel Bakış",
+    href: "/platform",
+    icon: LayoutDashboard,
+    allowedRoles: ["platform_admin"],
+    exact: true,
+  },
+  {
+    label: "Firmalar",
+    href: "/platform/firmalar",
+    icon: Building2,
+    allowedRoles: ["platform_admin"],
+  },
+  {
+    label: "Lisanslar",
+    href: "/platform/lisanslar",
+    icon: CreditCard,
+    allowedRoles: ["platform_admin"],
+  },
+  {
+    label: "Kullanıcılar",
+    href: "/platform/kullanicilar",
+    icon: Users,
+    allowedRoles: ["platform_admin"],
+  },
+  {
+    label: "Sistem Modülleri",
+    href: "/platform/system",
+    icon: Cpu,
+    allowedRoles: ["platform_admin"],
+  },
+
+  // ── Tenant Operasyonları ───────────────────────────────────────────────────
   {
     label: "Genel Bakış",
     href: "/",
@@ -146,7 +184,6 @@ function roleMatch(roles: string[], allowed?: string[]): boolean {
 }
 
 export function getVisibleNavEntries(roles: string[]): NavEntry[] {
-  if (roles.includes("platform_admin")) return [];
   return NAV_ENTRIES.filter((e) => roleMatch(roles, e.allowedRoles)).map((e) => {
     if (isNavGroup(e)) {
       return { ...e, items: e.items.filter((i) => roleMatch(roles, i.allowedRoles)) };
@@ -157,6 +194,5 @@ export function getVisibleNavEntries(roles: string[]): NavEntry[] {
 
 // ── Legacy compat ─────────────────────────────────────────────────────────────
 export function getVisibleNavItems(roles: string[]): NavItem[] {
-  if (roles.includes("platform_admin")) return [];
   return NAV_ITEMS.filter((i) => roleMatch(roles, i.allowedRoles));
 }

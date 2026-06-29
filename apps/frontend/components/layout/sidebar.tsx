@@ -42,6 +42,7 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
 
   const entries = getVisibleNavEntries(roles);
   const navGroups = entries.filter(isNavGroup) as NavGroup[];
+  const isPlatform = roles.includes("platform_admin");
 
   // Auto-open the group that contains the current path
   useEffect(() => {
@@ -59,8 +60,9 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
     });
   };
 
-  const isActive = (href: string) => {
+  const isActive = (href: string, exact?: boolean) => {
     const [base, query] = href.split("?");
+    if (exact) return pathname === base;
     if (base === "/") return pathname === "/";
     const pathMatch = pathname === base || pathname.startsWith(base + "/");
     if (!pathMatch) return false;
@@ -101,8 +103,8 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
               S
             </div>
             <div>
-              <p className="text-sm font-bold text-slate-900 leading-none">Sismik ERP</p>
-              <p className="text-[10px] text-slate-400 mt-0.5">Mağaza Takip</p>
+              <p className="text-sm font-bold text-slate-900 leading-none">{isPlatform ? "Golabs ERP" : "Sismik ERP"}</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">{isPlatform ? "Platform Yönetimi" : "Mağaza Takip"}</p>
             </div>
           </div>
           <button onClick={onClose} className="lg:hidden flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100">
@@ -115,7 +117,7 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
           {entries.map((entry) => {
             if (isNavGroup(entry)) {
               const isOpen    = openGroups.has(entry.href);
-              const isGroupActive = entry.items.some((i) => isActive(i.href)) || isActive(entry.href);
+              const isGroupActive = entry.items.some((i) => isActive(i.href, i.exact)) || isActive(entry.href, entry.exact);
               const GroupIcon = entry.icon;
               return (
                 <div key={entry.href}>
@@ -136,7 +138,7 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
                     <div className="ml-4 mt-0.5 space-y-0.5 border-l border-slate-100 pl-3">
                       {entry.items.map((item) => {
                         const ItemIcon = item.icon;
-                        const active = isActive(item.href);
+                        const active = isActive(item.href, item.exact);
                         return (
                           <Link
                             key={item.href}
@@ -162,7 +164,7 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
 
             // Plain nav item
             const Icon   = entry.icon;
-            const active = isActive(entry.href);
+            const active = isActive(entry.href, entry.exact);
             return (
               <Link
                 key={entry.href}
@@ -188,7 +190,10 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
             <div className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-100 text-[11px] font-bold text-blue-700 shrink-0">
               {fullName.slice(0, 2).toUpperCase()}
             </div>
-            <p className="text-xs font-medium text-slate-900 truncate flex-1">{fullName}</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-slate-900 truncate">{fullName}</p>
+              {isPlatform && <p className="text-[10px] text-slate-400">Platform Yöneticisi</p>}
+            </div>
           </div>
           <button
             onClick={handleLogout}
