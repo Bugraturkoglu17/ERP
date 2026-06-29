@@ -86,85 +86,24 @@ DEFAULT_STAGES = [
     "Tamamlandı",
 ]
 
-# Tadilat işleri için varsayılan aşamalar (scope_code belirtilmediğinde)
+# Tüm tadilat türleri için ortak 6 aşama
 TADILAT_DEFAULT_STAGES = [
-    "Keşif",
-    "Proje / Revizyon Hazırlığı",
-    "Proje Onayı",
-    "Fiyat Teklifi",
-    "Malzeme / Sipariş",
-    "Uygulama / Montaj",
-    "Kontrol / Test",
-    "Tamamlandı",
-    "Hakkediş / Fatura",
+    "Keşif ve İhtiyaç Analizi",
+    "Fiyat Teklifi ve Onay",
+    "Sipariş ve İmalat Süreci",
+    "Montaj ve Uygulama",
+    "Test, Kontrol ve Devreye Alma",
+    "Hakediş ve Faturalandırma",
 ]
 
 SCOPE_STAGES: dict[str, list[str]] = {
-    "yangin_dolabi": [
-        "Keşif",
-        "Revizyon Projesi",
-        "Proje Onayı",
-        "Fiyat Teklifi",
-        "Malzeme Hazırlığı",
-        "Montaj / Uygulama",
-        "Test ve Kontrol",
-        "Tamamlandı",
-        "Hakkediş / Fatura",
-    ],
-    "sprinkler_hatti": [
-        "Keşif",
-        "Revizyon Projesi",
-        "Proje Onayı",
-        "Fiyat Teklifi",
-        "Malzeme Hazırlığı",
-        "Montaj / Uygulama",
-        "Test ve Kontrol",
-        "Tamamlandı",
-        "Hakkediş / Fatura",
-    ],
-    "havalandirma": [
-        "Keşif",
-        "Revizyon Projesi",
-        "Fiyat Teklifi",
-        "Sipariş / İmalat",
-        "Montaj",
-        "Test ve Kontrol",
-        "Tamamlandı",
-        "Hakkediş / Fatura",
-    ],
-    "kanal_imalati": [
-        "Keşif",
-        "Revizyon Projesi",
-        "Fiyat Teklifi",
-        "Sipariş / İmalat",
-        "Montaj",
-        "Test ve Kontrol",
-        "Tamamlandı",
-        "Hakkediş / Fatura",
-    ],
-    "klima_sogutma": [
-        "Keşif",
-        "Proje / Yerleşim Kontrolü",
-        "Fiyat Teklifi",
-        "Malzeme Siparişi",
-        "Montaj Süreci",
-        "Devreye Alma",
-        "Test ve Kontrol",
-        "Tamamlandı",
-        "Hakkediş / Fatura",
-    ],
-    "mekanik_tesisat": [
-        "Keşif",
-        "Proje Hazırlığı",
-        "Proje Onayı",
-        "Fiyat Teklifi",
-        "İmalat / Hazırlık",
-        "Montaj Süreci",
-        "Test ve Kontrol",
-        "Tamamlandı",
-        "Hakkediş / Fatura",
-    ],
-    "diger": TADILAT_DEFAULT_STAGES,
+    "yangin_dolabi":   TADILAT_DEFAULT_STAGES,
+    "sprinkler_hatti": TADILAT_DEFAULT_STAGES,
+    "havalandirma":    TADILAT_DEFAULT_STAGES,
+    "kanal_imalati":   TADILAT_DEFAULT_STAGES,
+    "klima_sogutma":   TADILAT_DEFAULT_STAGES,
+    "mekanik_tesisat": TADILAT_DEFAULT_STAGES,
+    "diger":           TADILAT_DEFAULT_STAGES,
 }
 
 SCOPE_LABELS: dict[str, str] = {
@@ -335,7 +274,7 @@ async def create_process(
             process_id=proc.id,
             name=stage_name,
             order_index=i,
-            status="in_progress" if i == 0 else "pending",
+            status="in_progress" if i == 0 else "waiting",
             created_at=utc_now(),
             updated_at=utc_now(),
         )
@@ -406,7 +345,7 @@ async def create_bulk_processes(
                 process_id=proc.id,
                 name=stage_name,
                 order_index=i,
-                status="in_progress" if i == 0 else "pending",
+                status="in_progress" if i == 0 else "waiting",
                 created_at=utc_now(),
                 updated_at=utc_now(),
             )
@@ -550,10 +489,11 @@ async def update_process(
     if body.status == "completed" and getattr(proc, "work_type", None) == "yeni_yapim":
         await _mark_project_existing(db, proc.project_id)
 
+    log_title = "Tadilat süreci tamamlandı" if body.status == "completed" else "Süreç güncellendi"
     await _log_activity(
         db, proc.project_id, proc.tenant_id, user,
         activity_type="process_updated",
-        title="Süreç güncellendi",
+        title=log_title,
         process_id=proc.id,
     )
 
@@ -607,8 +547,9 @@ async def update_stage(
     all_stages = stages_result.scalars().all()
     completed = sum(1 for s in all_stages if s.id == stage_id and body.status == "completed") + \
                 sum(1 for s in all_stages if s.id != stage_id and s.status == "completed")
-    proc.progress_percent = int(completed / len(all_stages) * 100) if all_stages else 0
-    if proc.progress_percent == 100:
+    proc.progress_percent = round(completed / len(all_stages) * 100) if all_stages else 0
+    # Tadilat süreçleri için otomatik tamamlama yapma — frontend onay modalı üzerinden kontrol eder
+    if proc.progress_percent == 100 and proc.work_type != "tadilat":
         proc.status = "completed"
         proc.completed_at = utc_now()
         if getattr(proc, "work_type", None) == "yeni_yapim":
@@ -618,7 +559,8 @@ async def update_stage(
     # Aktivite
     status_labels = {
         "in_progress": "devam ediyor", "completed": "tamamlandı",
-        "delayed": "gecikti", "cancelled": "iptal edildi", "pending": "bekliyor",
+        "waiting": "beklemeye alındı", "delayed": "beklemeye alındı",
+        "cancelled": "iptal edildi", "pending": "beklemeye alındı",
     }
     await _log_activity(
         db, proc.project_id, proc.tenant_id, user,

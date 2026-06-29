@@ -125,13 +125,31 @@ async function openDoc(docId: string) {
 
 // ── Stage config ───────────────────────────────────────────────────────────────
 
-const STAGE_STATUS: Record<StageStatus, { label: string; icon: React.ElementType; dot: string; text: string; bg: string }> = {
-  pending:     { label: "Bekliyor",      icon: Circle,        dot: "bg-slate-300", text: "text-slate-500", bg: "bg-slate-50"  },
-  in_progress: { label: "Devam Ediyor", icon: Play,          dot: "bg-blue-400",  text: "text-blue-700",  bg: "bg-blue-50"   },
-  completed:   { label: "Tamamlandı",   icon: CheckCircle2,  dot: "bg-green-400", text: "text-green-700", bg: "bg-green-50"  },
-  delayed:     { label: "Gecikti",      icon: AlertTriangle, dot: "bg-red-400",   text: "text-red-700",   bg: "bg-red-50"    },
-  cancelled:   { label: "İptal",        icon: XCircle,       dot: "bg-slate-300", text: "text-slate-400", bg: "bg-slate-100" },
+type StageCfg = { label: string; icon: React.ElementType; dot: string; text: string; bg: string; border: string };
+const STAGE_STATUS: Record<string, StageCfg> = {
+  in_progress: { label: "Devam Ediyor", icon: Play,         dot: "bg-blue-400",  text: "text-blue-700",  bg: "bg-blue-50",  border: "border-blue-200"  },
+  completed:   { label: "Tamamlandı",   icon: CheckCircle2, dot: "bg-green-400", text: "text-green-700", bg: "bg-green-50", border: "border-green-200" },
+  waiting:     { label: "Beklemede",    icon: Clock,        dot: "bg-amber-400", text: "text-amber-700", bg: "bg-amber-50", border: "border-amber-200" },
+  // Eski değerler için uyumluluk
+  pending:     { label: "Beklemede",    icon: Clock,        dot: "bg-amber-400", text: "text-amber-700", bg: "bg-amber-50", border: "border-amber-200" },
+  delayed:     { label: "Beklemede",    icon: Clock,        dot: "bg-amber-400", text: "text-amber-700", bg: "bg-amber-50", border: "border-amber-200" },
+  cancelled:   { label: "İptal",        icon: XCircle,      dot: "bg-slate-300", text: "text-slate-400", bg: "bg-slate-50", border: "border-slate-200" },
 };
+
+const STAGE_DESCRIPTIONS: Record<string, string> = {
+  "Keşif ve İhtiyaç Analizi":      "Sahada keşif yapıldı mı, yapılacak iş netleşti mi?",
+  "Fiyat Teklifi ve Onay":         "Fiyat teklifi hazırlandı mı, ilgili tarafa iletildi mi?",
+  "Sipariş ve İmalat Süreci":      "Malzeme siparişi veya imalat süreci başlatıldı mı?",
+  "Montaj ve Uygulama":            "Sahada montaj / uygulama işlemi yapıldı mı?",
+  "Test, Kontrol ve Devreye Alma": "Sistem test edildi mi, aktif ve çalışır hale getirildi mi?",
+  "Hakediş ve Faturalandırma":     "Hakediş/fatura işlemleri tamamlandı mı?",
+};
+
+const STATUS_OPTIONS = [
+  { value: "in_progress", label: "Devam Ediyor", icon: Play,         selCls: "border-blue-400 bg-blue-50",  iconCls: "text-blue-600"  },
+  { value: "completed",   label: "Tamamlandı",   icon: CheckCircle2, selCls: "border-green-400 bg-green-50", iconCls: "text-green-600" },
+  { value: "waiting",     label: "Beklemede",    icon: Clock,        selCls: "border-amber-400 bg-amber-50", iconCls: "text-amber-600" },
+] as const;
 
 const APPROVAL_STATUS: Record<string, { label: string; cls: string }> = {
   draft:              { label: "Taslak",                    cls: "bg-slate-100 text-slate-600"    },
@@ -228,30 +246,38 @@ function CurrencyInput({ value, onChange, className }: { value: string; onChange
 
 // ── Stage Update Modal ─────────────────────────────────────────────────────────
 
-function StageUpdateModal({ stage, processId, projectId, onClose, onDone }: {
-  stage: Stage; processId: string; projectId: string; onClose: () => void; onDone: () => void;
+function StageUpdateModal({ stage, processId, projectId, isLastStage, onClose, onDone }: {
+  stage: Stage; processId: string; projectId: string;
+  isLastStage: boolean;
+  onClose: () => void; onDone: (completedLastStage: boolean) => void;
 }) {
-  const [form, setForm] = useState({
-    status: stage.status,
-    responsible_name: stage.responsible_name ?? "",
-    target_end_date: stage.target_end_date?.split("T")[0] ?? "",
-    completed_at: stage.completed_at?.split("T")[0] ?? "",
-    note: stage.note ?? "",
-  });
+  const normalizeStatus = (s: string) =>
+    (s === "pending" || s === "delayed" || s === "cancelled") ? "waiting" : s;
+
+  const [status, setStatus] = useState<"in_progress" | "completed" | "waiting">(
+    normalizeStatus(stage.status) as "in_progress" | "completed" | "waiting"
+  );
+  const [responsible, setResponsible] = useState(stage.responsible_name ?? "");
+  const [date, setDate] = useState(stage.target_end_date?.split("T")[0] ?? "");
+  const [note, setNote] = useState(stage.note ?? "");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault(); setBusy(true); setErr("");
     try {
+      const completedAt = status === "completed"
+        ? (stage.completed_at ?? new Date().toISOString().split("T")[0] + "T00:00:00")
+        : null;
       await apiPatch(`/process/projects/${projectId}/process/${processId}/stages/${stage.id}`, {
-        status: form.status,
-        responsible_name: form.responsible_name || null,
-        target_end_date: form.target_end_date ? `${form.target_end_date}T00:00:00` : null,
-        completed_at: form.completed_at ? `${form.completed_at}T00:00:00` : null,
-        note: form.note || null,
+        status,
+        responsible_name: responsible || null,
+        target_end_date: date ? `${date}T00:00:00` : null,
+        completed_at: completedAt,
+        note: note || null,
       });
-      onDone(); onClose();
+      onDone(isLastStage && status === "completed");
+      onClose();
     } catch (ex: any) { setErr(ex?.response?.data?.detail ?? "Güncelleme başarısız."); }
     finally { setBusy(false); }
   };
@@ -266,34 +292,45 @@ function StageUpdateModal({ stage, processId, projectId, onClose, onDone }: {
           </div>
           <button onClick={onClose}><X className="h-5 w-5 text-slate-300 hover:text-slate-600" /></button>
         </div>
-        <form onSubmit={handleSubmit} className="px-5 py-5 space-y-3">
+        <form onSubmit={handleSubmit} className="px-5 py-5 space-y-4">
+          {/* Status card selector */}
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Durum</label>
-            <select value={form.status} onChange={e => setForm(p => ({ ...p, status: e.target.value as StageStatus }))}
-              className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
-              {Object.entries(STAGE_STATUS).map(([v, c]) => <option key={v} value={v}>{c.label}</option>)}
-            </select>
+            <label className="block text-xs font-medium text-slate-600 mb-2">Durum</label>
+            <div className="grid grid-cols-3 gap-2">
+              {STATUS_OPTIONS.map(opt => {
+                const Icon = opt.icon;
+                const isSelected = status === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setStatus(opt.value)}
+                    className={`flex flex-col items-center gap-1.5 rounded-xl border-2 px-2 py-3 transition-all ${
+                      isSelected ? opt.selCls : "border-slate-200 bg-white hover:bg-slate-50"
+                    }`}
+                  >
+                    <Icon className={`h-5 w-5 ${isSelected ? opt.iconCls : "text-slate-400"}`} />
+                    <span className={`text-[11px] font-semibold ${isSelected ? opt.iconCls : "text-slate-500"}`}>
+                      {opt.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Sorumlu Kişi</label>
-            <input value={form.responsible_name} onChange={e => setForm(p => ({ ...p, responsible_name: e.target.value }))}
+            <input value={responsible} onChange={e => setResponsible(e.target.value)}
               placeholder="Atanmadı" className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Hedef Bitiş</label>
-              <input type="date" value={form.target_end_date} onChange={e => setForm(p => ({ ...p, target_end_date: e.target.value }))}
-                className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Tamamlanma</label>
-              <input type="date" value={form.completed_at} onChange={e => setForm(p => ({ ...p, completed_at: e.target.value }))}
-                className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
-            </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Hedef Tarih</label>
+            <input type="date" value={date} onChange={e => setDate(e.target.value)}
+              className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Not</label>
-            <textarea rows={2} value={form.note} onChange={e => setForm(p => ({ ...p, note: e.target.value }))}
+            <label className="block text-xs font-medium text-slate-600 mb-1">Açıklama / Not</label>
+            <textarea rows={2} value={note} onChange={e => setNote(e.target.value)}
               placeholder="Aşama notu..." className="w-full resize-none rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
           </div>
           {err && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{err}</p>}
@@ -302,10 +339,45 @@ function StageUpdateModal({ stage, processId, projectId, onClose, onDone }: {
               className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Vazgeç</button>
             <button type="submit" disabled={busy}
               className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50">
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Güncelle
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Kaydet
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+// ── Process Completion Confirm Modal ───────────────────────────────────────────
+
+function CompletionConfirmModal({ onCancel, onConfirm, busy }: {
+  onCancel: () => void; onConfirm: () => void; busy: boolean;
+}) {
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-2xl">
+        <div className="px-6 pt-6 pb-2">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-green-50 border border-green-100 mb-4">
+            <CheckCircle2 className="h-6 w-6 text-green-600" />
+          </div>
+          <h3 className="text-base font-bold text-slate-900">Tadilat Süreci Tamamlanacak</h3>
+          <p className="text-sm text-slate-500 mt-2 leading-relaxed">
+            Hakediş ve Faturalandırma aşaması tamamlandı olarak işaretlendi. Bu işlem sonrası tadilat aktif
+            listeden kaldırılacak ve <span className="font-medium text-slate-700">Tamamlanan Tadilatlar</span> bölümüne
+            taşınacaktır. Devam etmek istiyor musunuz?
+          </p>
+        </div>
+        <div className="flex justify-end gap-2 border-t border-slate-100 px-6 py-4 mt-4">
+          <button onClick={onCancel} disabled={busy}
+            className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+            Vazgeç
+          </button>
+          <button onClick={onConfirm} disabled={busy}
+            className="inline-flex items-center gap-2 rounded-xl bg-green-600 px-5 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50">
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+            Tadilatı Tamamla
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -385,12 +457,31 @@ export default function TadilatKlasorPage() {
   const [tab,       setTab]       = useState<TabKey>("ozet");
 
   // upload states
-  const [uploadDocOpen,  setUploadDocOpen]  = useState(false);
-  const [uploadRevOpen,  setUploadRevOpen]  = useState(false);
-  const [addPayOpen,     setAddPayOpen]     = useState(false);
-  const [addInvOpen,     setAddInvOpen]     = useState(false);
-  const [editStage,      setEditStage]      = useState<Stage | null>(null);
-  const [historyDoc,     setHistoryDoc]     = useState<Document | null>(null);
+  const [uploadDocOpen,    setUploadDocOpen]    = useState(false);
+  const [uploadRevOpen,    setUploadRevOpen]    = useState(false);
+  const [addPayOpen,       setAddPayOpen]       = useState(false);
+  const [addInvOpen,       setAddInvOpen]       = useState(false);
+  const [editStage,        setEditStage]        = useState<Stage | null>(null);
+  const [historyDoc,       setHistoryDoc]       = useState<Document | null>(null);
+  const [showCompletion,   setShowCompletion]   = useState(false);
+  const [completingProcess, setCompletingProcess] = useState(false);
+
+  const handleCompleteProcess = async () => {
+    setCompletingProcess(true);
+    try {
+      await apiPatch(`/process/projects/${projectId}/process/${processId}`, {
+        status: "completed",
+        progress_percent: 100,
+        completed_at: new Date().toISOString(),
+      });
+      await loadProcess();
+      setShowCompletion(false);
+    } catch {
+      /* hata görmezden gelinmez ama modal açık kalır */
+    } finally {
+      setCompletingProcess(false);
+    }
+  };
 
   // note state
   const [noteText,  setNoteText]  = useState("");
@@ -474,7 +565,8 @@ export default function TadilatKlasorPage() {
   );
 
   const isCompleted = process.status === "completed";
-  const currentStage = process.stages.find(s => s.status === "in_progress") ?? process.stages.find(s => s.status === "pending");
+  const currentStage = process.stages.find(s => s.status === "in_progress")
+    ?? process.stages.find(s => s.status !== "completed");
   const cd = calcDays(process.target_end_date);
 
   return (
@@ -574,14 +666,15 @@ export default function TadilatKlasorPage() {
               </div>
               <div className="space-y-1.5">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Aşamalar</p>
-                {process.stages.map(stage => {
-                  const cfg = STAGE_STATUS[stage.status] ?? STAGE_STATUS.pending;
+                {process.stages.map((stage, idx) => {
+                  const cfg = STAGE_STATUS[stage.status] ?? STAGE_STATUS.waiting;
                   const Icon = cfg.icon;
                   return (
                     <div key={stage.id} className={`flex items-center gap-3 rounded-xl border px-4 py-2.5 ${
                       stage.status === "in_progress" ? "border-blue-100 bg-blue-50/50" :
                       stage.status === "completed" ? "border-green-100 bg-green-50/30" : "border-slate-100 bg-white"
                     }`}>
+                      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white border border-slate-200 text-[10px] font-bold text-slate-500">{idx + 1}</div>
                       <Icon className={`h-4 w-4 shrink-0 ${cfg.text}`} />
                       <p className={`text-xs font-medium flex-1 ${cfg.text}`}>{stage.name}</p>
                       <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.text}`}>{cfg.label}</span>
@@ -595,43 +688,124 @@ export default function TadilatKlasorPage() {
 
           {/* ── Süreç Takibi ── */}
           {tab === "surec" && (
-            <div className="space-y-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Aşamaları güncelle</p>
-              {process.stages.map((stage, idx) => {
-                const cfg = STAGE_STATUS[stage.status] ?? STAGE_STATUS.pending;
-                const Icon = cfg.icon;
-                const isLast = idx === process.stages.length - 1;
-                return (
-                  <div key={stage.id} className="flex gap-2.5">
-                    <div className="flex flex-col items-center pt-0.5">
-                      <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${cfg.bg}`}>
-                        <Icon className={`h-3.5 w-3.5 ${cfg.text}`} />
-                      </div>
-                      {!isLast && <div className="mt-0.5 flex-1 w-px bg-slate-200 min-h-[16px]" />}
-                    </div>
-                    <div className={`flex-1 rounded-xl border p-3 mb-1 ${
-                      stage.status === "in_progress" ? "border-blue-100 bg-blue-50/60" :
-                      stage.status === "completed" ? "border-green-100 bg-green-50/40" : "border-slate-100 bg-white"
-                    }`}>
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-xs font-semibold ${cfg.text}`}>{stage.name}</p>
-                          <div className="flex items-center gap-2 mt-0.5 flex-wrap text-[10px] text-slate-400">
-                            {stage.responsible_name && <span>{stage.responsible_name}</span>}
-                            {stage.target_end_date && <span>Hedef: {fmtDate(stage.target_end_date)}</span>}
-                            {stage.completed_at && <span className="text-green-600">✓ {fmtDate(stage.completed_at)}</span>}
-                            {stage.note && <span className="italic text-slate-400 truncate max-w-[200px]">{stage.note}</span>}
-                          </div>
-                        </div>
-                        <button onClick={() => setEditStage(stage)}
-                          className="shrink-0 text-[10px] text-slate-400 border border-slate-200 rounded px-2 py-0.5 hover:text-blue-600 hover:border-blue-200">
-                          Güncelle
-                        </button>
-                      </div>
-                    </div>
+            <div className="space-y-5">
+              {/* İlerleme özeti */}
+              <div className={`rounded-2xl border p-5 ${
+                isCompleted ? "bg-green-50 border-green-200" : "bg-gradient-to-r from-slate-50 to-white border-slate-200"
+              }`}>
+                <div className="flex items-start justify-between gap-4 mb-4">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Genel İlerleme</p>
+                    <p className={`text-3xl font-bold mt-0.5 ${isCompleted ? "text-green-600" : "text-slate-900"}`}>
+                      {process.progress_percent}%
+                    </p>
                   </div>
-                );
-              })}
+                  <div className="text-right">
+                    <p className="text-[11px] text-slate-400 mb-0.5">Tamamlanan</p>
+                    <p className="text-sm font-bold text-slate-700">
+                      {process.stages.filter(s => s.status === "completed").length}
+                      <span className="text-slate-400 font-normal"> / {process.stages.length} aşama</span>
+                    </p>
+                    {!isCompleted && cd.text && (
+                      <p className={`text-xs font-semibold mt-1 ${cd.color}`}>{cd.text}</p>
+                    )}
+                    {isCompleted && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-green-600 bg-green-100 px-2 py-0.5 rounded-full mt-1">
+                        <CheckCircle2 className="h-3 w-3" /> Tamamlandı
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="w-full h-2.5 rounded-full bg-slate-200/60 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-700 ${isCompleted ? "bg-green-400" : "bg-amber-400"}`}
+                    style={{ width: `${process.progress_percent}%` }}
+                  />
+                </div>
+                {!isCompleted && currentStage && (
+                  <p className="text-xs text-slate-500 mt-2">
+                    <span className="font-medium text-slate-700">Aktif aşama:</span> {currentStage.name}
+                  </p>
+                )}
+              </div>
+
+              {/* Timeline */}
+              <div>
+                {process.stages.map((stage, idx) => {
+                  const cfg = STAGE_STATUS[stage.status] ?? STAGE_STATUS.waiting;
+                  const Icon = cfg.icon;
+                  const isLast = idx === process.stages.length - 1;
+                  const isDone = stage.status === "completed";
+                  const isActive = stage.status === "in_progress";
+
+                  return (
+                    <div key={stage.id} className="flex gap-4">
+                      {/* Connector column */}
+                      <div className="flex flex-col items-center w-10 shrink-0">
+                        <div className={`flex h-10 w-10 items-center justify-center rounded-full border-2 transition-all ${
+                          isDone  ? "border-green-200 bg-green-50" :
+                          isActive ? "border-blue-300 bg-blue-50 shadow-sm shadow-blue-100" :
+                          "border-slate-200 bg-white"
+                        }`}>
+                          <Icon className={`h-4.5 w-4.5 ${cfg.text}`} style={{ width: "18px", height: "18px" }} />
+                        </div>
+                        {!isLast && (
+                          <div className={`flex-1 w-0.5 min-h-[16px] mt-1 ${isDone ? "bg-green-200" : "bg-slate-100"}`} />
+                        )}
+                      </div>
+
+                      {/* Card */}
+                      <div className={`flex-1 rounded-2xl border p-4 mb-3 transition-all ${
+                        isDone  ? "border-green-100 bg-green-50/30" :
+                        isActive ? "border-blue-100 bg-blue-50/40 shadow-sm" :
+                        "border-slate-100 bg-white"
+                      }`}>
+                        <div className="flex items-start gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                              <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 rounded-full w-5 h-5 flex items-center justify-center shrink-0">
+                                {idx + 1}
+                              </span>
+                              <h4 className="text-sm font-bold text-slate-900">{stage.name}</h4>
+                              <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.text}`}>
+                                <Icon className="h-2.5 w-2.5" style={{ width: "10px", height: "10px" }} />
+                                {cfg.label}
+                              </span>
+                            </div>
+                            {STAGE_DESCRIPTIONS[stage.name] && (
+                              <p className="text-xs text-slate-400 mb-1.5">{STAGE_DESCRIPTIONS[stage.name]}</p>
+                            )}
+                            <div className="flex items-center gap-3 flex-wrap text-[11px] text-slate-400">
+                              {stage.responsible_name && (
+                                <span className="flex items-center gap-1">
+                                  <HardHat className="h-3 w-3" /> {stage.responsible_name}
+                                </span>
+                              )}
+                              {stage.completed_at && (
+                                <span className="text-green-600 font-medium">✓ {fmtDate(stage.completed_at)}</span>
+                              )}
+                              {!stage.completed_at && stage.target_end_date && (
+                                <span>Hedef: {fmtDate(stage.target_end_date)}</span>
+                              )}
+                              {stage.note && (
+                                <span className="italic truncate max-w-[220px]">{stage.note}</span>
+                              )}
+                            </div>
+                          </div>
+                          {!isCompleted && (
+                            <button
+                              onClick={() => setEditStage(stage)}
+                              className="shrink-0 inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 border border-slate-200 rounded-xl px-3 py-1.5 hover:bg-slate-50 hover:border-slate-300 transition-colors"
+                            >
+                              <RefreshCw className="h-3 w-3" /> Güncelle
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
 
@@ -739,8 +913,24 @@ export default function TadilatKlasorPage() {
 
       {/* Modals */}
       {editStage && (
-        <StageUpdateModal stage={editStage} processId={processId} projectId={projectId}
-          onClose={() => setEditStage(null)} onDone={loadProcess} />
+        <StageUpdateModal
+          stage={editStage}
+          processId={processId}
+          projectId={projectId}
+          isLastStage={process.stages[process.stages.length - 1]?.id === editStage.id}
+          onClose={() => setEditStage(null)}
+          onDone={(completedLast) => {
+            loadProcess();
+            if (completedLast) setShowCompletion(true);
+          }}
+        />
+      )}
+      {showCompletion && (
+        <CompletionConfirmModal
+          onCancel={() => setShowCompletion(false)}
+          onConfirm={handleCompleteProcess}
+          busy={completingProcess}
+        />
       )}
       {historyDoc && <HistoryDrawer doc={historyDoc} onClose={() => setHistoryDoc(null)} />}
       {uploadDocOpen && (
