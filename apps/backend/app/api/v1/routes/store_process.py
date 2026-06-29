@@ -86,14 +86,15 @@ DEFAULT_STAGES = [
     "Tamamlandı",
 ]
 
-# Tüm tadilat türleri için ortak 6 aşama
+# Tüm tadilat türleri için ortak 7 aşama
 TADILAT_DEFAULT_STAGES = [
-    "Keşif ve İhtiyaç Analizi",
-    "Fiyat Teklifi ve Onay",
-    "Sipariş ve İmalat Süreci",
-    "Montaj ve Uygulama",
-    "Test, Kontrol ve Devreye Alma",
-    "Hakediş ve Faturalandırma",
+    "Keşif",
+    "Proje Onayı",
+    "Fiyat Onayı",
+    "Malzeme Hazırlığı",
+    "Montaj / Uygulama",
+    "Test ve Kontrol",
+    "Hakediş / Fatura",
 ]
 
 SCOPE_STAGES: dict[str, list[str]] = {

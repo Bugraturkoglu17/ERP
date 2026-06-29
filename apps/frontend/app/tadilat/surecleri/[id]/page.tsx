@@ -137,12 +137,13 @@ const STAGE_STATUS: Record<string, StageCfg> = {
 };
 
 const STAGE_DESCRIPTIONS: Record<string, string> = {
-  "Keşif ve İhtiyaç Analizi":      "Sahada keşif yapıldı mı, yapılacak iş netleşti mi?",
-  "Fiyat Teklifi ve Onay":         "Fiyat teklifi hazırlandı mı, ilgili tarafa iletildi mi?",
-  "Sipariş ve İmalat Süreci":      "Malzeme siparişi veya imalat süreci başlatıldı mı?",
-  "Montaj ve Uygulama":            "Sahada montaj / uygulama işlemi yapıldı mı?",
-  "Test, Kontrol ve Devreye Alma": "Sistem test edildi mi, aktif ve çalışır hale getirildi mi?",
-  "Hakediş ve Faturalandırma":     "Hakediş/fatura işlemleri tamamlandı mı?",
+  "Keşif":             "Sahada keşif yapıldı mı, yapılacak iş netleşti mi?",
+  "Proje Onayı":       "Proje çizimleri ve teknik şartname hazırlandı mı, onaylandı mı?",
+  "Fiyat Onayı":       "Fiyat teklifi hazırlandı mı, ilgili taraflarca onaylandı mı?",
+  "Malzeme Hazırlığı": "Malzeme siparişi verildi mi, temin süreci başladı mı?",
+  "Montaj / Uygulama": "Sahada montaj / uygulama işlemi yapıldı mı?",
+  "Test ve Kontrol":   "Sistem test edildi mi, aktif ve çalışır hale getirildi mi?",
+  "Hakediş / Fatura":  "Hakediş/fatura işlemleri tamamlandı mı? Bu aşama tamamlandığında tadilat kapanır.",
 };
 
 const STATUS_OPTIONS = [
@@ -246,10 +247,12 @@ function CurrencyInput({ value, onChange, className }: { value: string; onChange
 
 // ── Stage Update Modal ─────────────────────────────────────────────────────────
 
-function StageUpdateModal({ stage, processId, projectId, isLastStage, onClose, onDone }: {
+function StageUpdateModal({ stage, processId, projectId, isLastStage, onClose, onDone, onPendingCompletion }: {
   stage: Stage; processId: string; projectId: string;
   isLastStage: boolean;
-  onClose: () => void; onDone: (completedLastStage: boolean) => void;
+  onClose: () => void;
+  onDone: () => void;
+  onPendingCompletion: (data: { responsible: string; date: string; note: string }) => void;
 }) {
   const normalizeStatus = (s: string) =>
     (s === "pending" || s === "delayed" || s === "cancelled") ? "waiting" : s;
@@ -264,7 +267,16 @@ function StageUpdateModal({ stage, processId, projectId, isLastStage, onClose, o
   const [err, setErr] = useState("");
 
   const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault(); setBusy(true); setErr("");
+    e.preventDefault();
+
+    // Son aşama + tamamlandı → önce onay modalı göster, DB'ye yazma
+    if (isLastStage && status === "completed") {
+      onPendingCompletion({ responsible, date, note });
+      onClose();
+      return;
+    }
+
+    setBusy(true); setErr("");
     try {
       const completedAt = status === "completed"
         ? (stage.completed_at ?? new Date().toISOString().split("T")[0] + "T00:00:00")
@@ -276,7 +288,7 @@ function StageUpdateModal({ stage, processId, projectId, isLastStage, onClose, o
         completed_at: completedAt,
         note: note || null,
       });
-      onDone(isLastStage && status === "completed");
+      onDone();
       onClose();
     } catch (ex: any) { setErr(ex?.response?.data?.detail ?? "Güncelleme başarısız."); }
     finally { setBusy(false); }
@@ -350,9 +362,42 @@ function StageUpdateModal({ stage, processId, projectId, isLastStage, onClose, o
 
 // ── Process Completion Confirm Modal ───────────────────────────────────────────
 
-function CompletionConfirmModal({ onCancel, onConfirm, busy }: {
-  onCancel: () => void; onConfirm: () => void; busy: boolean;
+type PendingCompletion = { stageId: string; responsible: string; date: string; note: string };
+
+function CompletionConfirmModal({ pendingData, processId, projectId, onCancel, onConfirm }: {
+  pendingData: PendingCompletion;
+  processId: string; projectId: string;
+  onCancel: () => void; onConfirm: () => void;
 }) {
+  const [busy, setBusy] = useState(false);
+  const [err,  setErr]  = useState("");
+
+  const handleConfirm = async () => {
+    setBusy(true); setErr("");
+    try {
+      const completedAt = new Date().toISOString().split("T")[0] + "T00:00:00";
+      // 1. Aşamayı kaydet
+      await apiPatch(`/process/projects/${projectId}/process/${processId}/stages/${pendingData.stageId}`, {
+        status: "completed",
+        responsible_name: pendingData.responsible || null,
+        target_end_date: pendingData.date ? `${pendingData.date}T00:00:00` : null,
+        completed_at: completedAt,
+        note: pendingData.note || null,
+      });
+      // 2. Süreci tamamla
+      await apiPatch(`/process/projects/${projectId}/process/${processId}`, {
+        status: "completed",
+        progress_percent: 100,
+        completed_at: new Date().toISOString(),
+      });
+      onConfirm();
+    } catch (ex: any) {
+      setErr(ex?.response?.data?.detail ?? "İşlem başarısız.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
       <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-2xl">
@@ -360,19 +405,20 @@ function CompletionConfirmModal({ onCancel, onConfirm, busy }: {
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-green-50 border border-green-100 mb-4">
             <CheckCircle2 className="h-6 w-6 text-green-600" />
           </div>
-          <h3 className="text-base font-bold text-slate-900">Tadilat Süreci Tamamlanacak</h3>
+          <h3 className="text-base font-bold text-slate-900">Tadilat Tamamlanacak</h3>
           <p className="text-sm text-slate-500 mt-2 leading-relaxed">
-            Hakediş ve Faturalandırma aşaması tamamlandı olarak işaretlendi. Bu işlem sonrası tadilat aktif
+            Hakediş / Fatura aşaması tamamlandı olarak işaretlendi. Bu işlem sonrası tadilat aktif
             listeden kaldırılacak ve <span className="font-medium text-slate-700">Tamamlanan Tadilatlar</span> bölümüne
             taşınacaktır. Devam etmek istiyor musunuz?
           </p>
+          {err && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg mt-3">{err}</p>}
         </div>
         <div className="flex justify-end gap-2 border-t border-slate-100 px-6 py-4 mt-4">
           <button onClick={onCancel} disabled={busy}
             className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">
             Vazgeç
           </button>
-          <button onClick={onConfirm} disabled={busy}
+          <button onClick={handleConfirm} disabled={busy}
             className="inline-flex items-center gap-2 rounded-xl bg-green-600 px-5 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50">
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
             Tadilatı Tamamla
@@ -463,25 +509,7 @@ export default function TadilatKlasorPage() {
   const [addInvOpen,       setAddInvOpen]       = useState(false);
   const [editStage,        setEditStage]        = useState<Stage | null>(null);
   const [historyDoc,       setHistoryDoc]       = useState<Document | null>(null);
-  const [showCompletion,   setShowCompletion]   = useState(false);
-  const [completingProcess, setCompletingProcess] = useState(false);
-
-  const handleCompleteProcess = async () => {
-    setCompletingProcess(true);
-    try {
-      await apiPatch(`/process/projects/${projectId}/process/${processId}`, {
-        status: "completed",
-        progress_percent: 100,
-        completed_at: new Date().toISOString(),
-      });
-      await loadProcess();
-      setShowCompletion(false);
-    } catch {
-      /* hata görmezden gelinmez ama modal açık kalır */
-    } finally {
-      setCompletingProcess(false);
-    }
-  };
+  const [pendingCompletion, setPendingCompletion] = useState<PendingCompletion | null>(null);
 
   // note state
   const [noteText,  setNoteText]  = useState("");
@@ -919,17 +947,20 @@ export default function TadilatKlasorPage() {
           projectId={projectId}
           isLastStage={process.stages[process.stages.length - 1]?.id === editStage.id}
           onClose={() => setEditStage(null)}
-          onDone={(completedLast) => {
-            loadProcess();
-            if (completedLast) setShowCompletion(true);
+          onDone={() => { loadProcess(); }}
+          onPendingCompletion={(data) => {
+            setPendingCompletion({ stageId: editStage.id, ...data });
+            setEditStage(null);
           }}
         />
       )}
-      {showCompletion && (
+      {pendingCompletion && (
         <CompletionConfirmModal
-          onCancel={() => setShowCompletion(false)}
-          onConfirm={handleCompleteProcess}
-          busy={completingProcess}
+          pendingData={pendingCompletion}
+          processId={processId}
+          projectId={projectId}
+          onCancel={() => setPendingCompletion(null)}
+          onConfirm={() => { setPendingCompletion(null); loadProcess(); }}
         />
       )}
       {historyDoc && <HistoryDrawer doc={historyDoc} onClose={() => setHistoryDoc(null)} />}
