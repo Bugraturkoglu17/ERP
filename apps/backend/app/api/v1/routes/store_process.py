@@ -14,6 +14,7 @@ from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user as _orig_get_current_user, get_db, require_role
+from app.core.permissions import verify_project_tenant, verify_process_tenant
 get_current_user = require_role("admin", "saha_muhendisi", "operasyon", "yonetici")
 from app.db.models import (
     Project,
@@ -187,24 +188,12 @@ def _build_process_read(proc: StoreProcess, stages: list) -> StoreProcessRead:
     )
 
 
-async def _get_project_or_404(db: AsyncSession, project_id: UUID, tenant_id: UUID) -> Project:
-    result = await db.execute(
-        select(Project).where(Project.id == project_id, Project.tenant_id == tenant_id)
-    )
-    project = result.scalar_one_or_none()
-    if not project:
-        raise HTTPException(status_code=404, detail="Mağaza bulunamadı.")
-    return project
+async def _get_project_or_404(db: AsyncSession, project_id: UUID, user: User) -> Project:
+    return await verify_project_tenant(db, project_id, user)
 
 
-async def _get_process_or_404(db: AsyncSession, process_id: UUID) -> StoreProcess:
-    result = await db.execute(
-        select(StoreProcess).where(StoreProcess.id == process_id)
-    )
-    proc = result.scalar_one_or_none()
-    if not proc:
-        raise HTTPException(status_code=404, detail="Süreç bulunamadı.")
-    return proc
+async def _get_process_or_404(db: AsyncSession, process_id: UUID, user: User) -> StoreProcess:
+    return await verify_process_tenant(db, process_id, user)
 
 
 async def _log_activity(
@@ -243,6 +232,7 @@ async def get_project_processes(
     user: User         = Depends(get_current_user),
 ):
     """Bir mağazanın tüm süreçlerini listeler. Silinen süreçler varsayılan olarak hariç tutulur."""
+    await verify_project_tenant(db, project_id, user)
     filters = [StoreProcess.project_id == project_id]
     if not include_deleted:
         filters.append(StoreProcess.status != "deleted")
@@ -275,7 +265,7 @@ async def create_process(
     user: User         = Depends(get_current_user),
 ):
     """Yeni tadilat / yeni yapım süreci başlatır. Aşamalar otomatik oluşur."""
-    project = await _get_project_or_404(db, project_id, user.tenant_id)
+    project = await _get_project_or_404(db, project_id, user)
 
     proc = StoreProcess(
         tenant_id=user.tenant_id,
@@ -341,7 +331,7 @@ async def create_bulk_processes(
     user: User         = Depends(get_current_user),
 ):
     """Wizard: seçilen her scope için ayrı süreç + scope'a özel aşamalar oluşturur."""
-    await _get_project_or_404(db, project_id, user.tenant_id)
+    await _get_project_or_404(db, project_id, user)
 
     scope_codes = body.scope_codes if body.scope_codes else ["diger"]
     created_procs: list[tuple[StoreProcess, list[StoreProcessStage]]] = []
@@ -416,7 +406,7 @@ async def cancel_process(
     user: User         = Depends(get_current_user),
 ):
     """Süreci iptal eder — kayıt sistemde kalır, durum 'cancelled' olur."""
-    proc = await _get_process_or_404(db, process_id)
+    proc = await _get_process_or_404(db, process_id, user)
     if proc.project_id != project_id:
         raise HTTPException(status_code=404, detail="Süreç bulunamadı.")
 
@@ -454,7 +444,7 @@ async def delete_process(
 ):
     """Süreci siler (soft delete — status='deleted'). Mağaza kaydına dokunmaz.
     Bağlı hakkediş veya fatura varsa 409 döner. Bağlı onay talepleri iptal edilir."""
-    proc = await _get_process_or_404(db, process_id)
+    proc = await _get_process_or_404(db, process_id, user)
     if proc.project_id != project_id:
         raise HTTPException(status_code=404, detail="Süreç bulunamadı.")
 
@@ -510,7 +500,7 @@ async def update_process(
     db:   AsyncSession = Depends(get_db),
     user: User         = Depends(get_current_user),
 ):
-    proc = await _get_process_or_404(db, process_id)
+    proc = await _get_process_or_404(db, process_id, user)
 
     for field, value in body.model_dump(exclude_none=True).items():
         setattr(proc, field, value)
@@ -566,7 +556,7 @@ async def update_stage(
     stage.updated_at = utc_now()
 
     # Süreci güncelle: tamamlanan aşama sayısına göre progress
-    proc = await _get_process_or_404(db, process_id)
+    proc = await _get_process_or_404(db, process_id, user)
     stages_result = await db.execute(
         select(StoreProcessStage).where(StoreProcessStage.process_id == process_id)
     )
@@ -610,7 +600,7 @@ async def add_note(
     db:   AsyncSession = Depends(get_db),
     user: User         = Depends(get_current_user),
 ):
-    proc = await _get_process_or_404(db, process_id)
+    proc = await _get_process_or_404(db, process_id, user)
 
     note = StoreProcessNote(
         process_id=process_id,
@@ -647,6 +637,9 @@ async def get_notes(
     db:   AsyncSession = Depends(get_db),
     user: User         = Depends(get_current_user),
 ):
+    proc = await _get_process_or_404(db, process_id, user)
+    if proc.project_id != project_id:
+        raise HTTPException(status_code=404, detail="Süreç bulunamadı.")
     result = await db.execute(
         select(StoreProcessNote)
         .where(StoreProcessNote.process_id == process_id)
@@ -664,6 +657,7 @@ async def get_activities(
     db:   AsyncSession = Depends(get_db),
     user: User         = Depends(get_current_user),
 ):
+    await verify_project_tenant(db, project_id, user)
     result = await db.execute(
         select(StoreActivity)
         .where(StoreActivity.project_id == project_id)

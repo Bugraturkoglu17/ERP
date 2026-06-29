@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user, get_db, require_role
 from app.core.storage import storage, sanitize_filename
+from app.core.permissions import verify_project_tenant, verify_work_order_tenant
 from app.db.models import (
     Project, User, WorkOrder, WorkOrderActivity, WorkOrderPhoto,
     WorkOrderPublicLink, WorkOrderServiceForm, WorkOrderStatus,
@@ -478,9 +479,7 @@ async def create_work_order(
     db:   AsyncSession = Depends(get_db),
     user: User         = Depends(require_role("admin", "saha_muhendisi", "operasyon", "yonetici")),
 ):
-    proj = await db.get(Project, payload.project_id)
-    if not proj:
-        raise HTTPException(404, "Mağaza bulunamadı.")
+    await verify_project_tenant(db, payload.project_id, user)
 
     wo = WorkOrder(
         id=uuid4(),
@@ -575,9 +574,7 @@ async def get_work_order(
     db:   AsyncSession = Depends(get_db),
     user: User         = Depends(require_role("admin", "saha_muhendisi", "operasyon", "yonetici")),
 ):
-    wo = await db.get(WorkOrder, work_order_id)
-    if not wo or wo.is_deleted:
-        raise HTTPException(404, "İş emri bulunamadı.")
+    wo = await verify_work_order_tenant(db, work_order_id, user)
     proj = await db.get(Project, wo.project_id)
     photos_r = await db.execute(select(WorkOrderPhoto).where(WorkOrderPhoto.work_order_id == wo.id))
     forms_r  = await db.execute(select(WorkOrderServiceForm).where(WorkOrderServiceForm.work_order_id == wo.id))
@@ -592,9 +589,7 @@ async def update_work_order(
     db:   AsyncSession = Depends(get_db),
     user: User         = Depends(require_role("admin", "saha_muhendisi", "operasyon", "yonetici")),
 ):
-    wo = await db.get(WorkOrder, work_order_id)
-    if not wo or wo.is_deleted:
-        raise HTTPException(404, "İş emri bulunamadı.")
+    wo = await verify_work_order_tenant(db, work_order_id, user)
 
     reassigned = False
     if payload.assigned_to_phone is not None and payload.assigned_to_phone != wo.assigned_to_phone:
@@ -663,9 +658,7 @@ async def delete_work_order(
     db:   AsyncSession = Depends(get_db),
     user: User         = Depends(require_role("admin", "saha_muhendisi", "operasyon", "yonetici")),
 ):
-    wo = await db.get(WorkOrder, work_order_id)
-    if not wo or wo.is_deleted:
-        raise HTTPException(404, "İş emri bulunamadı.")
+    wo = await verify_work_order_tenant(db, work_order_id, user)
 
     # Mağaza kartına silme kaydı düş
     db.add(StoreActivity(
@@ -884,9 +877,7 @@ async def send_whatsapp(
     db:   AsyncSession = Depends(get_db),
     user: User         = Depends(require_role("admin", "saha_muhendisi", "operasyon", "yonetici")),
 ):
-    wo = await db.get(WorkOrder, work_order_id)
-    if not wo or wo.is_deleted:
-        raise HTTPException(404, "İş emri bulunamadı.")
+    wo = await verify_work_order_tenant(db, work_order_id, user)
     
     await _execute_whatsapp_sending(wo, db, user)
     await db.commit()
@@ -905,9 +896,7 @@ async def get_work_order_whatsapp_messages(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("admin", "saha_muhendisi", "operasyon", "yonetici")),
 ):
-    wo = await db.get(WorkOrder, work_order_id)
-    if not wo or wo.is_deleted:
-        raise HTTPException(404, "İş emri bulunamadı.")
+    wo = await verify_work_order_tenant(db, work_order_id, user)
         
     result = await db.execute(
         select(WorkOrderWhatsappMessage)
@@ -945,9 +934,7 @@ async def upload_admin_photo(
     db:   AsyncSession = Depends(get_db),
     user: User         = Depends(require_role("admin", "saha_muhendisi", "operasyon", "yonetici")),
 ):
-    wo = await db.get(WorkOrder, work_order_id)
-    if not wo or wo.is_deleted:
-        raise HTTPException(404, "İş emri bulunamadı.")
+    wo = await verify_work_order_tenant(db, work_order_id, user)
 
     content = await file.read()
     safe_name = sanitize_filename(file.filename or "photo.jpg")

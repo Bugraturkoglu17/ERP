@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, is_platform_admin
+from app.core.permissions import verify_project_tenant
 from app.core.exceptions import NotFoundError
 from app.db.models import (
     FieldReport, FieldReportItem, FieldReportActivityType,
@@ -99,10 +100,9 @@ async def get_report(
     if not report:
         raise NotFoundError(detail="Rapor bulunamadı.")
 
+    await verify_project_tenant(db, report.project_id, user)
+
     if not is_platform_admin(user):
-        proj = await db.get(Project, report.project_id)
-        if not proj or str(proj.tenant_id) != str(user.tenant_id):
-            raise HTTPException(status_code=403, detail="Bu rapor firma kapsamınız dışında.")
         if user.default_role not in ("admin",) and str(report.author_id) != str(user.id):
             raise HTTPException(status_code=403, detail="Bu raporu görüntüleme yetkiniz yok.")
 
@@ -119,11 +119,8 @@ async def create_report(
     db:      AsyncSession = Depends(get_db),
     user:    User         = Depends(get_current_user),
 ):
-    proj = await db.get(Project, payload.project_id)
-    if not proj:
-        raise NotFoundError(detail="Proje bulunamadı.")
-    if not is_platform_admin(user) and str(proj.tenant_id) != str(user.tenant_id):
-        raise HTTPException(status_code=403, detail="Bu proje firma kapsamınız dışında.")
+    # verify project tenant ownership
+    proj = await verify_project_tenant(db, payload.project_id, user)
 
     report_date = payload.report_date
     if report_date and report_date.tzinfo:
@@ -173,6 +170,7 @@ async def add_report_item(
     report = await db.get(FieldReport, report_id)
     if not report:
         raise NotFoundError(detail="Rapor bulunamadı.")
+    await verify_project_tenant(db, report.project_id, user)
     if report.submitted:
         raise HTTPException(status_code=400, detail="Gönderilmiş rapora satır eklenemez.")
     if str(report.author_id) != str(user.id) and user.default_role not in ("admin", "platform_admin"):
@@ -206,6 +204,7 @@ async def submit_report(
     report = await db.get(FieldReport, report_id)
     if not report:
         raise NotFoundError(detail="Rapor bulunamadı.")
+    await verify_project_tenant(db, report.project_id, user)
     if str(report.author_id) != str(user.id) and user.default_role not in ("admin", "platform_admin"):
         raise HTTPException(status_code=403, detail="Bu raporu gönderme yetkiniz yok.")
     if report.submitted:
@@ -234,6 +233,7 @@ async def approve_report(
     report = await db.get(FieldReport, report_id)
     if not report:
         raise NotFoundError(detail="Rapor bulunamadı.")
+    await verify_project_tenant(db, report.project_id, user)
     if not report.submitted:
         raise HTTPException(status_code=400, detail="Henüz gönderilmemiş rapor onaylanamaz.")
     if report.approved_by:
@@ -260,6 +260,7 @@ async def delete_report(
     report = await db.get(FieldReport, report_id)
     if not report:
         raise NotFoundError(detail="Rapor bulunamadı.")
+    await verify_project_tenant(db, report.project_id, user)
     if report.submitted:
         raise HTTPException(status_code=400, detail="Gönderilmiş rapor silinemez.")
     if str(report.author_id) != str(user.id) and user.default_role not in ("admin", "platform_admin"):

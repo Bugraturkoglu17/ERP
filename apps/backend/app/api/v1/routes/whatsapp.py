@@ -14,8 +14,10 @@ from uuid import UUID
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.db.models import OutboundWhatsAppAudit, ErpNotification
+from app.db.models import OutboundWhatsAppAudit, ErpNotification, User
 from app.core.workers.tasks import send_whatsapp_message_task
+from app.core.dependencies import get_current_user, require_role
+from app.core.permissions import is_platform_admin
 
 logger = logging.getLogger(__name__)
 
@@ -169,12 +171,20 @@ async def receive_webhook(
 @router.post("/test-template")
 async def test_template(
     body: TestTemplateRequest,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("admin")),
 ):
     """
     Uçtan uca WhatsApp şablon test endpoint'i.
     Servis görev ataması şablonu (servis_gorev_atamasi) gönderimi için kuyruğa atar.
     """
+    # Tenant validation
+    if not is_platform_admin(user):
+        if user.tenant_id is None:
+            raise HTTPException(status_code=403, detail="Tenant bağlamı bulunamadı.")
+        if str(body.tenant_id) != str(user.tenant_id):
+            raise HTTPException(status_code=403, detail="Başka bir tenant için şablon testi yapamazsınız.")
+
     components = []
     
     if body.template_name == "servis_gorev_atamasi_v2":

@@ -15,6 +15,7 @@ from typing import Optional
 
 from app.core.dependencies import get_current_user as _orig_get_current_user, get_db, require_role
 from app.db.models import StoreActivity, StoreInvoiceRecord, User
+from app.core.permissions import verify_project_tenant, verify_invoice_tenant
 
 get_current_user = require_role("admin", "saha_muhendisi", "operasyon", "yonetici")
 from app.db.schemas import InvoiceRecordCreate, InvoiceRecordRead
@@ -62,10 +63,7 @@ async def delete_invoice(
     db:   AsyncSession = Depends(get_db),
     user: User         = Depends(get_current_user),
 ):
-    result = await db.execute(select(StoreInvoiceRecord).where(StoreInvoiceRecord.id == invoice_id))
-    inv = result.scalar_one_or_none()
-    if not inv:
-        raise HTTPException(status_code=404, detail="Fatura kaydı bulunamadı.")
+    inv = await verify_invoice_tenant(db, invoice_id, user)
     await db.delete(inv)
     await db.commit()
 
@@ -76,6 +74,7 @@ async def list_invoices(
     db:   AsyncSession = Depends(get_db),
     user: User         = Depends(get_current_user),
 ):
+    await verify_project_tenant(db, project_id, user)
     result = await db.execute(
         select(StoreInvoiceRecord)
         .where(StoreInvoiceRecord.project_id == project_id)
@@ -91,6 +90,7 @@ async def create_invoice(
     db:   AsyncSession = Depends(get_db),
     user: User         = Depends(get_current_user),
 ):
+    await verify_project_tenant(db, project_id, user)
     inv = StoreInvoiceRecord(
         tenant_id=user.tenant_id,
         project_id=project_id,

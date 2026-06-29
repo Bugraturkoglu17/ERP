@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user as _orig_get_current_user, get_db, require_role
 from app.db.models import StoreActivity, StoreServiceForm, User
+from app.core.permissions import verify_project_tenant, verify_service_form_tenant
 
 get_current_user = require_role("admin", "saha_muhendisi", "operasyon", "yonetici")
 from app.db.schemas import ServiceFormCreate, ServiceFormRead
@@ -74,6 +75,7 @@ async def list_service_forms(
     user: User         = Depends(get_current_user),
 ):
     """Bir mağazanın servis formlarını listeler (isteğe bağlı yıl/ay filtresi)."""
+    await verify_project_tenant(db, project_id, user)
     filters = [StoreServiceForm.project_id == project_id]
     if year:
         filters.append(StoreServiceForm.year == year)
@@ -98,6 +100,7 @@ async def create_service_form(
     user: User         = Depends(get_current_user),
 ):
     """Aylık servis formu kaydı oluşturur."""
+    await verify_project_tenant(db, project_id, user)
     if body.month < 1 or body.month > 12:
         raise HTTPException(status_code=400, detail="Geçersiz ay değeri (1-12 olmalı).")
 
@@ -139,9 +142,6 @@ async def delete_service_form(
     db:   AsyncSession = Depends(get_db),
     user: User         = Depends(get_current_user),
 ):
-    result = await db.execute(select(StoreServiceForm).where(StoreServiceForm.id == form_id))
-    form = result.scalar_one_or_none()
-    if not form:
-        raise HTTPException(status_code=404, detail="Servis formu bulunamadı.")
+    form = await verify_service_form_tenant(db, form_id, user)
     await db.delete(form)
     await db.commit()

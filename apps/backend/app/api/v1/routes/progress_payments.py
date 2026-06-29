@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user as _orig_get_current_user, get_db, require_role
 from app.db.models import StoreActivity, StoreApprovalRequest, StoreProgressPayment, User
+from app.core.permissions import verify_project_tenant, verify_payment_tenant
 
 get_current_user = require_role("admin", "saha_muhendisi", "operasyon", "yonetici")
 from app.db.schemas import (
@@ -76,6 +77,7 @@ async def list_payments(
     db:   AsyncSession = Depends(get_db),
     user: User         = Depends(get_current_user),
 ):
+    await verify_project_tenant(db, project_id, user)
     result = await db.execute(
         select(StoreProgressPayment)
         .where(StoreProgressPayment.project_id == project_id)
@@ -93,6 +95,7 @@ async def create_payment(
     db:   AsyncSession = Depends(get_db),
     user: User         = Depends(get_current_user),
 ):
+    await verify_project_tenant(db, project_id, user)
     payment = StoreProgressPayment(
         tenant_id=user.tenant_id,
         project_id=project_id,
@@ -157,12 +160,7 @@ async def delete_payment(
     db:   AsyncSession = Depends(get_db),
     user: User         = Depends(get_current_user),
 ):
-    result = await db.execute(
-        select(StoreProgressPayment).where(StoreProgressPayment.id == payment_id)
-    )
-    payment = result.scalar_one_or_none()
-    if not payment:
-        raise HTTPException(status_code=404, detail="Hakkediş bulunamadı.")
+    payment = await verify_payment_tenant(db, payment_id, user)
 
     # Bağlı onay taleplerini iptal et
     approval_result = await db.execute(
@@ -192,10 +190,7 @@ async def update_payment(
     db:   AsyncSession = Depends(get_db),
     user: User         = Depends(get_current_user),
 ):
-    result = await db.execute(select(StoreProgressPayment).where(StoreProgressPayment.id == payment_id))
-    payment = result.scalar_one_or_none()
-    if not payment:
-        raise HTTPException(status_code=404, detail="Hakkediş bulunamadı.")
+    payment = await verify_payment_tenant(db, payment_id, user)
 
     was_submitted = payment.submitted_for_approval
     for k, v in body.model_dump(exclude_none=True).items():

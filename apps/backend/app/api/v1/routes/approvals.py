@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user as _orig_get_current_user, get_db, require_role
 from app.db.models import Project, StoreApprovalRequest, StoreActivity, StoreProgressPayment, User
+from app.core.permissions import verify_project_tenant, verify_approval_tenant
 
 get_current_user = require_role("admin", "saha_muhendisi", "operasyon", "yonetici")
 from app.db.schemas import ApprovalRequestCreate, ApprovalRequestRead, ApprovalRequestUpdate
@@ -65,6 +66,7 @@ async def list_project_approvals(
     db:   AsyncSession = Depends(get_db),
     user: User         = Depends(get_current_user),
 ):
+    await verify_project_tenant(db, project_id, user)
     result = await db.execute(
         select(StoreApprovalRequest)
         .where(StoreApprovalRequest.project_id == project_id)
@@ -82,6 +84,7 @@ async def create_approval(
     db:   AsyncSession = Depends(get_db),
     user: User         = Depends(get_current_user),
 ):
+    await verify_project_tenant(db, project_id, user)
     approval = StoreApprovalRequest(
         tenant_id=user.tenant_id,
         project_id=project_id,
@@ -125,10 +128,7 @@ async def update_approval(
     db:   AsyncSession = Depends(get_db),
     user: User         = Depends(get_current_user),
 ):
-    result = await db.execute(select(StoreApprovalRequest).where(StoreApprovalRequest.id == approval_id))
-    approval = result.scalar_one_or_none()
-    if not approval:
-        raise HTTPException(status_code=404, detail="Onay talebi bulunamadı.")
+    approval = await verify_approval_tenant(db, approval_id, user)
 
     approval.status = body.status
     if body.note:
