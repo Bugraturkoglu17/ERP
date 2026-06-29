@@ -71,9 +71,30 @@ def cmd_security(args):
                 for p in public:
                     print(f"  - {p} (from {data.get('domain')})")
 
+def cmd_bootstrap(args):
+    print("=== GOLABS ERP Bootstrap Sequence Initiated ===")
+    root_dir = os.path.dirname(os.path.dirname(get_backend_dir()))
+    docs_to_check = [
+        os.path.join(root_dir, "docs", "AGENT_BOOTSTRAP.md"),
+        os.path.join(get_backend_dir(), "docs", "architecture_registry.md"),
+        os.path.join(get_backend_dir(), "docs", "dependency_graph.md")
+    ]
+    
+    for doc in docs_to_check:
+        if os.path.exists(doc):
+            print(f"[OK] Found {os.path.basename(doc)}")
+        else:
+            print(f"[WARN] Missing {doc}")
+            
+    print("\nNext steps for Agent: Read the above docs, then run `agent_context.py security` and `agent_context.py domain <name>` for deeper context.")
+
 def main():
     parser = argparse.ArgumentParser(description="GOLABS ERP Agent Tooling SDK")
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
+    
+    # Bootstrap command
+    parser_bootstrap = subparsers.add_parser("bootstrap", help="Run initial agent context checks")
+    
     
     # Domain command
     parser_domain = subparsers.add_parser("domain", help="Get summary for a specific domain")
@@ -91,7 +112,9 @@ def main():
     
     args = parser.parse_args()
     
-    if args.command == "domain":
+    if args.command == "bootstrap":
+        cmd_bootstrap(args)
+    elif args.command == "domain":
         cmd_domain(args)
     elif args.command == "impact":
         cmd_impact(args)
