@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogOut, X, LayoutDashboard, Building2, CreditCard, Users } from "lucide-react";
+import { LogOut, X, LayoutDashboard, Building2, CreditCard, Users, Cpu } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -16,6 +16,7 @@ const NAV = [
   { label: "Firmalar", href: "/platform/firmalar", icon: Building2 },
   { label: "Lisanslar", href: "/platform/lisanslar", icon: CreditCard },
   { label: "Kullanıcılar", href: "/platform/kullanicilar", icon: Users },
+  { label: "Sistem Modülleri", href: "/platform/system", icon: Cpu },
 ];
 
 export function PlatformSidebar({ mobileOpen = false, onClose, userName = "Platform Admin" }: Props) {

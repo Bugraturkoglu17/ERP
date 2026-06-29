@@ -6,6 +6,7 @@ import {
   ClipboardList, AlertTriangle, TrendingUp, X
 } from "lucide-react";
 import { apiGet, apiPatch, apiPost } from "@/lib/api";
+import { translateNotification } from "@/lib/notification-translator";
 
 interface ErpNotification {
   id: string;
@@ -177,7 +178,7 @@ export function NotificationBell() {
                   <div className="flex-1 min-w-0">
                     <p className={`text-xs leading-snug ${
                       n.is_read ? "text-slate-600" : "font-semibold text-slate-900"
-                    }`}>{n.title}</p>
+                    }`}>{translateNotification(n.event_type, n.title)}</p>
                     {n.description && (
                       <p className="text-[11px] text-slate-400 mt-0.5 truncate">{n.description}</p>
                     )}

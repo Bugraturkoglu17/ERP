@@ -5,21 +5,30 @@ import { Menu } from "lucide-react";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
+import { PlatformSidebar } from "@/components/layout/platform-sidebar";
 import { fetchTenantContext } from "@/lib/tenant-context";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { getTokenPayloadFromStorage, isPlatformAdmin } from "@/lib/auth";
 
 function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [title, setTitle] = useState("Yönetim Paneli");
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [hasToken, setHasToken] = useState(false);
 
   useEffect(() => {
     setMounted(true);
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    setHasToken(!!token);
+    const payload = getTokenPayloadFromStorage();
+    if (payload) {
+      setIsAdmin(isPlatformAdmin(payload));
+    }
   }, []);
 
   const isPublicRoute = pathname === "/login" || pathname === "/password-reset";
-  const hasToken = typeof window !== "undefined" && !!localStorage.getItem("token");
 
   useEffect(() => {
     if (!mounted) return;
@@ -35,13 +44,17 @@ function AppShell({ children }: { children: React.ReactNode }) {
     if (!hasToken) {
       return;
     }
+    if (isAdmin) {
+      setTitle("Platform Yönetimi");
+      return;
+    }
     (async () => {
       const ctx = await fetchTenantContext();
       if (ctx?.tenant_name) {
         setTitle(`${ctx.tenant_name} ERP Paneli`);
       }
     })();
-  }, [pathname, hasToken]);
+  }, [pathname, hasToken, isAdmin]);
 
   // Prevent hydration mismatch and rendering layout components before path is determined
   if (!mounted) {
@@ -67,7 +80,11 @@ function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-900 w-full">
-      <Sidebar mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
+      {isAdmin ? (
+        <PlatformSidebar mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
+      ) : (
+        <Sidebar mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
+      )}
       <main className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-16 shrink-0 items-center justify-between border-b bg-white px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">

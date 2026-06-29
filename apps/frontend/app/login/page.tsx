@@ -3,6 +3,7 @@
 import { useState } from "react";
 import axios from "axios";
 import { buildApiUrl } from "@/lib/api";
+import { parseJwt } from "@/lib/auth";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -29,8 +30,15 @@ export default function LoginPage() {
         }
       );
 
-      localStorage.setItem("token", response.data.access_token);
-      window.location.href = "/";
+      const token = response.data.access_token;
+      localStorage.setItem("token", token);
+      
+      const payload = parseJwt(token);
+      if (payload && payload.roles?.includes("platform_admin")) {
+        window.location.href = "/platform";
+      } else {
+        window.location.href = "/";
+      }
     } catch (err: any) {
       const errorMessage = err.response?.data?.detail;
       if (typeof errorMessage === "string" && errorMessage.includes("parola yenileme gerekli")) {
