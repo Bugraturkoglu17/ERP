@@ -394,7 +394,20 @@ function CompletionConfirmModal({ pendingData, processId, projectId, onCancel, o
       });
       onConfirm();
     } catch (ex: any) {
-      setErr(ex?.response?.data?.detail ?? "İşlem başarısız.");
+      const detail = ex?.response?.data?.detail;
+      const status = ex?.response?.status;
+      let errMsg = "İşlem başarısız.";
+      if (typeof detail === "string" && detail) {
+        errMsg = detail;
+      } else if (Array.isArray(detail) && detail.length > 0) {
+        errMsg = detail[0]?.msg ?? "Doğrulama hatası.";
+      } else if (status) {
+        errMsg = `Sunucu hatası (${status}). Lütfen tekrar deneyin.`;
+      } else if (ex?.message) {
+        errMsg = `Bağlantı hatası: ${ex.message}`;
+      }
+      console.error("[CompletionConfirmModal]", ex);
+      setErr(errMsg);
     } finally {
       setBusy(false);
     }
