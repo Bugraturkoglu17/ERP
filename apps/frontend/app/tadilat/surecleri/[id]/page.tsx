@@ -138,11 +138,11 @@ const STAGE_STATUS: Record<string, StageCfg> = {
 
 const STAGE_DESCRIPTIONS: Record<string, string> = {
   "Keşif ve İhtiyaç Analizi":      "Sahada keşif yapıldı mı, yapılacak iş netleşti mi?",
-  "Fiyat Teklifi ve Onay":         "Fiyat teklifi hazırlandı mı, ilgili tarafa iletildi mi?",
+  "Fiyat Onayı":                   "Fiyat teklifi hazırlandı mı, ilgili taraflarca onaylandı mı?",
   "Sipariş ve İmalat Süreci":      "Malzeme siparişi veya imalat süreci başlatıldı mı?",
   "Montaj ve Uygulama":            "Sahada montaj / uygulama işlemi yapıldı mı?",
   "Test, Kontrol ve Devreye Alma": "Sistem test edildi mi, aktif ve çalışır hale getirildi mi?",
-  "Hakediş ve Faturalandırma":     "Hakediş/fatura işlemleri tamamlandı mı?",
+  "Hakediş ve Faturalandırma":     "Hakediş/fatura işlemleri tamamlandı mı? Bu aşama tamamlandığında tadilat kapanır.",
 };
 
 const STATUS_OPTIONS = [

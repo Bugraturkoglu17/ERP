@@ -89,7 +89,7 @@ DEFAULT_STAGES = [
 # Tüm tadilat türleri için ortak 6 aşama
 TADILAT_DEFAULT_STAGES = [
     "Keşif ve İhtiyaç Analizi",
-    "Fiyat Teklifi ve Onay",
+    "Fiyat Onayı",
     "Sipariş ve İmalat Süreci",
     "Montaj ve Uygulama",
     "Test, Kontrol ve Devreye Alma",
