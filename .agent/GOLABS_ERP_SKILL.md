@@ -11,7 +11,15 @@ Ajan olarak her bir adımı veya talebi bitirdiğinizde **mutlaka** aşağıdaki
 - 1. ...
 - 2. ...
 - 3. ...
-(walkthrougt veya yapılan değişiklikleri kısa notlar halinde yazın)
+
+**Walkthrough:**
+- Yapılan işi kısa, teknik ve sıralı şekilde özetleyin.
+- Değişen dosyalar, doğrulamalar ve önemli kararları belirtin.
+- Gereksiz uzun açıklama yapmayın; kullanıcı aynı workspace'te olduğu için dosya kopyalama talimatı vermeyin.
 
 **Sonraki Adım:**
-- Yapılacak bir sonraki aksiyonu birkaç cümle ile açıklayın.
+- Yapılacak en mantıklı sonraki aksiyonu önerin.
+
+## Agent Prompt Rule
+- Yanıt sonunda "Agent'a Verilecek Prompt" veya benzeri devredilecek prompt üretmeyin.
+- Agent zaten aktif çalışandır; işi tamamlayın, walkthrough verin ve sonraki adımı önerin.

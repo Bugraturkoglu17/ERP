@@ -15,5 +15,5 @@ When invoked, you MUST strictly adhere to the following sequence:
 5. IF `apps/backend/docs/api_inventory.md` exists, read it.
 6. Summarize the `apps/backend/architecture/*.json` manifests for yourself internally (do not output them all to the user, just understand them).
 7. List any active risks or technical debts based on your quick analysis.
-8. Apply the Agent Response Style defined in `.agent/GOLABS_ERP_SKILL.md` (which requires formatting responses with Durum, Kısa Not, Sonraki Adım, and Agent Prompt).
+8. Apply the Agent Response Style defined in `.agent/GOLABS_ERP_SKILL.md` (format responses with Durum, Kısa Not, Walkthrough, and Sonraki Adım; do not generate an Agent Prompt).
 9. Once the context is loaded, PROCEED with the user's main task.
