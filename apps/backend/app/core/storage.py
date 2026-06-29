@@ -84,10 +84,30 @@ class StorageService:
                 os.makedirs(self.local_base_dir, exist_ok=True)
                 self.s3_client = None
 
+    def _validate_key(self, file_key: str) -> None:
+        """
+        Dosya yolunda path traversal (üst klasöre kaçış) olup olmadığını doğrular.
+        """
+        key_clean = file_key.replace("\\", "/")
+        parts_orig = key_clean.split("/")
+        
+        normalized = os.path.normpath(file_key).replace("\\", "/")
+        parts_norm = normalized.split("/")
+        
+        if (
+            ".." in parts_orig or 
+            ".." in parts_norm or 
+            key_clean.startswith("/") or 
+            normalized.startswith("/") or 
+            normalized.startswith("../")
+        ):
+            raise ValueError("Geçersiz dosya anahtarı: Path traversal tespit edildi.")
+
     async def upload_file(self, file_content: bytes, file_key: str, content_type: str) -> str:
         """
         Dosyayı buluta veya yerel depolama alanına yükler.
         """
+        self._validate_key(file_key)
         if self.local_mode:
             try:
                 target_path = os.path.join(self.local_base_dir, file_key)
@@ -116,6 +136,7 @@ class StorageService:
         """
         Dosyaya erişim için imzalı URL veya yerel statik servis URL'si oluşturur.
         """
+        self._validate_key(file_key)
         if self.local_mode:
             # Yerel statik adresi dön (FastAPI StaticFiles Mount)
             return f"http://localhost:8000/static/uploads/{file_key}"
@@ -135,6 +156,7 @@ class StorageService:
         """
         Dosyayı fiziksel olarak siler.
         """
+        self._validate_key(file_key)
         if self.local_mode:
             try:
                 target_path = os.path.join(self.local_base_dir, file_key)

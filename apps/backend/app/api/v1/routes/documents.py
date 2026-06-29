@@ -17,6 +17,7 @@ from app.core.exceptions import NotFoundError, ConflictError
 from app.db.models import Document, User
 from app.core.dependencies import get_current_user
 from app.core.permissions import verify_project_tenant, verify_document_tenant
+from app.core.upload_validator import validate_uploaded_file
 from app.db.schemas import (
     DocumentCreate,
     DocumentRead,
@@ -72,6 +73,11 @@ async def upload_document(
 
     # ── 1 · Dosyayı oku ve depolamaya yükle ──────────────────────────────────────
     content = await file.read()
+    
+    # Dosya doğrulaması: 20MB limit, izinli doküman formatları
+    allowed_doc_exts = ["pdf", "docx", "xlsx", "zip", "rar", "png", "jpg", "jpeg", "webp"]
+    validate_uploaded_file(file, content, 20 * 1024 * 1024, allowed_doc_exts)
+
     safe_name = sanitize_filename(file.filename or "document")
     doc_id_new = uuid.uuid4()
     # Tenant-prefixed key format: tenants/{tenant_id}/projects/{project_id}/{doc_type}/{doc_id}_{safe_filename}
@@ -189,6 +195,11 @@ async def upload_document_version(
 
     # ── 2 · Dosyayı yükle ───────────────────────────────────────────────────────
     content = await file.read()
+
+    # Dosya doğrulaması: 20MB limit, izinli doküman formatları
+    allowed_doc_exts = ["pdf", "docx", "xlsx", "zip", "rar", "png", "jpg", "jpeg", "webp"]
+    validate_uploaded_file(file, content, 20 * 1024 * 1024, allowed_doc_exts)
+
     safe_name = sanitize_filename(file.filename or "document")
     new_version_id = uuid.uuid4()
     new_file_key = (

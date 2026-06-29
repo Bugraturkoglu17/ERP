@@ -23,6 +23,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import get_current_user, get_db, require_role
 from app.core.storage import storage, sanitize_filename
 from app.core.permissions import verify_project_tenant, verify_work_order_tenant
+from app.core.upload_validator import validate_uploaded_file
+from app.core.rate_limiter import check_public_upload_rate_limit
 from app.db.models import (
     Project, User, WorkOrder, WorkOrderActivity, WorkOrderPhoto,
     WorkOrderPublicLink, WorkOrderServiceForm, WorkOrderStatus,
@@ -937,8 +939,15 @@ async def upload_admin_photo(
     wo = await verify_work_order_tenant(db, work_order_id, user)
 
     content = await file.read()
+    
+    # Dosya doğrulaması: 10MB limit, resim formatları
+    allowed_img_exts = ["jpg", "jpeg", "png", "webp"]
+    validate_uploaded_file(file, content, 10 * 1024 * 1024, allowed_img_exts)
+
     safe_name = sanitize_filename(file.filename or "photo.jpg")
-    file_key = f"work-orders/{work_order_id}/photos/{int(time.time())}_{safe_name}"
+    photo_id_new = uuid4()
+    # Tenant-prefixed key format: tenants/{tenant_id}/work-orders/{work_order_id}/photos/{photo_id}_{safe_filename}
+    file_key = f"tenants/{wo.tenant_id}/work-orders/{work_order_id}/photos/{photo_id_new}_{safe_name}"
 
     uploaded_key = await storage.upload_file(
         file_content=content, file_key=file_key, content_type=file.content_type
@@ -946,7 +955,7 @@ async def upload_admin_photo(
     file_url = await storage.generate_presigned_url(uploaded_key)
 
     photo = WorkOrderPhoto(
-        id=uuid4(), work_order_id=wo.id,
+        id=photo_id_new, work_order_id=wo.id,
         file_key=uploaded_key, file_url=file_url,
         file_name=file.filename, file_size_bytes=len(content),
         mime_type=file.content_type, photo_type=photo_type,
@@ -1106,11 +1115,19 @@ async def public_upload_photo(
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
 ):
+    await check_public_upload_rate_limit(token)
     link, wo, proj = await _resolve_token(token, db)
 
     content = await file.read()
+    
+    # Dosya doğrulaması: 10MB limit, resim formatları
+    allowed_img_exts = ["jpg", "jpeg", "png", "webp"]
+    validate_uploaded_file(file, content, 10 * 1024 * 1024, allowed_img_exts)
+
     safe_name = sanitize_filename(file.filename or "photo.jpg")
-    file_key = f"work-orders/{wo.id}/photos/{int(time.time())}_{safe_name}"
+    photo_id_new = uuid4()
+    # Tenant-prefixed key format
+    file_key = f"tenants/{wo.tenant_id}/work-orders/{wo.id}/photos/{photo_id_new}_{safe_name}"
 
     uploaded_key = await storage.upload_file(
         file_content=content, file_key=file_key, content_type=file.content_type
@@ -1118,7 +1135,7 @@ async def public_upload_photo(
     file_url = await storage.generate_presigned_url(uploaded_key)
 
     photo = WorkOrderPhoto(
-        id=uuid4(), work_order_id=wo.id,
+        id=photo_id_new, work_order_id=wo.id,
         file_key=uploaded_key, file_url=file_url,
         file_name=file.filename, file_size_bytes=len(content),
         mime_type=file.content_type, photo_type=photo_type,
@@ -1141,11 +1158,18 @@ async def public_upload_service_form(
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
 ):
+    await check_public_upload_rate_limit(token)
     link, wo, proj = await _resolve_token(token, db)
 
     content = await file.read()
+    
+    # Dosya doğrulaması: 15MB limit, PDF formatı
+    validate_uploaded_file(file, content, 15 * 1024 * 1024, ["pdf"])
+
     safe_name = sanitize_filename(file.filename or "servis-formu.pdf")
-    file_key = f"work-orders/{wo.id}/service-forms/{int(time.time())}_{safe_name}"
+    form_id_new = uuid4()
+    # Tenant-prefixed key format
+    file_key = f"tenants/{wo.tenant_id}/work-orders/{wo.id}/service-forms/{form_id_new}_{safe_name}"
 
     uploaded_key = await storage.upload_file(
         file_content=content, file_key=file_key, content_type=file.content_type
@@ -1153,7 +1177,7 @@ async def public_upload_service_form(
     file_url = await storage.generate_presigned_url(uploaded_key)
 
     form = WorkOrderServiceForm(
-        id=uuid4(), work_order_id=wo.id, project_id=wo.project_id,
+        id=form_id_new, work_order_id=wo.id, project_id=wo.project_id,
         year=year, month=month,
         file_key=uploaded_key, file_url=file_url,
         file_name=file.filename, file_size_bytes=len(content),
