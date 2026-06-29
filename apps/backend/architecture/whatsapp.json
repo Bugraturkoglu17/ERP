@@ -1,0 +1,31 @@
+{
+  "domain": "whatsapp",
+  "description": "Meta Graph API üzerinden şablon tabanlı WhatsApp mesajlarının asenkron (Celery) gönderimi ve webhook yönetimi.",
+  "entities": [
+    "WorkOrderWhatsappMessage"
+  ],
+  "routes": [
+    "app.api.v1.routes.whatsapp",
+    "app.api.v1.routes.work_orders.webhook_router"
+  ],
+  "roles": [
+    "admin",
+    "platform_admin"
+  ],
+  "tenant_helper": "verify_work_order_tenant (indirect)",
+  "notifications": [],
+  "events": [
+    "whatsapp_delivered",
+    "whatsapp_failed"
+  ],
+  "storage_prefixes": [],
+  "indexes": [
+    "ix_wa_messages_wo_status_created"
+  ],
+  "public_endpoints": [
+    "/api/v1/webhooks/whatsapp"
+  ],
+  "dependencies": [
+    "work_orders"
+  ]
+}

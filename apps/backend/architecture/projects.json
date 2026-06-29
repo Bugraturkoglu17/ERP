@@ -1,0 +1,25 @@
+{
+  "domain": "projects",
+  "description": "Projelerin oluşturulması, temel ayarları ve takım/kadro eşleştirmelerinden sorumlu kök modül.",
+  "entities": [
+    "Project",
+    "ProjectTeam"
+  ],
+  "routes": [
+    "app.api.v1.routes.projects"
+  ],
+  "roles": [
+    "admin",
+    "project_manager"
+  ],
+  "tenant_helper": "verify_project_tenant",
+  "notifications": [],
+  "events": [
+    "project_created",
+    "project_updated"
+  ],
+  "storage_prefixes": [],
+  "indexes": [],
+  "public_endpoints": [],
+  "dependencies": []
+}

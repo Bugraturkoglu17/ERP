@@ -1,0 +1,36 @@
+{
+  "domain": "documents",
+  "description": "Firma ve proje bazlı döküman arşivi, sürüm kontrolü (versioning) ve revizyon onay süreçleri.",
+  "entities": [
+    "Document",
+    "DocumentVersion",
+    "DocumentApproval",
+    "Folder",
+    "ProjectDocument"
+  ],
+  "routes": [
+    "app.api.v1.routes.documents"
+  ],
+  "roles": [
+    "admin",
+    "document_controller",
+    "project_manager"
+  ],
+  "tenant_helper": "verify_document_tenant",
+  "notifications": [
+    "document_revision_requested"
+  ],
+  "events": [
+    "document_uploaded",
+    "document_downloaded"
+  ],
+  "storage_prefixes": [
+    "tenants/{tenant_id}/projects/{project_id}/docs/"
+  ],
+  "indexes": [],
+  "public_endpoints": [],
+  "dependencies": [
+    "projects",
+    "approvals"
+  ]
+}

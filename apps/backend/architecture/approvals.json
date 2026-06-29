@@ -1,0 +1,31 @@
+{
+  "domain": "approvals",
+  "description": "Satınalma, doküman veya puantaj (progress payment) süreçleri için ortak onay altyapısı.",
+  "entities": [
+    "ApprovalChain",
+    "ApprovalStep",
+    "ApprovalLog"
+  ],
+  "routes": [
+    "app.api.v1.routes.approvals"
+  ],
+  "roles": [
+    "admin",
+    "project_manager"
+  ],
+  "tenant_helper": "verify_approval_tenant",
+  "notifications": [
+    "approval_requested",
+    "approval_completed"
+  ],
+  "events": [
+    "approved",
+    "rejected"
+  ],
+  "storage_prefixes": [],
+  "indexes": [],
+  "public_endpoints": [],
+  "dependencies": [
+    "projects"
+  ]
+}

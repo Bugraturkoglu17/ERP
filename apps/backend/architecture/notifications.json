@@ -1,0 +1,24 @@
+{
+  "domain": "notifications",
+  "description": "Uygulama içi bildirim merkezi (in-app notifications).",
+  "entities": [
+    "ErpNotification"
+  ],
+  "routes": [
+    "app.api.v1.routes.notifications"
+  ],
+  "roles": [
+    "*"
+  ],
+  "tenant_helper": "verify_tenant_id (via get_current_user)",
+  "notifications": [],
+  "events": [
+    "notification_read"
+  ],
+  "storage_prefixes": [],
+  "indexes": [
+    "ix_notifications_tenant_read_created"
+  ],
+  "public_endpoints": [],
+  "dependencies": []
+}

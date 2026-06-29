@@ -1,0 +1,33 @@
+{
+  "domain": "finance",
+  "description": "Hak edişler, cari hesaplar, avans ve fatura gibi tüm mali kayıtların proje bazlı özeti.",
+  "entities": [
+    "InvoiceRecord",
+    "ProgressPayment",
+    "CashFlow"
+  ],
+  "routes": [
+    "app.api.v1.routes.finance",
+    "app.api.v1.routes.invoice_records",
+    "app.api.v1.routes.progress_payments"
+  ],
+  "roles": [
+    "admin",
+    "finance_manager"
+  ],
+  "tenant_helper": "verify_invoice_tenant",
+  "notifications": [
+    "payment_overdue"
+  ],
+  "events": [
+    "invoice_created",
+    "payment_received"
+  ],
+  "storage_prefixes": [],
+  "indexes": [],
+  "public_endpoints": [],
+  "dependencies": [
+    "projects",
+    "approvals"
+  ]
+}

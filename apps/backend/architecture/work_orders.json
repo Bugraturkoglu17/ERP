@@ -1,0 +1,45 @@
+{
+  "domain": "work_orders",
+  "description": "Saha iş emirleri, fotoğraflar ve servis formlarının yönetiminden sorumlu ana saha operasyonları modülü.",
+  "entities": [
+    "WorkOrder",
+    "WorkOrderPhoto",
+    "WorkOrderServiceForm",
+    "WorkOrderStatus",
+    "WorkOrderActivity",
+    "StoreServiceForm"
+  ],
+  "routes": [
+    "app.api.v1.routes.work_orders"
+  ],
+  "roles": [
+    "admin",
+    "project_manager",
+    "technician",
+    "site_manager"
+  ],
+  "tenant_helper": "verify_work_order_tenant",
+  "notifications": [
+    "work_order_assigned",
+    "work_order_status_changed"
+  ],
+  "events": [
+    "photo_uploaded",
+    "form_submitted"
+  ],
+  "storage_prefixes": [
+    "tenants/{tenant_id}/work-orders/"
+  ],
+  "indexes": [
+    "ix_work_orders_tenant_status_created"
+  ],
+  "public_endpoints": [
+    "/api/v1/public/work-orders/{token}/photos",
+    "/api/v1/public/work-orders/{token}/service-form"
+  ],
+  "dependencies": [
+    "projects",
+    "notifications",
+    "whatsapp"
+  ]
+}

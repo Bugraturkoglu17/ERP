@@ -1,0 +1,26 @@
+{
+  "domain": "service_forms",
+  "description": "Saha formlarının ERP içi Store (bakım formları) sekmesindeki temsili.",
+  "entities": [
+    "StoreServiceForm"
+  ],
+  "routes": [
+    "app.api.v1.routes.service_forms"
+  ],
+  "roles": [
+    "admin",
+    "project_manager"
+  ],
+  "tenant_helper": "verify_service_form_tenant",
+  "notifications": [],
+  "events": [
+    "form_approved"
+  ],
+  "storage_prefixes": [],
+  "indexes": [],
+  "public_endpoints": [],
+  "dependencies": [
+    "work_orders",
+    "projects"
+  ]
+}
