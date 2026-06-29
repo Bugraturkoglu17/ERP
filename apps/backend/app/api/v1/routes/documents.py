@@ -12,10 +12,11 @@ from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.storage import storage
+from app.core.storage import storage, sanitize_filename
 from app.core.exceptions import NotFoundError, ConflictError
 from app.db.models import Document, User
 from app.core.dependencies import get_current_user
+from app.core.permissions import verify_project_tenant, verify_document_tenant
 from app.db.schemas import (
     DocumentCreate,
     DocumentRead,
@@ -66,10 +67,18 @@ async def upload_document(
     db:           AsyncSession = Depends(get_db),
     current_user: User         = Depends(get_current_user),
 ) -> Document:
-    # ── 1 · Dosyayı oku ve S3/OCI'ya yükle ───────────────────────────────────────
+    # ── 0 · Tenant doğrulaması (P0 security fix) ───────────────────────────────
+    await verify_project_tenant(db, project_id, current_user)
+
+    # ── 1 · Dosyayı oku ve depolamaya yükle ──────────────────────────────────────
     content = await file.read()
-    # Key format: projects/{project_id}/{doc_type}/{timestamp}_{filename}
-    file_key = f"projects/{project_id}/{doc_type}/{int(time.time())}_{file.filename}"
+    safe_name = sanitize_filename(file.filename or "document")
+    doc_id_new = uuid.uuid4()
+    # Tenant-prefixed key format: tenants/{tenant_id}/projects/{project_id}/{doc_type}/{doc_id}_{safe_filename}
+    file_key = (
+        f"tenants/{current_user.tenant_id}/projects/{project_id}"
+        f"/{doc_type}/{doc_id_new}_{safe_name}"
+    )
     
     try:
         uploaded_key = await storage.upload_file(
@@ -82,6 +91,7 @@ async def upload_document(
 
     # ── 2 · DB kaydını oluştur ──────────────────────────────────────────────────
     doc = Document(
+        id            = doc_id_new,
         project_id    = project_id,
         doc_type      = doc_type,
         original_name = file.filename,
@@ -119,6 +129,9 @@ async def list_project_documents(
     db:         AsyncSession = Depends(get_db),
     current_user: User         = Depends(get_current_user),
 ) -> list[Document]:
+    # ── Tenant doğrulaması (P0 security fix) ──────────────────────────────────
+    await verify_project_tenant(db, project_id, current_user)
+
     # Only return the latest version of each document group (parent_id is None or current)
     # A simpler way: just list all and let frontend handle or list only archived=False
     query = select(Document).where(
@@ -149,11 +162,11 @@ async def list_project_documents(
 async def download_document(
     doc_id: uuid.UUID,
     db:     AsyncSession = Depends(get_db),
+    current_user: User   = Depends(get_current_user),  # P0: login zorunlu
 ) -> DocumentDownloadResponse:
-    doc = await db.get(Document, doc_id)
-    if not doc:
-        raise NotFoundError(detail="Döküman bulunamadı.")
-    
+    # ── Tenant doğrulaması (P0 security fix) ──────────────────────────────────
+    doc = await verify_document_tenant(db, doc_id, current_user)
+
     url = await storage.generate_presigned_url(doc.file_key)
     return DocumentDownloadResponse(url=url, expires_in=3600)
 
@@ -171,14 +184,17 @@ async def upload_document_version(
     db:            AsyncSession = Depends(get_db),
     current_user: User         = Depends(get_current_user),
 ) -> Document:
-    # ── 1 · Eski dökümanı bul ───────────────────────────────────────────────────
-    old_doc = await db.get(Document, doc_id)
-    if not old_doc:
-        raise NotFoundError(detail="Kaynak döküman bulunamadı.")
-    
+    # ── 0 · Tenant doğrulaması (P0 security fix) ───────────────────────────────
+    old_doc = await verify_document_tenant(db, doc_id, current_user)
+
     # ── 2 · Dosyayı yükle ───────────────────────────────────────────────────────
     content = await file.read()
-    new_file_key = f"projects/{old_doc.project_id}/{old_doc.doc_type}/{int(time.time())}_{file.filename}"
+    safe_name = sanitize_filename(file.filename or "document")
+    new_version_id = uuid.uuid4()
+    new_file_key = (
+        f"tenants/{current_user.tenant_id}/projects/{old_doc.project_id}"
+        f"/{old_doc.doc_type}/{new_version_id}_{safe_name}"
+    )
     
     try:
         uploaded_key = await storage.upload_file(
@@ -233,10 +249,10 @@ async def update_document(
     doc_id: uuid.UUID,
     body:   DocumentUpdate,
     db:     AsyncSession = Depends(get_db),
+    current_user: User   = Depends(get_current_user),  # P0: login zorunlu
 ) -> Document:
-    doc = await db.get(Document, doc_id)
-    if not doc:
-        raise NotFoundError(detail="Döküman bulunamadı.")
+    # ── Tenant doğrulaması (P0 security fix) ──────────────────────────────────
+    doc = await verify_document_tenant(db, doc_id, current_user)
     
     for key, value in body.model_dump(exclude_unset=True).items():
         setattr(doc, key, value)
@@ -258,10 +274,10 @@ async def update_document(
 async def delete_document(
     doc_id: uuid.UUID,
     db:     AsyncSession = Depends(get_db),
+    current_user: User   = Depends(get_current_user),  # P0: login zorunlu
 ) -> Document:
-    doc = await db.get(Document, doc_id)
-    if not doc:
-        raise NotFoundError(detail="Döküman bulunamadı.")
+    # ── Tenant doğrulaması (P0 security fix) ──────────────────────────────────
+    doc = await verify_document_tenant(db, doc_id, current_user)
     
     doc.archived = True
     await db.commit()
@@ -279,9 +295,8 @@ async def list_document_versions(
     db:     AsyncSession = Depends(get_db),
     current_user: User   = Depends(get_current_user),
 ) -> list[Document]:
-    doc = await db.get(Document, doc_id)
-    if not doc:
-        raise NotFoundError(detail="Döküman bulunamadı.")
+    # ── Tenant doğrulaması (P0 security fix) ──────────────────────────────────
+    doc = await verify_document_tenant(db, doc_id, current_user)
     
     root_id = doc.parent_id if doc.parent_id else doc.id
     

@@ -17,20 +17,13 @@ from app.core.config import settings
 from app.core.database import get_db as database_get_db
 from app.core.security import decode_token
 from app.db.models import User, RolePermission
-
-
-def is_platform_admin(user: User) -> bool:
-    return "platform_admin" in (user.default_role or "")
+from app.core.permissions import is_platform_admin  # noqa: F401 — re-export; mevcut importları kırma
 
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="/api/v1/auth/login",
     auto_error=False,     # isteğe bağlı: optional auth endpoint'leri için
 )
 
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# Veritabanı Oturumu (Session)
-# ═══════════════════════════════════════════════════════════════════════════════
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """Her istek için yeni bir async veritabanı oturumu sağlar."""
