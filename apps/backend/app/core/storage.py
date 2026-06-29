@@ -9,9 +9,37 @@ import boto3
 from botocore.client import Config
 from botocore.exceptions import ClientError
 import os
+import re
+import unicodedata
 from typing import Optional
 
 from app.core.config import settings
+
+
+def sanitize_filename(name: str) -> str:
+    """
+    Dosya adını ve path bileşenlerini güvenli ASCII slug'a dönüştürür.
+    Emoji, Türkçe özel karakter, boşluk temizlenir.
+    Örnek: '📁 İZMİR ÇİĞLİ.pdf' → 'izmir-cigli.pdf'
+    """
+    # Emoji ve unicode symbol karakterlerini kaldır
+    name = "".join(c for c in name if unicodedata.category(c) not in ("So", "Sm", "Sk", "Sc", "Cs", "Co", "Cn"))
+    # Türkçe karakterleri ASCII karşılıklarıyla değiştir
+    tr_map = str.maketrans("çğıiöşüÇĞIİÖŞÜ", "cgiisosCGIIOSU")
+    name = name.translate(tr_map)
+    # NFD normalize → ASCII olmayan karakterleri at
+    name = unicodedata.normalize("NFD", name)
+    name = name.encode("ascii", "ignore").decode("ascii")
+    # Nokta öncesi ve sonrası kısmı ayır (extension koru)
+    parts = name.rsplit(".", 1)
+    stem = parts[0]
+    ext = ("." + parts[1].lower()) if len(parts) == 2 else ""
+    # Güvenli olmayan karakterleri tire yap, çoklu tireyi tek yap
+    stem = re.sub(r"[^\w\-]", "-", stem)
+    stem = re.sub(r"-{2,}", "-", stem).strip("-")
+    stem = stem or "file"
+    return stem + ext
+
 
 class StorageService:
     """

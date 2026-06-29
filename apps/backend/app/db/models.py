@@ -820,8 +820,23 @@ class OutboundWhatsAppAudit(SQLModel, table=True):
     payload_json: Optional[str] = Field(default=None)
     created_at: datetime = Field(default_factory=utc_now, nullable=False)
     updated_at: Optional[datetime] = Field(default=None, sa_column_kwargs={"onupdate": utc_now})
-    delivered_at: Optional[datetime] = None
     read_at: Optional[datetime] = None
+
+
+class NotificationTemplateConfig(SQLModel, table=True):
+    __tablename__ = "notification_template_configs"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    tenant_id: Optional[UUID] = Field(foreign_key="tenants.id", default=None, index=True, nullable=True)
+    event_key: str = Field(max_length=100, index=True)
+    channel: str = Field(max_length=50, index=True)
+    template_name: str = Field(max_length=120)
+    language_code: str = Field(default="tr", max_length=10)
+    component_mapping_json: str = Field()
+    is_active: bool = Field(default=True, index=True)
+    version: int = Field(default=1)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: Optional[datetime] = Field(default=None, sa_column_kwargs={"onupdate": utc_now})
 
 
 
@@ -989,3 +1004,383 @@ class FieldReportItem(SQLModel, table=True):
     sort_order: int = Field(default=0)
 
     report: Mapped["FieldReport"] = Relationship(back_populates="items")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  11 · SÜREÇ TAKİBİ (STORE PROCESS)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class StoreProcess(SQLModel, table=True):
+    """Mağaza tadilat / yeni yapım süreç kaydı."""
+
+    __tablename__ = "store_processes"
+
+    id:                  UUID             = Field(default_factory=uuid4, primary_key=True)
+    tenant_id:           Optional[UUID]   = Field(foreign_key="tenants.id", default=None, index=True)
+    project_id:          UUID             = Field(foreign_key="projects.id", index=True)
+    work_type:           str              = Field(max_length=20, index=True)   # bakim | tadilat | yeni_yapim
+    title:               str              = Field(max_length=255)
+    description:         Optional[str]    = Field(default=None)
+    status:              str              = Field(default="in_progress", max_length=30, index=True)
+    start_date:          Optional[datetime] = None
+    target_end_date:     Optional[datetime] = None
+    completed_at:        Optional[datetime] = None
+    responsible_name:    Optional[str]    = Field(default=None, max_length=255)
+    responsible_user_id: Optional[UUID]   = Field(foreign_key="users.id", default=None)
+    progress_percent:    int              = Field(default=0)
+    created_by:          Optional[UUID]   = Field(foreign_key="users.id", default=None)
+    created_at:          datetime         = Field(default_factory=utc_now, nullable=False)
+    updated_at:          datetime         = Field(default_factory=utc_now, sa_column_kwargs={"onupdate": utc_now})
+
+    stages: List["StoreProcessStage"] = Relationship(back_populates="process")
+    notes:  List["StoreProcessNote"]  = Relationship(back_populates="process")
+
+
+class StoreProcessStage(SQLModel, table=True):
+    """Süreç aşaması (timeline adımı)."""
+
+    __tablename__ = "store_process_stages"
+
+    id:               UUID           = Field(default_factory=uuid4, primary_key=True)
+    process_id:       UUID           = Field(foreign_key="store_processes.id", index=True)
+    name:             str            = Field(max_length=255)
+    order_index:      int            = Field(default=0, index=True)
+    status:           str            = Field(default="pending", max_length=30)  # pending | in_progress | completed | delayed | cancelled
+    responsible_name: Optional[str]  = Field(default=None, max_length=255)
+    start_date:       Optional[datetime] = None
+    target_end_date:  Optional[datetime] = None
+    completed_at:     Optional[datetime] = None
+    note:             Optional[str]  = Field(default=None)
+    created_at:       datetime       = Field(default_factory=utc_now, nullable=False)
+    updated_at:       datetime       = Field(default_factory=utc_now, sa_column_kwargs={"onupdate": utc_now})
+
+    process: Mapped["StoreProcess"] = Relationship(back_populates="stages")
+
+
+class StoreProcessNote(SQLModel, table=True):
+    """Süreç notu (firma / teknik / onay / revizyon)."""
+
+    __tablename__ = "store_process_notes"
+
+    id:          UUID         = Field(default_factory=uuid4, primary_key=True)
+    process_id:  UUID         = Field(foreign_key="store_processes.id", index=True)
+    stage_id:    Optional[UUID] = Field(foreign_key="store_process_stages.id", default=None)
+    user_id:     Optional[UUID] = Field(foreign_key="users.id", default=None)
+    user_name:   Optional[str] = Field(default=None, max_length=255)
+    note_type:   str          = Field(default="general", max_length=30)  # general | firm | technical | approval | revision
+    content:     str          = Field()
+    created_at:  datetime     = Field(default_factory=utc_now, nullable=False)
+
+    process: Mapped["StoreProcess"] = Relationship(back_populates="notes")
+
+
+class StoreActivity(SQLModel, table=True):
+    """Son İşlemler akışı — mağaza bazlı tüm değişiklikler."""
+
+    __tablename__ = "store_activities"
+
+    id:                  UUID         = Field(default_factory=uuid4, primary_key=True)
+    tenant_id:           Optional[UUID] = Field(foreign_key="tenants.id", default=None, index=True)
+    project_id:          UUID         = Field(foreign_key="projects.id", index=True)
+    user_id:             Optional[UUID] = Field(foreign_key="users.id", default=None)
+    user_name:           Optional[str] = Field(default=None, max_length=255)
+    activity_type:       str          = Field(max_length=50, index=True)
+    title:               str          = Field(max_length=500)
+    description:         Optional[str] = Field(default=None)
+    related_process_id:  Optional[UUID] = Field(foreign_key="store_processes.id", default=None)
+    related_stage_id:    Optional[UUID] = Field(foreign_key="store_process_stages.id", default=None)
+    created_at:          datetime     = Field(default_factory=utc_now, nullable=False, index=True)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Phase 6 — Servis Formları, Hakkedişler, Onay Süreçleri
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class StoreServiceForm(SQLModel, table=True):
+    """Aylık bakım servis formu — sahadan yüklenen form."""
+
+    __tablename__ = "store_service_forms"
+
+    id:                 UUID           = Field(default_factory=uuid4, primary_key=True)
+    tenant_id:          Optional[UUID] = Field(foreign_key="tenants.id", default=None, index=True)
+    project_id:         UUID           = Field(foreign_key="projects.id", index=True)
+    year:               int            = Field(index=True)
+    month:              int            = Field(index=True)  # 1-12
+    file_url:           Optional[str]  = Field(default=None)
+    file_name:          Optional[str]  = Field(default=None, max_length=500)
+    file_size_bytes:    Optional[int]  = Field(default=None)
+    contractor_company: Optional[str]  = Field(default=None, max_length=255)
+    uploaded_by:        Optional[UUID] = Field(foreign_key="users.id", default=None)
+    uploaded_by_name:   Optional[str]  = Field(default=None, max_length=255)
+    description:        Optional[str]  = Field(default=None)
+    status:             str            = Field(default="uploaded", max_length=30, index=True)
+    created_at:         datetime       = Field(default_factory=utc_now, nullable=False)
+    updated_at:         datetime       = Field(default_factory=utc_now, sa_column_kwargs={"onupdate": utc_now})
+
+
+class StoreProgressPayment(SQLModel, table=True):
+    """Hakkediş — mağaza bazlı ödeme talebi."""
+
+    __tablename__ = "store_progress_payments"
+
+    id:                 UUID           = Field(default_factory=uuid4, primary_key=True)
+    tenant_id:          Optional[UUID] = Field(foreign_key="tenants.id", default=None, index=True)
+    project_id:         UUID           = Field(foreign_key="projects.id", index=True)
+    process_id:         Optional[UUID] = Field(foreign_key="store_processes.id", default=None, index=True)
+    payment_type:       str            = Field(max_length=50, index=True)
+    period:             Optional[str]  = Field(default=None, max_length=20)  # "2026-06"
+    amount:             Optional[Decimal] = Field(default=None, max_digits=14, decimal_places=2)
+    currency:           str            = Field(default="TRY", max_length=10)
+    file_url:           Optional[str]  = Field(default=None)
+    file_name:          Optional[str]  = Field(default=None, max_length=500)
+    description:        Optional[str]  = Field(default=None)
+    approval_status:    str            = Field(default="pending", max_length=30, index=True)
+    submitted_for_approval: bool       = Field(default=False)
+    submitted_by:       Optional[UUID] = Field(foreign_key="users.id", default=None)
+    submitted_by_name:  Optional[str]  = Field(default=None, max_length=255)
+    created_at:         datetime       = Field(default_factory=utc_now, nullable=False)
+    updated_at:         datetime       = Field(default_factory=utc_now, sa_column_kwargs={"onupdate": utc_now})
+
+
+class StoreInvoiceRecord(SQLModel, table=True):
+    """Mağaza bazlı fatura kaydı (servis/materyal/ara/final)."""
+
+    __tablename__ = "store_invoice_records"
+
+    id:                 UUID           = Field(default_factory=uuid4, primary_key=True)
+    tenant_id:          Optional[UUID] = Field(foreign_key="tenants.id", default=None, index=True)
+    project_id:         UUID           = Field(foreign_key="projects.id", index=True)
+    process_id:         Optional[UUID] = Field(foreign_key="store_processes.id", default=None)
+    invoice_type:       str            = Field(max_length=50, index=True)
+    invoice_no:         Optional[str]  = Field(default=None, max_length=100)
+    period:             Optional[str]  = Field(default=None, max_length=20)
+    amount:             Optional[Decimal] = Field(default=None, max_digits=14, decimal_places=2)
+    currency:           str            = Field(default="TRY", max_length=10)
+    file_url:           Optional[str]  = Field(default=None)
+    file_name:          Optional[str]  = Field(default=None, max_length=500)
+    description:        Optional[str]  = Field(default=None)
+    approval_status:    str            = Field(default="pending", max_length=30, index=True)
+    submitted_by:       Optional[UUID] = Field(foreign_key="users.id", default=None)
+    submitted_by_name:  Optional[str]  = Field(default=None, max_length=255)
+    created_at:         datetime       = Field(default_factory=utc_now, nullable=False)
+    updated_at:         datetime       = Field(default_factory=utc_now, sa_column_kwargs={"onupdate": utc_now})
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  12 · İŞ EMİRLERİ (WORK ORDERS)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class WorkOrderType(str, Enum):
+    MAINTENANCE   = "maintenance"    # Bakım
+    FAULT         = "fault"          # Arıza
+    REPAIR        = "repair"         # Onarım
+    RENOVATION    = "renovation"     # Tadilat
+    MANUFACTURING = "manufacturing"  # İmalat
+    OTHER         = "other"          # Diğer
+
+
+class WorkOrderStatus(str, Enum):
+    DRAFT             = "draft"              # Taslak
+    SENT              = "sent"               # WhatsApp Gönderildi
+    STARTED           = "started"            # İşe Başlandı
+    COMPLETED         = "completed"          # Tamamlandı
+    FAILED            = "failed"             # Tamamlanmadı
+    CANCELLED         = "cancelled"          # İptal Edildi
+    MATERIAL_WAITING  = "material_waiting"   # Malzeme Bekliyor
+    REVISIT           = "revisit"            # Tekrar Gidilecek
+    APPROVAL_PENDING  = "approval_pending"   # Onay Bekliyor
+    APPROVED          = "approved"           # Onaylandı
+
+
+class WorkOrderPriority(str, Enum):
+    NORMAL   = "normal"    # Normal
+    URGENT   = "urgent"    # Acil
+    CRITICAL = "critical"  # Kritik
+
+
+class WorkOrderPhotoType(str, Enum):
+    BEFORE     = "before"      # Öncesi
+    AFTER      = "after"       # Sonrası
+    COMPLETION = "completion"  # Tamamlanma
+    ISSUE      = "issue"       # Sorun
+
+
+class WorkOrderWhatsappStatus(str, Enum):
+    QUEUED    = "queued"
+    SENT      = "sent"
+    DELIVERED = "delivered"
+    READ      = "read"
+    FAILED    = "failed"
+
+
+class WorkOrder(SQLModel, table=True):
+    """İş emri — bakım, arıza, onarım, tadilat veya imalat."""
+
+    __tablename__ = "work_orders"
+
+    id:                   UUID                = Field(default_factory=uuid4, primary_key=True)
+    tenant_id:            Optional[UUID]       = Field(foreign_key="tenants.id", default=None, index=True)
+    project_id:           UUID                = Field(foreign_key="projects.id", index=True)
+    work_type:            WorkOrderType       = Field(index=True)
+    title:                str                 = Field(max_length=255)
+    description:          Optional[str]       = Field(default=None)
+    assigned_to_name:     Optional[str]       = Field(default=None, max_length=255)
+    assigned_to_phone:    Optional[str]       = Field(default=None, max_length=30)
+    priority:             WorkOrderPriority   = Field(default=WorkOrderPriority.NORMAL, index=True)
+    status:               WorkOrderStatus     = Field(default=WorkOrderStatus.DRAFT, index=True)
+    location_url:         Optional[str]       = Field(default=None, max_length=1000)
+    due_date:             Optional[datetime]  = Field(default=None)
+    created_by:           Optional[UUID]      = Field(foreign_key="users.id", default=None)
+    created_by_name:      Optional[str]       = Field(default=None, max_length=255)
+    sent_at:              Optional[datetime]  = Field(default=None)
+    started_at:           Optional[datetime]  = Field(default=None)
+    completed_at:         Optional[datetime]  = Field(default=None)
+    completion_notes:     Optional[str]       = Field(default=None)
+    created_at:           datetime            = Field(default_factory=utc_now, nullable=False)
+    updated_at:           datetime            = Field(default_factory=utc_now, sa_column_kwargs={"onupdate": utc_now})
+    is_deleted:           bool                = Field(default=False, index=True)
+    deleted_at:           Optional[datetime]  = Field(default=None)
+    deleted_by_id:        Optional[UUID]       = Field(foreign_key="users.id", default=None)
+
+    public_links:         List["WorkOrderPublicLink"]      = Relationship(back_populates="work_order")
+    photos:               List["WorkOrderPhoto"]           = Relationship(back_populates="work_order")
+    service_forms:        List["WorkOrderServiceForm"]     = Relationship(back_populates="work_order")
+    whatsapp_messages:    List["WorkOrderWhatsappMessage"] = Relationship(back_populates="work_order")
+    activities:           List["WorkOrderActivity"]        = Relationship(back_populates="work_order")
+
+
+class WorkOrderPublicLink(SQLModel, table=True):
+    """Public (token korumalı, login gerektirmeyen) iş emri erişim linki."""
+
+    __tablename__ = "work_order_public_links"
+
+    id:             UUID              = Field(default_factory=uuid4, primary_key=True)
+    work_order_id:  UUID              = Field(foreign_key="work_orders.id", index=True)
+    token:          str               = Field(max_length=128, unique=True, index=True)
+    expires_at:     Optional[datetime] = Field(default=None)
+    is_active:      bool              = Field(default=True)
+    used_at:        Optional[datetime] = Field(default=None)
+    created_at:     datetime          = Field(default_factory=utc_now, nullable=False)
+
+    work_order: Mapped["WorkOrder"] = Relationship(back_populates="public_links")
+
+
+class WorkOrderPhoto(SQLModel, table=True):
+    """İş emrine bağlı fotoğraf."""
+
+    __tablename__ = "work_order_photos"
+
+    id:             UUID               = Field(default_factory=uuid4, primary_key=True)
+    work_order_id:  UUID               = Field(foreign_key="work_orders.id", index=True)
+    file_key:       str                = Field(max_length=512)
+    file_url:       Optional[str]      = Field(default=None, max_length=1000)
+    file_name:      Optional[str]      = Field(default=None, max_length=255)
+    file_size_bytes: Optional[int]     = Field(default=None)
+    mime_type:      Optional[str]      = Field(default=None, max_length=128)
+    photo_type:     WorkOrderPhotoType = Field(default=WorkOrderPhotoType.COMPLETION, index=True)
+    uploaded_by_name: Optional[str]   = Field(default=None, max_length=255)
+    uploaded_at:    datetime           = Field(default_factory=utc_now, nullable=False)
+
+    work_order: Mapped["WorkOrder"] = Relationship(back_populates="photos")
+
+
+class WorkOrderServiceForm(SQLModel, table=True):
+    """İş emrine bağlı servis formu (bakım için zorunlu)."""
+
+    __tablename__ = "work_order_service_forms"
+
+    id:               UUID           = Field(default_factory=uuid4, primary_key=True)
+    work_order_id:    UUID           = Field(foreign_key="work_orders.id", index=True)
+    project_id:       UUID           = Field(foreign_key="projects.id", index=True)
+    year:             int            = Field(index=True)
+    month:            int            = Field(index=True)
+    file_key:         str            = Field(max_length=512)
+    file_url:         Optional[str]  = Field(default=None, max_length=1000)
+    file_name:        Optional[str]  = Field(default=None, max_length=255)
+    file_size_bytes:  Optional[int]  = Field(default=None)
+    uploaded_by_name: Optional[str]  = Field(default=None, max_length=255)
+    uploaded_at:      datetime       = Field(default_factory=utc_now, nullable=False)
+
+    work_order: Mapped["WorkOrder"] = Relationship(back_populates="service_forms")
+
+
+class WorkOrderWhatsappMessage(SQLModel, table=True):
+    """WhatsApp mesaj gönderim kaydı."""
+
+    __tablename__ = "work_order_whatsapp_messages"
+
+    id:                   UUID                    = Field(default_factory=uuid4, primary_key=True)
+    work_order_id:        UUID                    = Field(foreign_key="work_orders.id", index=True)
+    to_phone:             str                     = Field(max_length=30)
+    whatsapp_message_id:  Optional[str]           = Field(default=None, max_length=255, index=True)
+    whatsapp_audit_id:    Optional[UUID]          = Field(foreign_key="outbound_whatsapp_audits.id", default=None, index=True, nullable=True)
+    status:               WorkOrderWhatsappStatus = Field(default=WorkOrderWhatsappStatus.QUEUED, index=True)
+    error_message:        Optional[str]           = Field(default=None, max_length=1000)
+    sent_at:              Optional[datetime]       = Field(default=None)
+    created_at:           datetime                = Field(default_factory=utc_now, nullable=False)
+    updated_at:           datetime                = Field(default_factory=utc_now, sa_column_kwargs={"onupdate": utc_now})
+
+    work_order: Mapped["WorkOrder"] = Relationship(back_populates="whatsapp_messages")
+
+
+class WorkOrderActivity(SQLModel, table=True):
+    """İş emri aktivite akışı (mağaza kartı son işlemler ile senkronize)."""
+
+    __tablename__ = "work_order_activities"
+
+    id:             UUID           = Field(default_factory=uuid4, primary_key=True)
+    work_order_id:  UUID           = Field(foreign_key="work_orders.id", index=True)
+    project_id:     UUID           = Field(foreign_key="projects.id", index=True)
+    activity_type:  str            = Field(max_length=50, index=True)
+    title:          str            = Field(max_length=500)
+    description:    Optional[str]  = Field(default=None)
+    created_at:     datetime       = Field(default_factory=utc_now, nullable=False, index=True)
+
+    work_order: Mapped["WorkOrder"] = Relationship(back_populates="activities")
+
+
+class StoreApprovalRequest(SQLModel, table=True):
+    """Onay talebi — hakkediş, fatura, proje, teklif, mail."""
+
+    __tablename__ = "store_approval_requests"
+
+    id:                 UUID           = Field(default_factory=uuid4, primary_key=True)
+    tenant_id:          Optional[UUID] = Field(foreign_key="tenants.id", default=None, index=True)
+    project_id:         UUID           = Field(foreign_key="projects.id", index=True)
+    process_id:         Optional[UUID] = Field(foreign_key="store_processes.id", default=None)
+    approval_type:      str            = Field(max_length=50, index=True)
+    related_payment_id: Optional[UUID] = Field(foreign_key="store_progress_payments.id", default=None)
+    related_invoice_id: Optional[UUID] = Field(foreign_key="store_invoice_records.id", default=None)
+    title:              str            = Field(max_length=500)
+    description:        Optional[str]  = Field(default=None)
+    amount:             Optional[Decimal] = Field(default=None, max_digits=14, decimal_places=2)
+    file_url:           Optional[str]  = Field(default=None)
+    file_name:          Optional[str]  = Field(default=None, max_length=500)
+    status:             str            = Field(default="bekliyor", max_length=30, index=True)
+    requested_by:       Optional[UUID] = Field(foreign_key="users.id", default=None)
+    requested_by_name:  Optional[str]  = Field(default=None, max_length=255)
+    requested_at:       datetime       = Field(default_factory=utc_now, nullable=False)
+    approved_by:        Optional[UUID] = Field(default=None)
+    approved_by_name:   Optional[str]  = Field(default=None, max_length=255)
+    approved_at:        Optional[datetime] = Field(default=None)
+    note:               Optional[str]  = Field(default=None)
+    created_at:         datetime       = Field(default_factory=utc_now, nullable=False)
+    updated_at:         datetime       = Field(default_factory=utc_now, sa_column_kwargs={"onupdate": utc_now})
+
+
+class ErpNotification(SQLModel, table=True):
+    """ERP içi bildirim kaydı — webhook eventi, form yükleme, iş emri oluşturma vb."""
+
+    __tablename__ = "erp_notifications"
+
+    id:                UUID           = Field(default_factory=uuid4, primary_key=True)
+    tenant_id:         Optional[UUID] = Field(foreign_key="tenants.id", default=None, index=True)
+    event_type:        str            = Field(max_length=50, index=True)
+    title:             str            = Field(max_length=500)
+    description:       Optional[str]  = Field(default=None, max_length=1000)
+    work_order_id:     Optional[UUID] = Field(foreign_key="work_orders.id", default=None, index=True, nullable=True)
+    work_order_title:  Optional[str]  = Field(default=None, max_length=255)
+    is_read:           bool           = Field(default=False, index=True)
+    read_at:           Optional[datetime] = Field(default=None)
+    created_at:        datetime       = Field(default_factory=utc_now, nullable=False, index=True)
+

@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { fetchTenantContext } from "@/lib/tenant-context";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -83,6 +84,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
             </h1>
           </div>
           <div className="flex items-center gap-3 sm:gap-4">
+            <NotificationBell />
             <div className="h-8 w-8 rounded-full bg-slate-200" />
           </div>
         </header>

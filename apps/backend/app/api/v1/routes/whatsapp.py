@@ -14,7 +14,7 @@ from uuid import UUID
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.db.models import OutboundWhatsAppAudit
+from app.db.models import OutboundWhatsAppAudit, ErpNotification
 from app.core.workers.tasks import send_whatsapp_message_task
 
 logger = logging.getLogger(__name__)
@@ -106,14 +106,57 @@ async def receive_webhook(
 
                                     if timestamp_str:
                                         ts = datetime.fromtimestamp(int(timestamp_str))
-                                        if status == "delivered":
-                                            audit.delivered_at = ts
-                                        elif status == "read":
+                                        if status == "read":
                                             audit.read_at = ts
                                             
                                     if "errors" in status_event:
                                         audit.error_message = str(status_event["errors"])
                                         
+                                    # Update related WorkOrderWhatsappMessage status
+                                    from app.db.models import WorkOrderWhatsappMessage, WorkOrderWhatsappStatus
+                                    status_map = {
+                                        "sent": WorkOrderWhatsappStatus.SENT,
+                                        "delivered": WorkOrderWhatsappStatus.DELIVERED,
+                                        "read": WorkOrderWhatsappStatus.READ,
+                                        "failed": WorkOrderWhatsappStatus.FAILED,
+                                    }
+                                    mapped_status = status_map.get(status)
+                                    wa_msg = None
+                                    if mapped_status:
+                                        wa_msg_res = await db.execute(
+                                            select(WorkOrderWhatsappMessage).where(WorkOrderWhatsappMessage.whatsapp_audit_id == audit.id)
+                                        )
+                                        wa_msg = wa_msg_res.scalars().first()
+                                        if wa_msg:
+                                            wa_msg.status = mapped_status
+                                            if status == "failed" and "errors" in status_event:
+                                                wa_msg.error_message = str(status_event["errors"])[:1000]
+
+                                    # Create ERP notification for key lifecycle events
+                                    if status in ("read", "delivered", "failed") and wa_msg:
+                                        from uuid import uuid4 as _uuid4
+                                        from datetime import datetime as _dt, timezone as _tz
+                                        def _utcn():
+                                            return _dt.now(_tz.utc).replace(tzinfo=None)
+                                        event_map = {
+                                            "read": ("whatsapp_read", "Teknisyen mesaji okudu"),
+                                            "delivered": ("whatsapp_delivered", "WhatsApp mesaji iletildi"),
+                                            "failed": ("whatsapp_failed", "WhatsApp gonderimi basarisiz"),
+                                        }
+                                        evt, title_base = event_map[status]
+                                        desc = f"Telefon: {audit.phone_number}"
+                                        if status == "failed" and "errors" in status_event:
+                                            desc += f" | Hata: {str(status_event['errors'])[:200]}"
+                                        db.add(ErpNotification(
+                                            id=_uuid4(),
+                                            tenant_id=audit.tenant_id,
+                                            event_type=evt,
+                                            title=title_base,
+                                            description=desc,
+                                            work_order_id=wa_msg.work_order_id if wa_msg else None,
+                                            is_read=False,
+                                            created_at=_utcn(),
+                                        ))
                                     await db.commit()
                                 else:
                                     logger.warning(f"WhatsApp webhook status received for unknown wamid: {wamid}")

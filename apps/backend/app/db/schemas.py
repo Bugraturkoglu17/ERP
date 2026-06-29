@@ -807,3 +807,278 @@ class FieldReportRead(BaseModel):
     project_name:   str | None = None
     author_name:    str | None = None
     model_config = ConfigDict(from_attributes=True)
+
+
+# ── Süreç Takibi ──────────────────────────────────────────────────────────────
+
+class StoreProcessStageCreate(BaseModel):
+    name:             str
+    order_index:      int              = 0
+    status:           str              = "pending"
+    responsible_name: str | None       = None
+    start_date:       datetime | None  = None
+    target_end_date:  datetime | None  = None
+    note:             str | None       = None
+
+
+class StoreProcessStageRead(StoreProcessStageCreate):
+    id:           UUID
+    process_id:   UUID
+    completed_at: datetime | None = None
+    created_at:   datetime
+    updated_at:   datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class StoreProcessStageUpdate(BaseModel):
+    status:           str | None      = None
+    responsible_name: str | None      = None
+    start_date:       datetime | None = None
+    target_end_date:  datetime | None = None
+    completed_at:     datetime | None = None
+    note:             str | None      = None
+
+
+class StoreProcessCreate(BaseModel):
+    work_type:        str
+    title:            str
+    description:      str | None      = None
+    start_date:       datetime | None = None
+    target_end_date:  datetime | None = None
+    responsible_name: str | None      = None
+    scope_code:       str | None      = None  # iş kalemi kodu (yangin_dolabi, sprinkler_hatti …)
+
+
+class StoreBulkProcessCreate(BaseModel):
+    """Wizard adım 3 — her seçili scope için ayrı süreç oluşturur."""
+    work_type:        str
+    title:            str              # ana süreç başlığı (mağaza adı vb.)
+    scope_codes:      list[str]        # ["yangin_dolabi", "sprinkler_hatti"]
+    start_date:       datetime | None = None
+    target_end_date:  datetime | None = None
+    responsible_name: str | None      = None
+
+
+class StoreProcessRead(BaseModel):
+    id:                  UUID
+    project_id:          UUID
+    tenant_id:           UUID | None
+    work_type:           str
+    title:               str
+    description:         str | None
+    status:              str
+    start_date:          datetime | None
+    target_end_date:     datetime | None
+    completed_at:        datetime | None
+    responsible_name:    str | None
+    progress_percent:    int
+    created_by:          UUID | None
+    created_at:          datetime
+    updated_at:          datetime
+    stages:              list[StoreProcessStageRead] = []
+    model_config = ConfigDict(from_attributes=True)
+
+
+class StoreProcessUpdate(BaseModel):
+    title:            str | None      = None
+    description:      str | None      = None
+    status:           str | None      = None
+    target_end_date:  datetime | None = None
+    responsible_name: str | None      = None
+    progress_percent: int | None      = None
+    completed_at:     datetime | None = None
+
+
+class StoreProcessNoteCreate(BaseModel):
+    content:   str
+    note_type: str            = "general"
+    stage_id:  UUID | None    = None
+
+
+class StoreProcessNoteRead(BaseModel):
+    id:         UUID
+    process_id: UUID
+    stage_id:   UUID | None
+    user_id:    UUID | None
+    user_name:  str | None
+    note_type:  str
+    content:    str
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class StoreActivityRead(BaseModel):
+    id:                 UUID
+    project_id:         UUID
+    user_id:            UUID | None
+    user_name:          str | None
+    activity_type:      str
+    title:              str
+    description:        str | None
+    related_process_id: UUID | None
+    related_stage_id:   UUID | None
+    created_at:         datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ActiveJobRead(BaseModel):
+    project_id:    UUID
+    project_name:  str
+    project_no:    str | None
+    work_type:     str
+    process_id:    UUID
+    process_title: str
+    process_status: str
+    current_stage:  str | None
+    target_end_date: datetime | None
+    days_remaining:  int | None
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ── Phase 6: Servis Formları ──────────────────────────────────────────────────
+
+class ServiceFormCreate(BaseModel):
+    year:               int
+    month:              int
+    contractor_company: str | None = None
+    description:        str | None = None
+    file_url:           str | None = None
+    file_name:          str | None = None
+    file_size_bytes:    int | None = None
+    status:             str = "uploaded"
+
+
+class ServiceFormRead(BaseModel):
+    id:                 UUID
+    project_id:         UUID
+    year:               int
+    month:              int
+    file_url:           str | None
+    file_name:          str | None
+    file_size_bytes:    int | None
+    contractor_company: str | None
+    uploaded_by:        UUID | None
+    uploaded_by_name:   str | None
+    description:        str | None
+    status:             str
+    created_at:         datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ── Phase 6: Hakkedişler ──────────────────────────────────────────────────────
+
+class ProgressPaymentCreate(BaseModel):
+    payment_type:            str
+    period:                  str | None = None
+    amount:                  float | None = None
+    currency:                str = "TRY"
+    file_url:                str | None = None
+    file_name:               str | None = None
+    description:             str | None = None
+    submitted_for_approval:  bool = False
+    process_id:              UUID | None = None
+
+
+class ProgressPaymentRead(BaseModel):
+    id:                      UUID
+    project_id:              UUID
+    process_id:              UUID | None
+    payment_type:            str
+    period:                  str | None
+    amount:                  float | None
+    currency:                str
+    file_url:                str | None
+    file_name:               str | None
+    description:             str | None
+    approval_status:         str
+    submitted_for_approval:  bool
+    submitted_by:            UUID | None
+    submitted_by_name:       str | None
+    created_at:              datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ProgressPaymentUpdate(BaseModel):
+    approval_status:        str | None  = None
+    amount:                 float | None = None
+    description:            str | None  = None
+    submitted_for_approval: bool | None = None
+
+
+# ── Phase 6: Faturalar ────────────────────────────────────────────────────────
+
+class InvoiceRecordCreate(BaseModel):
+    invoice_type:  str
+    invoice_no:    str | None = None
+    period:        str | None = None
+    amount:        float | None = None
+    currency:      str = "TRY"
+    file_url:      str | None = None
+    file_name:     str | None = None
+    description:   str | None = None
+    process_id:    UUID | None = None
+
+
+class InvoiceRecordRead(BaseModel):
+    id:             UUID
+    project_id:     UUID
+    process_id:     UUID | None
+    invoice_type:   str
+    invoice_no:     str | None
+    period:         str | None
+    amount:         float | None
+    currency:       str
+    file_url:       str | None
+    file_name:      str | None
+    description:    str | None
+    approval_status: str
+    submitted_by:   UUID | None
+    submitted_by_name: str | None
+    created_at:     datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ── Phase 6: Onay Talepleri ───────────────────────────────────────────────────
+
+class ApprovalRequestCreate(BaseModel):
+    approval_type:       str
+    title:               str
+    description:         str | None = None
+    amount:              float | None = None
+    file_url:            str | None = None
+    file_name:           str | None = None
+    related_payment_id:  UUID | None = None
+    related_invoice_id:  UUID | None = None
+    process_id:          UUID | None = None
+
+
+class ApprovalRequestRead(BaseModel):
+    id:                  UUID
+    project_id:          UUID
+    process_id:          UUID | None
+    approval_type:       str
+    related_payment_id:  UUID | None
+    related_invoice_id:  UUID | None
+    title:               str
+    description:         str | None
+    amount:              float | None
+    file_url:            str | None
+    file_name:           str | None
+    status:              str
+    requested_by:        UUID | None
+    requested_by_name:   str | None
+    requested_at:        datetime
+    approved_by:         UUID | None
+    approved_by_name:    str | None
+    approved_at:         datetime | None
+    note:                str | None
+    created_at:          datetime
+    # enriched fields (joined)
+    project_name:        str | None = None
+    project_no:          str | None = None
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ApprovalRequestUpdate(BaseModel):
+    status: str
+    note:   str | None = None

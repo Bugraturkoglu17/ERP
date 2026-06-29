@@ -1272,10 +1272,865 @@ export interface paths {
         patch: operations["approve_report_api_v1_field_reports__report_id__approve_patch"];
         trace?: never;
     };
+    "/api/v1/whatsapp/webhook": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Verify Webhook
+         * @description Meta webhook verification endpoint.
+         */
+        get: operations["verify_webhook_api_v1_whatsapp_webhook_get"];
+        put?: never;
+        /**
+         * Receive Webhook
+         * @description Handle incoming webhook events from Meta (messages, statuses).
+         */
+        post: operations["receive_webhook_api_v1_whatsapp_webhook_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/whatsapp/test-template": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Template
+         * @description Uçtan uca WhatsApp şablon test endpoint'i.
+         *     Servis görev ataması şablonu (servis_gorev_atamasi) gönderimi için kuyruğa atar.
+         */
+        post: operations["test_template_api_v1_whatsapp_test_template_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/process/projects/{project_id}/process": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Project Processes
+         * @description Bir mağazanın tüm süreçlerini listeler. Silinen süreçler varsayılan olarak hariç tutulur.
+         */
+        get: operations["get_project_processes_api_v1_process_projects__project_id__process_get"];
+        put?: never;
+        /**
+         * Create Process
+         * @description Yeni tadilat / yeni yapım süreci başlatır. Aşamalar otomatik oluşur.
+         */
+        post: operations["create_process_api_v1_process_projects__project_id__process_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/process/projects/{project_id}/process/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Bulk Processes
+         * @description Wizard: seçilen her scope için ayrı süreç + scope'a özel aşamalar oluşturur.
+         */
+        post: operations["create_bulk_processes_api_v1_process_projects__project_id__process_bulk_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/process/projects/{project_id}/process/{process_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Cancel Process
+         * @description Süreci iptal eder — kayıt sistemde kalır, durum 'cancelled' olur.
+         */
+        patch: operations["cancel_process_api_v1_process_projects__project_id__process__process_id__cancel_patch"];
+        trace?: never;
+    };
+    "/api/v1/process/projects/{project_id}/process/{process_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Process
+         * @description Süreci siler (soft delete — status='deleted'). Mağaza kaydına dokunmaz.
+         *     Bağlı hakkediş veya fatura varsa 409 döner. Bağlı onay talepleri iptal edilir.
+         */
+        delete: operations["delete_process_api_v1_process_projects__project_id__process__process_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Process */
+        patch: operations["update_process_api_v1_process_projects__project_id__process__process_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/process/projects/{project_id}/process/{process_id}/stages/{stage_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Stage */
+        patch: operations["update_stage_api_v1_process_projects__project_id__process__process_id__stages__stage_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/process/projects/{project_id}/process/{process_id}/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Notes */
+        get: operations["get_notes_api_v1_process_projects__project_id__process__process_id__notes_get"];
+        put?: never;
+        /** Add Note */
+        post: operations["add_note_api_v1_process_projects__project_id__process__process_id__notes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/process/projects/{project_id}/activities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Activities */
+        get: operations["get_activities_api_v1_process_projects__project_id__activities_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/process/active-jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Active Jobs
+         * @description Ana sayfadaki 'Aktif İşler' paneli için — tadilat/yeni yapım aktif süreçler.
+         */
+        get: operations["get_active_jobs_api_v1_process_active_jobs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/service-forms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List All Service Forms
+         * @description Tenant genelinde tüm servis formlarını döner (isteğe bağlı yıl/ay filtresi).
+         */
+        get: operations["list_all_service_forms_api_v1_service_forms_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/service-forms/projects/{project_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Service Forms
+         * @description Bir mağazanın servis formlarını listeler (isteğe bağlı yıl/ay filtresi).
+         */
+        get: operations["list_service_forms_api_v1_service_forms_projects__project_id__get"];
+        put?: never;
+        /**
+         * Create Service Form
+         * @description Aylık servis formu kaydı oluşturur.
+         */
+        post: operations["create_service_form_api_v1_service_forms_projects__project_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/service-forms/{form_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Service Form */
+        delete: operations["delete_service_form_api_v1_service_forms__form_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/progress-payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List All Payments */
+        get: operations["list_all_payments_api_v1_progress_payments_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/progress-payments/projects/{project_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Payments */
+        get: operations["list_payments_api_v1_progress_payments_projects__project_id__get"];
+        put?: never;
+        /** Create Payment */
+        post: operations["create_payment_api_v1_progress_payments_projects__project_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/progress-payments/{payment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Payment */
+        delete: operations["delete_payment_api_v1_progress_payments__payment_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Payment */
+        patch: operations["update_payment_api_v1_progress_payments__payment_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/progress-payments/sync-approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sync Payment Approvals
+         * @description submitted_for_approval=True ama ilişkili StoreApprovalRequest olmayan
+         *     hakkedişler için otomatik approval kaydı oluşturur. Duplicate oluşturmaz.
+         */
+        post: operations["sync_payment_approvals_api_v1_progress_payments_sync_approvals_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Approvals */
+        get: operations["list_approvals_api_v1_approvals_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/approvals/projects/{project_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Project Approvals */
+        get: operations["list_project_approvals_api_v1_approvals_projects__project_id__get"];
+        put?: never;
+        /** Create Approval */
+        post: operations["create_approval_api_v1_approvals_projects__project_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/approvals/{approval_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Approval */
+        patch: operations["update_approval_api_v1_approvals__approval_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/invoice-records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List All Invoices
+         * @description Tenant genelinde tüm fatura kayıtlarını döner (isteğe bağlı tür/dönem filtresi).
+         */
+        get: operations["list_all_invoices_api_v1_invoice_records_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invoice-records/{invoice_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Invoice */
+        delete: operations["delete_invoice_api_v1_invoice_records__invoice_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invoice-records/projects/{project_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Invoices */
+        get: operations["list_invoices_api_v1_invoice_records_projects__project_id__get"];
+        put?: never;
+        /** Create Invoice */
+        post: operations["create_invoice_api_v1_invoice_records_projects__project_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/work-orders/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Work Order Stats
+         * @description Dashboard KPI istatistikleri.
+         */
+        get: operations["get_work_order_stats_api_v1_work_orders_stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/work-orders/{work_order_id}/preview-message": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview Whatsapp Message
+         * @description Gondermeden once cozumlenmis WhatsApp sablonunu onizle.
+         */
+        get: operations["preview_whatsapp_message_api_v1_work_orders__work_order_id__preview_message_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/work-orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Work Orders */
+        get: operations["list_work_orders_api_v1_work_orders_get"];
+        put?: never;
+        /** Create Work Order */
+        post: operations["create_work_order_api_v1_work_orders_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/work-orders/{work_order_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Work Order */
+        get: operations["get_work_order_api_v1_work_orders__work_order_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Work Order */
+        delete: operations["delete_work_order_api_v1_work_orders__work_order_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Work Order */
+        patch: operations["update_work_order_api_v1_work_orders__work_order_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/work-orders/{work_order_id}/send-whatsapp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send Whatsapp */
+        post: operations["send_whatsapp_api_v1_work_orders__work_order_id__send_whatsapp_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/work-orders/{work_order_id}/whatsapp-messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Work Order Whatsapp Messages */
+        get: operations["get_work_order_whatsapp_messages_api_v1_work_orders__work_order_id__whatsapp_messages_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/work-orders/{work_order_id}/photos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload Admin Photo */
+        post: operations["upload_admin_photo_api_v1_work_orders__work_order_id__photos_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/work-orders/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public Get Work Order */
+        get: operations["public_get_work_order_api_v1_public_work_orders__token__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/work-orders/{token}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Public Submit Work Order */
+        post: operations["public_submit_work_order_api_v1_public_work_orders__token__submit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/work-orders/{token}/photos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Public Upload Photo */
+        post: operations["public_upload_photo_api_v1_public_work_orders__token__photos_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/work-orders/{token}/service-form": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Public Upload Service Form */
+        post: operations["public_upload_service_form_api_v1_public_work_orders__token__service_form_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/whatsapp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Whatsapp Webhook Verify */
+        get: operations["whatsapp_webhook_verify_api_v1_webhooks_whatsapp_get"];
+        put?: never;
+        /** Whatsapp Webhook Receive */
+        post: operations["whatsapp_webhook_receive_api_v1_webhooks_whatsapp_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Notifications
+         * @description Son {days} gunun ERP bildirimleri.
+         */
+        get: operations["list_notifications_api_v1_notifications_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/unread-count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Unread Count
+         * @description Okunmamis bildirim sayisi.
+         */
+        get: operations["unread_count_api_v1_notifications_unread_count_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/{notification_id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Mark Read
+         * @description Bildirimi okundu isaretl.
+         */
+        patch: operations["mark_read_api_v1_notifications__notification_id__read_patch"];
+        trace?: never;
+    };
+    "/api/v1/notifications/mark-all-read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark All Read
+         * @description Tum bildirimleri okundu isaretl.
+         */
+        post: operations["mark_all_read_api_v1_notifications_mark_all_read_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** ActiveJobRead */
+        ActiveJobRead: {
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /** Project Name */
+            project_name: string;
+            /** Project No */
+            project_no: string | null;
+            /** Work Type */
+            work_type: string;
+            /**
+             * Process Id
+             * Format: uuid
+             */
+            process_id: string;
+            /** Process Title */
+            process_title: string;
+            /** Process Status */
+            process_status: string;
+            /** Current Stage */
+            current_stage: string | null;
+            /** Target End Date */
+            target_end_date: string | null;
+            /** Days Remaining */
+            days_remaining: number | null;
+        };
+        /** ApprovalRequestCreate */
+        ApprovalRequestCreate: {
+            /** Approval Type */
+            approval_type: string;
+            /** Title */
+            title: string;
+            /** Description */
+            description?: string | null;
+            /** Amount */
+            amount?: number | null;
+            /** File Url */
+            file_url?: string | null;
+            /** File Name */
+            file_name?: string | null;
+            /** Related Payment Id */
+            related_payment_id?: string | null;
+            /** Related Invoice Id */
+            related_invoice_id?: string | null;
+            /** Process Id */
+            process_id?: string | null;
+        };
+        /** ApprovalRequestRead */
+        ApprovalRequestRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /** Process Id */
+            process_id: string | null;
+            /** Approval Type */
+            approval_type: string;
+            /** Related Payment Id */
+            related_payment_id: string | null;
+            /** Related Invoice Id */
+            related_invoice_id: string | null;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string | null;
+            /** Amount */
+            amount: number | null;
+            /** File Url */
+            file_url: string | null;
+            /** File Name */
+            file_name: string | null;
+            /** Status */
+            status: string;
+            /** Requested By */
+            requested_by: string | null;
+            /** Requested By Name */
+            requested_by_name: string | null;
+            /**
+             * Requested At
+             * Format: date-time
+             */
+            requested_at: string;
+            /** Approved By */
+            approved_by: string | null;
+            /** Approved By Name */
+            approved_by_name: string | null;
+            /** Approved At */
+            approved_at: string | null;
+            /** Note */
+            note: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Project Name */
+            project_name?: string | null;
+            /** Project No */
+            project_no?: string | null;
+        };
+        /** ApprovalRequestUpdate */
+        ApprovalRequestUpdate: {
+            /** Status */
+            status: string;
+            /** Note */
+            note?: string | null;
+        };
         /** Body_import_custom_csv_api_v1_projects_hierarchy_import_custom_csv_post */
         Body_import_custom_csv_api_v1_projects_hierarchy_import_custom_csv_post: {
             /**
@@ -1301,6 +2156,54 @@ export interface components {
             client_id?: string | null;
             /** Client Secret */
             client_secret?: string | null;
+        };
+        /** Body_public_upload_photo_api_v1_public_work_orders__token__photos_post */
+        Body_public_upload_photo_api_v1_public_work_orders__token__photos_post: {
+            /**
+             * Photo Type
+             * @default completion
+             */
+            photo_type: string;
+            /**
+             * Uploaded By Name
+             * @default
+             */
+            uploaded_by_name: string;
+            /**
+             * File
+             * Format: binary
+             */
+            file: string;
+        };
+        /** Body_public_upload_service_form_api_v1_public_work_orders__token__service_form_post */
+        Body_public_upload_service_form_api_v1_public_work_orders__token__service_form_post: {
+            /**
+             * Uploaded By Name
+             * @default
+             */
+            uploaded_by_name: string;
+            /** Year */
+            year: number;
+            /** Month */
+            month: number;
+            /**
+             * File
+             * Format: binary
+             */
+            file: string;
+        };
+        /** Body_upload_admin_photo_api_v1_work_orders__work_order_id__photos_post */
+        Body_upload_admin_photo_api_v1_work_orders__work_order_id__photos_post: {
+            /**
+             * Photo Type
+             * @default completion
+             */
+            photo_type: string;
+            /**
+             * File
+             * Format: binary
+             */
+            file: string;
         };
         /** Body_upload_document_api_v1_documents_upload_post */
         Body_upload_document_api_v1_documents_upload_post: {
@@ -1881,6 +2784,72 @@ export interface components {
             /** Due Date */
             due_date?: string | null;
         };
+        /** InvoiceRecordCreate */
+        InvoiceRecordCreate: {
+            /** Invoice Type */
+            invoice_type: string;
+            /** Invoice No */
+            invoice_no?: string | null;
+            /** Period */
+            period?: string | null;
+            /** Amount */
+            amount?: number | null;
+            /**
+             * Currency
+             * @default TRY
+             */
+            currency: string;
+            /** File Url */
+            file_url?: string | null;
+            /** File Name */
+            file_name?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Process Id */
+            process_id?: string | null;
+        };
+        /** InvoiceRecordRead */
+        InvoiceRecordRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /** Process Id */
+            process_id: string | null;
+            /** Invoice Type */
+            invoice_type: string;
+            /** Invoice No */
+            invoice_no: string | null;
+            /** Period */
+            period: string | null;
+            /** Amount */
+            amount: number | null;
+            /** Currency */
+            currency: string;
+            /** File Url */
+            file_url: string | null;
+            /** File Name */
+            file_name: string | null;
+            /** Description */
+            description: string | null;
+            /** Approval Status */
+            approval_status: string;
+            /** Submitted By */
+            submitted_by: string | null;
+            /** Submitted By Name */
+            submitted_by_name: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /** LowStockAlertRead */
         LowStockAlertRead: {
             /**
@@ -2031,6 +3000,35 @@ export interface components {
         MessageResponse: {
             /** Message */
             message: string;
+        };
+        /** NotificationRead */
+        NotificationRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Tenant Id */
+            tenant_id?: string | null;
+            /** Event Type */
+            event_type: string;
+            /** Title */
+            title: string;
+            /** Description */
+            description?: string | null;
+            /** Work Order Id */
+            work_order_id?: string | null;
+            /** Work Order Title */
+            work_order_title?: string | null;
+            /** Is Read */
+            is_read: boolean;
+            /** Read At */
+            read_at?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /** POReceiveRequest */
         POReceiveRequest: {
@@ -2215,6 +3213,86 @@ export interface components {
              */
             created_at: string;
         };
+        /** ProgressPaymentCreate */
+        ProgressPaymentCreate: {
+            /** Payment Type */
+            payment_type: string;
+            /** Period */
+            period?: string | null;
+            /** Amount */
+            amount?: number | null;
+            /**
+             * Currency
+             * @default TRY
+             */
+            currency: string;
+            /** File Url */
+            file_url?: string | null;
+            /** File Name */
+            file_name?: string | null;
+            /** Description */
+            description?: string | null;
+            /**
+             * Submitted For Approval
+             * @default false
+             */
+            submitted_for_approval: boolean;
+            /** Process Id */
+            process_id?: string | null;
+        };
+        /** ProgressPaymentRead */
+        ProgressPaymentRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /** Process Id */
+            process_id: string | null;
+            /** Payment Type */
+            payment_type: string;
+            /** Period */
+            period: string | null;
+            /** Amount */
+            amount: number | null;
+            /** Currency */
+            currency: string;
+            /** File Url */
+            file_url: string | null;
+            /** File Name */
+            file_name: string | null;
+            /** Description */
+            description: string | null;
+            /** Approval Status */
+            approval_status: string;
+            /** Submitted For Approval */
+            submitted_for_approval: boolean;
+            /** Submitted By */
+            submitted_by: string | null;
+            /** Submitted By Name */
+            submitted_by_name: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** ProgressPaymentUpdate */
+        ProgressPaymentUpdate: {
+            /** Approval Status */
+            approval_status?: string | null;
+            /** Amount */
+            amount?: number | null;
+            /** Description */
+            description?: string | null;
+            /** Submitted For Approval */
+            submitted_for_approval?: boolean | null;
+        };
         /** ProjectAssignmentCreate */
         ProjectAssignmentCreate: {
             /**
@@ -2382,6 +3460,60 @@ export interface components {
             status?: string | null;
             /** Contract Value */
             contract_value?: number | null;
+        };
+        /** PublicSubmit */
+        PublicSubmit: {
+            /** Status */
+            status: string;
+            /** Completion Notes */
+            completion_notes?: string | null;
+        };
+        /** PublicWorkOrderRead */
+        PublicWorkOrderRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /** Project Name */
+            project_name: string;
+            /** Project No */
+            project_no?: string | null;
+            /** Project Address */
+            project_address?: string | null;
+            /** Project Phone */
+            project_phone?: string | null;
+            /** Work Type */
+            work_type: string;
+            /** Work Type Label */
+            work_type_label: string;
+            /** Title */
+            title: string;
+            /** Description */
+            description?: string | null;
+            /** Priority */
+            priority: string;
+            /** Status */
+            status: string;
+            /** Location Url */
+            location_url?: string | null;
+            /** Due Date */
+            due_date?: string | null;
+            /**
+             * Photos
+             * @default []
+             */
+            photos: Record<string, never>[];
+            /**
+             * Has Service Form
+             * @default false
+             */
+            has_service_form: boolean;
         };
         /** PurchaseOrderCreate */
         PurchaseOrderCreate: {
@@ -2607,6 +3739,66 @@ export interface components {
             /** City */
             city?: string | null;
         };
+        /** ServiceFormCreate */
+        ServiceFormCreate: {
+            /** Year */
+            year: number;
+            /** Month */
+            month: number;
+            /** Contractor Company */
+            contractor_company?: string | null;
+            /** Description */
+            description?: string | null;
+            /** File Url */
+            file_url?: string | null;
+            /** File Name */
+            file_name?: string | null;
+            /** File Size Bytes */
+            file_size_bytes?: number | null;
+            /**
+             * Status
+             * @default uploaded
+             */
+            status: string;
+        };
+        /** ServiceFormRead */
+        ServiceFormRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /** Year */
+            year: number;
+            /** Month */
+            month: number;
+            /** File Url */
+            file_url: string | null;
+            /** File Name */
+            file_name: string | null;
+            /** File Size Bytes */
+            file_size_bytes: number | null;
+            /** Contractor Company */
+            contractor_company: string | null;
+            /** Uploaded By */
+            uploaded_by: string | null;
+            /** Uploaded By Name */
+            uploaded_by_name: string | null;
+            /** Description */
+            description: string | null;
+            /** Status */
+            status: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /** StockRead */
         StockRead: {
             /**
@@ -2628,6 +3820,240 @@ export interface components {
             updated_at: string;
             /** Updated By */
             updated_by: string | null;
+        };
+        /** StoreActivityRead */
+        StoreActivityRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /** User Id */
+            user_id: string | null;
+            /** User Name */
+            user_name: string | null;
+            /** Activity Type */
+            activity_type: string;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string | null;
+            /** Related Process Id */
+            related_process_id: string | null;
+            /** Related Stage Id */
+            related_stage_id: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * StoreBulkProcessCreate
+         * @description Wizard adım 3 — her seçili scope için ayrı süreç oluşturur.
+         */
+        StoreBulkProcessCreate: {
+            /** Work Type */
+            work_type: string;
+            /** Title */
+            title: string;
+            /** Scope Codes */
+            scope_codes: string[];
+            /** Start Date */
+            start_date?: string | null;
+            /** Target End Date */
+            target_end_date?: string | null;
+            /** Responsible Name */
+            responsible_name?: string | null;
+        };
+        /** StoreProcessCreate */
+        StoreProcessCreate: {
+            /** Work Type */
+            work_type: string;
+            /** Title */
+            title: string;
+            /** Description */
+            description?: string | null;
+            /** Start Date */
+            start_date?: string | null;
+            /** Target End Date */
+            target_end_date?: string | null;
+            /** Responsible Name */
+            responsible_name?: string | null;
+            /** Scope Code */
+            scope_code?: string | null;
+        };
+        /** StoreProcessNoteCreate */
+        StoreProcessNoteCreate: {
+            /** Content */
+            content: string;
+            /**
+             * Note Type
+             * @default general
+             */
+            note_type: string;
+            /** Stage Id */
+            stage_id?: string | null;
+        };
+        /** StoreProcessNoteRead */
+        StoreProcessNoteRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Process Id
+             * Format: uuid
+             */
+            process_id: string;
+            /** Stage Id */
+            stage_id: string | null;
+            /** User Id */
+            user_id: string | null;
+            /** User Name */
+            user_name: string | null;
+            /** Note Type */
+            note_type: string;
+            /** Content */
+            content: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** StoreProcessRead */
+        StoreProcessRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /** Tenant Id */
+            tenant_id: string | null;
+            /** Work Type */
+            work_type: string;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string | null;
+            /** Status */
+            status: string;
+            /** Start Date */
+            start_date: string | null;
+            /** Target End Date */
+            target_end_date: string | null;
+            /** Completed At */
+            completed_at: string | null;
+            /** Responsible Name */
+            responsible_name: string | null;
+            /** Progress Percent */
+            progress_percent: number;
+            /** Created By */
+            created_by: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * Stages
+             * @default []
+             */
+            stages: components["schemas"]["StoreProcessStageRead"][];
+        };
+        /** StoreProcessStageRead */
+        StoreProcessStageRead: {
+            /** Name */
+            name: string;
+            /**
+             * Order Index
+             * @default 0
+             */
+            order_index: number;
+            /**
+             * Status
+             * @default pending
+             */
+            status: string;
+            /** Responsible Name */
+            responsible_name?: string | null;
+            /** Start Date */
+            start_date?: string | null;
+            /** Target End Date */
+            target_end_date?: string | null;
+            /** Note */
+            note?: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Process Id
+             * Format: uuid
+             */
+            process_id: string;
+            /** Completed At */
+            completed_at?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** StoreProcessStageUpdate */
+        StoreProcessStageUpdate: {
+            /** Status */
+            status?: string | null;
+            /** Responsible Name */
+            responsible_name?: string | null;
+            /** Start Date */
+            start_date?: string | null;
+            /** Target End Date */
+            target_end_date?: string | null;
+            /** Completed At */
+            completed_at?: string | null;
+            /** Note */
+            note?: string | null;
+        };
+        /** StoreProcessUpdate */
+        StoreProcessUpdate: {
+            /** Title */
+            title?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Status */
+            status?: string | null;
+            /** Target End Date */
+            target_end_date?: string | null;
+            /** Responsible Name */
+            responsible_name?: string | null;
+            /** Progress Percent */
+            progress_percent?: number | null;
+            /** Completed At */
+            completed_at?: string | null;
         };
         /** SupplierCreate */
         SupplierCreate: {
@@ -2951,6 +4377,49 @@ export interface components {
             /** Is Active */
             is_active?: boolean | null;
         };
+        /** TestTemplateRequest */
+        TestTemplateRequest: {
+            /**
+             * Tenant Id
+             * Format: uuid
+             */
+            tenant_id: string;
+            /** Phone Number */
+            phone_number: string;
+            /** Technician Name */
+            technician_name: string;
+            /** Project Name */
+            project_name: string;
+            /** Form Token */
+            form_token?: string | null;
+            /** Form Url */
+            form_url?: string | null;
+            /**
+             * Template Name
+             * @default servis_gorev_atamasi_v2
+             */
+            template_name: string;
+            /**
+             * Location Lat
+             * @default 41.0082
+             */
+            location_lat: string | null;
+            /**
+             * Location Long
+             * @default 28.9784
+             */
+            location_long: string | null;
+            /**
+             * Location Name
+             * @default Proje Konumu
+             */
+            location_name: string | null;
+            /**
+             * Location Address
+             * @default İstanbul, Türkiye
+             */
+            location_address: string | null;
+        };
         /** Token */
         Token: {
             /** Access Token */
@@ -3177,6 +4646,131 @@ export interface components {
             project_id?: string | null;
             /** Is Active */
             is_active?: boolean | null;
+        };
+        /** WorkOrderCreate */
+        WorkOrderCreate: {
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /** Work Type */
+            work_type: string;
+            /** Title */
+            title: string;
+            /** Description */
+            description?: string | null;
+            /** Assigned To Name */
+            assigned_to_name?: string | null;
+            /** Assigned To Phone */
+            assigned_to_phone?: string | null;
+            /**
+             * Priority
+             * @default normal
+             */
+            priority: string;
+            /** Location Url */
+            location_url?: string | null;
+            /** Due Date */
+            due_date?: string | null;
+            /**
+             * Send Whatsapp
+             * @default true
+             */
+            send_whatsapp: boolean | null;
+        };
+        /** WorkOrderRead */
+        WorkOrderRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /** Project Name */
+            project_name?: string | null;
+            /** Project No */
+            project_no?: string | null;
+            /** Work Type */
+            work_type: string;
+            /** Work Type Label */
+            work_type_label: string;
+            /** Title */
+            title: string;
+            /** Description */
+            description?: string | null;
+            /** Assigned To Name */
+            assigned_to_name?: string | null;
+            /** Assigned To Phone */
+            assigned_to_phone?: string | null;
+            /** Priority */
+            priority: string;
+            /** Status */
+            status: string;
+            /** Status Label */
+            status_label: string;
+            /** Location Url */
+            location_url?: string | null;
+            /** Due Date */
+            due_date?: string | null;
+            /** Created By Name */
+            created_by_name?: string | null;
+            /** Sent At */
+            sent_at?: string | null;
+            /** Started At */
+            started_at?: string | null;
+            /** Completed At */
+            completed_at?: string | null;
+            /** Completion Notes */
+            completion_notes?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * Photo Count
+             * @default 0
+             */
+            photo_count: number;
+            /**
+             * Has Service Form
+             * @default false
+             */
+            has_service_form: boolean;
+            /** Public Token */
+            public_token?: string | null;
+        };
+        /** WorkOrderUpdate */
+        WorkOrderUpdate: {
+            /** Title */
+            title?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Assigned To Name */
+            assigned_to_name?: string | null;
+            /** Assigned To Phone */
+            assigned_to_phone?: string | null;
+            /** Priority */
+            priority?: string | null;
+            /** Due Date */
+            due_date?: string | null;
+            /** Status */
+            status?: string | null;
+            /**
+             * Send Whatsapp
+             * @default true
+             */
+            send_whatsapp: boolean | null;
         };
     };
     responses: never;
@@ -6295,6 +7889,1624 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    verify_webhook_api_v1_whatsapp_webhook_get: {
+        parameters: {
+            query?: {
+                "hub.mode"?: string | null;
+                "hub.challenge"?: string | null;
+                "hub.verify_token"?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    receive_webhook_api_v1_whatsapp_webhook_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    test_template_api_v1_whatsapp_test_template_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TestTemplateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_project_processes_api_v1_process_projects__project_id__process_get: {
+        parameters: {
+            query?: {
+                include_deleted?: boolean;
+            };
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoreProcessRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_process_api_v1_process_projects__project_id__process_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StoreProcessCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoreProcessRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_bulk_processes_api_v1_process_projects__project_id__process_bulk_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StoreBulkProcessCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoreProcessRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_process_api_v1_process_projects__project_id__process__process_id__cancel_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                process_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoreProcessRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_process_api_v1_process_projects__project_id__process__process_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                process_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_process_api_v1_process_projects__project_id__process__process_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                process_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StoreProcessUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoreProcessRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_stage_api_v1_process_projects__project_id__process__process_id__stages__stage_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                process_id: string;
+                stage_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StoreProcessStageUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoreProcessStageRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_notes_api_v1_process_projects__project_id__process__process_id__notes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                process_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoreProcessNoteRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_note_api_v1_process_projects__project_id__process__process_id__notes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                process_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StoreProcessNoteCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoreProcessNoteRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_activities_api_v1_process_projects__project_id__activities_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoreActivityRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_active_jobs_api_v1_process_active_jobs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActiveJobRead"][];
+                };
+            };
+        };
+    };
+    list_all_service_forms_api_v1_service_forms_get: {
+        parameters: {
+            query?: {
+                year?: number | null;
+                month?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceFormRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_service_forms_api_v1_service_forms_projects__project_id__get: {
+        parameters: {
+            query?: {
+                year?: number | null;
+                month?: number | null;
+            };
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceFormRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_service_form_api_v1_service_forms_projects__project_id__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServiceFormCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceFormRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_service_form_api_v1_service_forms__form_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                form_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_all_payments_api_v1_progress_payments_get: {
+        parameters: {
+            query?: {
+                payment_type?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgressPaymentRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_payments_api_v1_progress_payments_projects__project_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgressPaymentRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_payment_api_v1_progress_payments_projects__project_id__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProgressPaymentCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgressPaymentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_payment_api_v1_progress_payments__payment_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                payment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_payment_api_v1_progress_payments__payment_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                payment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProgressPaymentUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgressPaymentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sync_payment_approvals_api_v1_progress_payments_sync_approvals_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    list_approvals_api_v1_approvals_get: {
+        parameters: {
+            query?: {
+                approval_type?: string | null;
+                status?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalRequestRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_project_approvals_api_v1_approvals_projects__project_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalRequestRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_approval_api_v1_approvals_projects__project_id__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApprovalRequestCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalRequestRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_approval_api_v1_approvals__approval_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                approval_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApprovalRequestUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalRequestRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_all_invoices_api_v1_invoice_records_get: {
+        parameters: {
+            query?: {
+                invoice_type?: string | null;
+                period?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceRecordRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_invoice_api_v1_invoice_records__invoice_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invoice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_invoices_api_v1_invoice_records_projects__project_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceRecordRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_invoice_api_v1_invoice_records_projects__project_id__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoiceRecordCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceRecordRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_work_order_stats_api_v1_work_orders_stats_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    preview_whatsapp_message_api_v1_work_orders__work_order_id__preview_message_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                work_order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_work_orders_api_v1_work_orders_get: {
+        parameters: {
+            query?: {
+                project_id?: string | null;
+                status?: string | null;
+                work_type?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkOrderRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_work_order_api_v1_work_orders_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkOrderCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkOrderRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_work_order_api_v1_work_orders__work_order_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                work_order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkOrderRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_work_order_api_v1_work_orders__work_order_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                work_order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_work_order_api_v1_work_orders__work_order_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                work_order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkOrderUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkOrderRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_whatsapp_api_v1_work_orders__work_order_id__send_whatsapp_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                work_order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkOrderRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_work_order_whatsapp_messages_api_v1_work_orders__work_order_id__whatsapp_messages_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                work_order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown[];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_admin_photo_api_v1_work_orders__work_order_id__photos_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                work_order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_admin_photo_api_v1_work_orders__work_order_id__photos_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_get_work_order_api_v1_public_work_orders__token__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicWorkOrderRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_submit_work_order_api_v1_public_work_orders__token__submit_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicSubmit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_upload_photo_api_v1_public_work_orders__token__photos_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_public_upload_photo_api_v1_public_work_orders__token__photos_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_upload_service_form_api_v1_public_work_orders__token__service_form_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_public_upload_service_form_api_v1_public_work_orders__token__service_form_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    whatsapp_webhook_verify_api_v1_webhooks_whatsapp_get: {
+        parameters: {
+            query?: {
+                hub_mode?: string | null;
+                hub_verify_token?: string | null;
+                hub_challenge?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    whatsapp_webhook_receive_api_v1_webhooks_whatsapp_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    list_notifications_api_v1_notifications_get: {
+        parameters: {
+            query?: {
+                unread_only?: boolean;
+                days?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unread_count_api_v1_notifications_unread_count_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    mark_read_api_v1_notifications__notification_id__read_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                notification_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mark_all_read_api_v1_notifications_mark_all_read_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };

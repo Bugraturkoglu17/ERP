@@ -1,0 +1,174 @@
+"""
+Onay Süreçleri API
+Routes: /api/v1/approvals/...
+"""
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from typing import List, Optional
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select, desc, or_
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.dependencies import get_current_user as _orig_get_current_user, get_db, require_role
+from app.db.models import Project, StoreApprovalRequest, StoreActivity, StoreProgressPayment, User
+
+get_current_user = require_role("admin", "saha_muhendisi", "operasyon", "yonetici")
+from app.db.schemas import ApprovalRequestCreate, ApprovalRequestRead, ApprovalRequestUpdate
+
+router = APIRouter()
+
+
+def utc_now():
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+# ── GET /approvals (tenant genelinde tüm onaylar) ────────────────────────────
+
+@router.get("", response_model=List[ApprovalRequestRead])
+async def list_approvals(
+    approval_type: Optional[str] = None,
+    status:        Optional[str] = None,
+    db:   AsyncSession = Depends(get_db),
+    user: User         = Depends(get_current_user),
+):
+    filters = [StoreApprovalRequest.tenant_id == user.tenant_id]
+    if approval_type:
+        filters.append(StoreApprovalRequest.approval_type == approval_type)
+    if status:
+        filters.append(StoreApprovalRequest.status == status)
+
+    result = await db.execute(
+        select(StoreApprovalRequest, Project.name, Project.project_no)
+        .join(Project, StoreApprovalRequest.project_id == Project.id)
+        .where(*filters)
+        .order_by(desc(StoreApprovalRequest.created_at))
+        .limit(200)
+    )
+    rows = result.all()
+    out = []
+    for approval, proj_name, proj_no in rows:
+        data = ApprovalRequestRead.model_validate(approval)
+        data.project_name = proj_name
+        data.project_no = proj_no
+        out.append(data)
+    return out
+
+
+# ── GET /approvals/projects/{project_id} ─────────────────────────────────────
+
+@router.get("/projects/{project_id}", response_model=List[ApprovalRequestRead])
+async def list_project_approvals(
+    project_id: UUID,
+    db:   AsyncSession = Depends(get_db),
+    user: User         = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(StoreApprovalRequest)
+        .where(StoreApprovalRequest.project_id == project_id)
+        .order_by(desc(StoreApprovalRequest.created_at))
+    )
+    return [ApprovalRequestRead.model_validate(a) for a in result.scalars().all()]
+
+
+# ── POST /approvals/projects/{project_id} ────────────────────────────────────
+
+@router.post("/projects/{project_id}", response_model=ApprovalRequestRead, status_code=201)
+async def create_approval(
+    project_id: UUID,
+    body: ApprovalRequestCreate,
+    db:   AsyncSession = Depends(get_db),
+    user: User         = Depends(get_current_user),
+):
+    approval = StoreApprovalRequest(
+        tenant_id=user.tenant_id,
+        project_id=project_id,
+        process_id=body.process_id,
+        approval_type=body.approval_type,
+        related_payment_id=body.related_payment_id,
+        related_invoice_id=body.related_invoice_id,
+        title=body.title,
+        description=body.description,
+        amount=body.amount,
+        file_url=body.file_url,
+        file_name=body.file_name,
+        status="bekliyor",
+        requested_by=user.id,
+        requested_by_name=user.full_name or user.email,
+        requested_at=utc_now(),
+        created_at=utc_now(),
+        updated_at=utc_now(),
+    )
+    db.add(approval)
+
+    act = StoreActivity(
+        tenant_id=user.tenant_id, project_id=project_id,
+        user_id=user.id, user_name=user.full_name or user.email,
+        activity_type="approval_requested", title=f"Onay talebi oluşturuldu: {body.title}",
+        created_at=utc_now(),
+    )
+    db.add(act)
+
+    await db.commit()
+    await db.refresh(approval)
+    return ApprovalRequestRead.model_validate(approval)
+
+
+# ── PATCH /approvals/{approval_id} ───────────────────────────────────────────
+
+@router.patch("/{approval_id}", response_model=ApprovalRequestRead)
+async def update_approval(
+    approval_id: UUID,
+    body: ApprovalRequestUpdate,
+    db:   AsyncSession = Depends(get_db),
+    user: User         = Depends(get_current_user),
+):
+    result = await db.execute(select(StoreApprovalRequest).where(StoreApprovalRequest.id == approval_id))
+    approval = result.scalar_one_or_none()
+    if not approval:
+        raise HTTPException(status_code=404, detail="Onay talebi bulunamadı.")
+
+    approval.status = body.status
+    if body.note:
+        approval.note = body.note
+    if body.status == "onaylandi":
+        approval.approved_by = user.id
+        approval.approved_by_name = user.full_name or user.email
+        approval.approved_at = utc_now()
+    approval.updated_at = utc_now()
+
+    # Bağlı hakkediş kaydının approval_status'unu güncelle
+    if approval.related_payment_id:
+        pay_result = await db.execute(
+            select(StoreProgressPayment).where(StoreProgressPayment.id == approval.related_payment_id)
+        )
+        payment = pay_result.scalar_one_or_none()
+        if payment:
+            # Onay durumunu hakkediş kaydına yansıt
+            status_map = {
+                "onaylandi": "onaylandi",
+                "reddedildi": "reddedildi",
+                "revizyon": "revizyon",
+                "iptal": "draft",
+            }
+            payment.approval_status = status_map.get(body.status, payment.approval_status)
+            payment.updated_at = utc_now()
+
+    status_labels = {
+        "onaylandi": "onaylandı", "reddedildi": "reddedildi",
+        "revizyon": "revizyon istendi", "tamamlandi": "tamamlandı",
+    }
+    act = StoreActivity(
+        tenant_id=approval.tenant_id, project_id=approval.project_id,
+        user_id=user.id, user_name=user.full_name or user.email,
+        activity_type=f"approval_{body.status}",
+        title=f"Onay talebi {status_labels.get(body.status, body.status)}: {approval.title}",
+        created_at=utc_now(),
+    )
+    db.add(act)
+
+    await db.commit()
+    await db.refresh(approval)
+    return ApprovalRequestRead.model_validate(approval)

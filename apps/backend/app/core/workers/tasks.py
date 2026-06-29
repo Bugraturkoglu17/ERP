@@ -16,7 +16,7 @@ from app.core.database import AsyncSessionLocal
 from app.core.emailing import send_tenant_email
 from app.core.workers import celery_app
 from app.core.whatsapp_service import send_whatsapp_template
-from app.db.models import LowStockAlert, Material, OutboundEmailDeadLetter, PlatformTenantSettings, Stock, OutboundWhatsAppAudit
+from app.db.models import LowStockAlert, Material, OutboundEmailDeadLetter, PlatformTenantSettings, Stock, OutboundWhatsAppAudit, WorkOrderWhatsappMessage, WorkOrderWhatsappStatus
 
 logger = logging.getLogger(__name__)
 
@@ -180,8 +180,21 @@ def send_whatsapp_message_task(self, audit_id: str) -> dict:
                     )
 
                     audit.status = "sent"
+                    wamid = None
                     if "messages" in resp and len(resp["messages"]) > 0:
-                        audit.provider_message_id = resp["messages"][0].get("id")
+                        wamid = resp["messages"][0].get("id")
+                        audit.provider_message_id = wamid
+
+                    # Update related WorkOrderWhatsappMessage
+                    wa_msg_res = await session.execute(
+                        select(WorkOrderWhatsappMessage).where(WorkOrderWhatsappMessage.whatsapp_audit_id == audit.id)
+                    )
+                    wa_msg = wa_msg_res.scalars().first()
+                    if wa_msg:
+                        from datetime import datetime, timezone
+                        wa_msg.whatsapp_message_id = wamid
+                        wa_msg.status = WorkOrderWhatsappStatus.SENT
+                        wa_msg.sent_at = datetime.now(timezone.utc).replace(tzinfo=None)
 
                     await session.commit()
 
@@ -193,6 +206,29 @@ def send_whatsapp_message_task(self, audit_id: str) -> dict:
                 except Exception as exc:
                     audit.status = "failed"
                     audit.error_message = str(exc)[:2000]
+                    
+                    wa_msg_res = await session.execute(
+                        select(WorkOrderWhatsappMessage).where(WorkOrderWhatsappMessage.whatsapp_audit_id == audit.id)
+                    )
+                    wa_msg = wa_msg_res.scalars().first()
+                    if wa_msg:
+                        wa_msg.status = WorkOrderWhatsappStatus.FAILED
+                        wa_msg.error_message = str(exc)[:1000]
+                        
+                        from app.db.models import ErpNotification
+                        from uuid import uuid4
+                        from datetime import datetime, timezone
+                        session.add(ErpNotification(
+                            id=uuid4(),
+                            tenant_id=audit.tenant_id,
+                            event_type="whatsapp_failed",
+                            title="WhatsApp gönderimi başarısız",
+                            description=f"Telefon: {audit.phone_number} | Hata: {str(exc)[:200]}",
+                            work_order_id=wa_msg.work_order_id,
+                            is_read=False,
+                            created_at=datetime.now(timezone.utc).replace(tzinfo=None)
+                        ))
+                        
                     await session.commit()
                     raise
         finally:
