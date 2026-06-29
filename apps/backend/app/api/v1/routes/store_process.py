@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user, get_db
 from app.db.models import (
+    Branch,
     Project,
     StoreActivity,
     StoreApprovalRequest,
@@ -136,7 +137,13 @@ def calc_days_remaining(target: datetime | None) -> int | None:
     return delta.days
 
 
-def _build_process_read(proc: StoreProcess, stages: list) -> StoreProcessRead:
+def _build_process_read(
+    proc: StoreProcess,
+    stages: list,
+    project_name: str | None = None,
+    project_no: str | None = None,
+    store_address: str | None = None,
+) -> StoreProcessRead:
     """SQLAlchemy lazy-loading'i tetiklemeden StoreProcessRead oluşturur."""
     return StoreProcessRead(
         id=proc.id,
@@ -155,6 +162,9 @@ def _build_process_read(proc: StoreProcess, stages: list) -> StoreProcessRead:
         created_at=proc.created_at,
         updated_at=proc.updated_at,
         stages=[StoreProcessStageRead.model_validate(s) for s in stages],
+        project_name=project_name,
+        project_no=project_no,
+        store_address=store_address,
     )
 
 
@@ -214,6 +224,18 @@ async def get_project_processes(
     user: User         = Depends(get_current_user),
 ):
     """Bir mağazanın tüm süreçlerini listeler. Silinen süreçler varsayılan olarak hariç tutulur."""
+    # Mağaza adı, kodu ve adresini çek
+    proj_result = await db.execute(
+        select(Project).where(Project.id == project_id, Project.tenant_id == user.tenant_id)
+    )
+    project = proj_result.scalar_one_or_none()
+    project_name  = project.name       if project else None
+    project_no    = project.project_no if project else None
+    store_address = None
+    if project:
+        branch = await db.get(Branch, project.branch_id)
+        store_address = branch.address if branch else None
+
     filters = [StoreProcess.project_id == project_id]
     if not include_deleted:
         filters.append(StoreProcess.status != "deleted")
@@ -232,7 +254,7 @@ async def get_project_processes(
             .order_by(StoreProcessStage.order_index)
         )
         stages = stages_result.scalars().all()
-        out.append(_build_process_read(proc, stages))
+        out.append(_build_process_read(proc, stages, project_name=project_name, project_no=project_no, store_address=store_address))
     return out
 
 

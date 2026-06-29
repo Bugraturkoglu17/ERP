@@ -4,9 +4,9 @@ import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import {
-  AlertCircle, AlertTriangle, ArrowLeft, Calendar, CheckCircle2,
+  AlertCircle, AlertTriangle, ArrowLeft, Building2, Calendar, CheckCircle2,
   ChevronDown, ChevronRight, Circle, Clock, Download, Eye,
-  FileText, FolderOpen, HardHat, History, Loader2,
+  FileText, FolderOpen, HardHat, History, Loader2, MapPin,
   MessageSquarePlus, Paperclip, Play, Plus, Receipt,
   RefreshCw, Save, Send, StickyNote, Trash2, Upload, Wrench, X, XCircle,
 } from "lucide-react";
@@ -28,6 +28,8 @@ type Process = {
   start_date?: string; target_end_date?: string; completed_at?: string;
   responsible_name?: string; progress_percent: number;
   created_at: string; stages: Stage[];
+  // Mağaza bilgileri
+  project_name?: string; project_no?: string; store_address?: string;
 };
 
 type Document = {
@@ -627,7 +629,27 @@ export default function TadilatKlasorPage() {
               )}
             </div>
             <h1 className="text-xl font-bold text-slate-900">{process.title}</h1>
-            {process.description && <p className="text-sm text-slate-500 mt-1">{process.description}</p>}
+
+            {/* Mağaza adı ve kodu — sabit header'da tüm sekmelerde görünür */}
+            <div className="mt-1.5 flex items-start gap-1.5">
+              <Building2 className="h-3.5 w-3.5 text-slate-400 shrink-0 mt-0.5" />
+              <div>
+                <span className="text-sm font-semibold text-slate-800">
+                  {process.project_name ?? "Mağaza bilgisi yükleniyor…"}
+                </span>
+                {process.project_no && (
+                  <span className="ml-1.5 text-xs text-slate-400 font-mono">— {process.project_no}</span>
+                )}
+                {process.store_address && (
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <MapPin className="h-3 w-3 text-slate-300 shrink-0" />
+                    <span className="text-[11px] text-slate-400">{process.store_address}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {process.description && <p className="text-sm text-slate-500 mt-1.5">{process.description}</p>}
             <div className="flex items-center gap-4 mt-2 flex-wrap">
               {process.start_date && (
                 <span className="text-[11px] text-slate-400 flex items-center gap-1">

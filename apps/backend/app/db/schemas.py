@@ -878,6 +878,10 @@ class StoreProcessRead(BaseModel):
     created_at:          datetime
     updated_at:          datetime
     stages:              list[StoreProcessStageRead] = []
+    # Mağaza bilgileri (Project + Branch join)
+    project_name:        str | None = None
+    project_no:          str | None = None
+    store_address:       str | None = None
     model_config = ConfigDict(from_attributes=True)
 
 
