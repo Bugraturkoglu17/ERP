@@ -17,17 +17,21 @@ function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [hasToken, setHasToken] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    setHasToken(hasAuthToken());
+  }, []);
+
+  useEffect(() => {
     const payload = getTokenPayloadFromStorage();
     if (payload) {
       setIsAdmin(isPlatformAdmin(payload));
+    } else {
+      setIsAdmin(false);
     }
-  }, []);
+  }, [pathname]);
 
+  const hasToken = mounted ? hasAuthToken() : false;
   const isPublicRoute = pathname === "/login" || pathname === "/password-reset";
 
   useEffect(() => {
