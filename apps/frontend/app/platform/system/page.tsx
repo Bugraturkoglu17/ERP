@@ -111,8 +111,8 @@ export default function SystemModulesPage() {
             </tr>
           </thead>
           <tbody>
-            {data.domains.map((d) => (
-              <tr key={d.name} className="border-b hover:bg-gray-50">
+            {data.domains.map((d, index) => (
+              <tr key={`${d.name}-${index}`} className="border-b hover:bg-gray-50">
                 <td className="px-4 py-3 font-medium text-gray-900">{d.name}</td>
                 <td className="px-4 py-3 text-gray-500">{d.description}</td>
                 <td className="px-4 py-3 text-center">
@@ -147,8 +147,8 @@ export default function SystemModulesPage() {
                 </tr>
               </thead>
               <tbody>
-                {data.events.map((e) => (
-                  <tr key={e.name} className="border-b hover:bg-gray-50">
+                {data.events.map((e, index) => (
+                  <tr key={`${e.name}-${index}`} className="border-b hover:bg-gray-50">
                     <td className="px-4 py-3 font-medium text-gray-900">{e.name}</td>
                     <td className="px-4 py-3 text-gray-500">{e.producer}</td>
                     <td className="px-4 py-3 text-gray-500">{e.consumers.join(", ")}</td>
@@ -174,8 +174,8 @@ export default function SystemModulesPage() {
                 </tr>
               </thead>
               <tbody>
-                {data.tasks.map((t) => (
-                  <tr key={t.name} className="border-b hover:bg-gray-50">
+                {data.tasks.map((t, index) => (
+                  <tr key={`${t.name}-${index}`} className="border-b hover:bg-gray-50">
                     <td className="px-4 py-3 font-medium text-gray-900">{t.name}</td>
                     <td className="px-4 py-3 text-gray-500">{t.queue}</td>
                     <td className="px-4 py-3 text-gray-500">{t.idempotency_key}</td>
