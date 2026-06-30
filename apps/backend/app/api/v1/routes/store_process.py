@@ -506,6 +506,8 @@ async def update_process(
     proc = await _get_process_or_404(db, process_id)
 
     for field, value in body.model_dump(exclude_none=True).items():
+        if isinstance(value, datetime) and value.tzinfo is not None:
+            value = value.replace(tzinfo=None)
         setattr(proc, field, value)
     proc.updated_at = utc_now()
 
@@ -557,6 +559,8 @@ async def update_stage(
 
     update_data = body.model_dump(exclude_none=True)
     for field, value in update_data.items():
+        if isinstance(value, datetime) and value.tzinfo is not None:
+            value = value.replace(tzinfo=None)
         setattr(stage, field, value)
     if body.status == "completed" and not stage.completed_at:
         stage.completed_at = utc_now()

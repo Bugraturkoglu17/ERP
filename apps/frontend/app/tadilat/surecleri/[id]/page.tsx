@@ -390,7 +390,7 @@ function CompletionConfirmModal({ pendingData, processId, projectId, onCancel, o
       await apiPatch(`/process/projects/${projectId}/process/${processId}`, {
         status: "completed",
         progress_percent: 100,
-        completed_at: new Date().toISOString(),
+        completed_at: new Date().toISOString().split(".")[0],
       });
       onConfirm();
     } catch (ex: any) {
@@ -406,7 +406,7 @@ function CompletionConfirmModal({ pendingData, processId, projectId, onCancel, o
       } else if (ex?.message) {
         errMsg = `Bağlantı hatası: ${ex.message}`;
       }
-      console.error("[CompletionConfirmModal]", ex);
+      console.warn("[CompletionConfirmModal] hata:", ex?.code, ex?.response?.status, ex?.message);
       setErr(errMsg);
     } finally {
       setBusy(false);
