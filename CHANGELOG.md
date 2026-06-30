@@ -17,6 +17,11 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Email template set for platform and module notifications (`apps/backend/app/core/email_templates.py`).
 
 ### Changed
+- Docker healthchecks now target the versioned FastAPI health/readiness endpoints:
+  - API container checks `/api/v1/ready` from Compose and `/api/v1/health` from the backend image fallback.
+  - Celery worker uses `celery inspect ping` instead of inheriting an HTTP healthcheck.
+  - Celery beat disables HTTP healthcheck because it does not expose an HTTP server.
+- Alembic migration history now has a single head by attaching the observability index migration to the main chain.
 - API surface updated for platform/project/auth integration and dependency handling:
   - `apps/backend/app/api/v1/routes/auth.py`
   - `apps/backend/app/api/v1/routes/projects.py`
@@ -41,6 +46,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Platform tenants UI reset form updated to select a specific tenant admin before password reset.
 
 ### Fixed
+- Docker backend stack no longer reports API/Celery containers as unhealthy due to the obsolete `/health` probe.
+- Startup migrations no longer fail on multiple Alembic heads or duplicate stock/user/role unique constraints during a clean local database bootstrap.
 - Frontend production build type-safety fixes across finance, inventory, login, and projects pages.
 - Documents download response typing fix for frontend build compatibility.
 - Users admin type-safe reload state update fix.

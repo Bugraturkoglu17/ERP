@@ -53,9 +53,8 @@ Her servis kendi `.json` dosyasında mimarisini tanımlar (Bkz. `apps/backend/ar
 
 ## Agent Response Style
 - **Durum:** Onaylı / Eksik / Riskli
-- **Kısa Not:** En fazla 3-5 madde
+- **Kısa Not:** En fazla 3-5 cümlelik özet. 
 - **Sonraki Adım:** Net yapılacak iş
-- **Agent'a Verilecek Prompt:** (Eğer devredilecekse kopyalanabilir prompt)
 
 ## Current Working Mode
 Mega Sprintler ile modülerleşme ve güvenlik sıkılaştırma modundayız. Geliştirme öncesinde onay ve etki analizi (Impact Analysis) yapılması şarttır.

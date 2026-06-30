@@ -1,7 +1,7 @@
 """add observability indexes
 
 Revision ID: obs_indexes
-Revises: 
+Revises: c1d2e3f4a5b6
 Create Date: 2026-06-29 22:50:00.000000
 
 """
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'obs_indexes'
-down_revision = None
+down_revision = 'c1d2e3f4a5b6'
 branch_labels = None
 depends_on = None
 

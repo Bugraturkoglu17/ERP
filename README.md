@@ -108,9 +108,29 @@ docker compose -f infrastructure/docker-compose.yml up -d --build
 ### 3) Service endpoints
 
 - API: `http://localhost:8000`
+- API health: `http://localhost:8000/api/v1/health`
+- API readiness: `http://localhost:8000/api/v1/ready`
 - API docs: `http://localhost:8000/api/docs`
 - Frontend (if started locally): `http://localhost:3000`
 - pgAdmin (optional profile): `http://localhost:5050`
+
+### 4) Healthchecks
+
+- `api` uses `/api/v1/ready` in Docker Compose so PostgreSQL, Redis, and Celery readiness are checked together.
+- The backend image fallback healthcheck uses `/api/v1/health`.
+- `celery-worker` uses `celery inspect ping`; it must not inherit an HTTP healthcheck.
+- `celery-beat` has Docker healthcheck disabled because it is a scheduler process and does not expose an HTTP server.
+- The local infrastructure API service runs startup migrations automatically with `AUTO_MIGRATE=true`.
+
+For a clean local reset during test work:
+
+```bash
+cd infrastructure
+docker compose down -v
+docker compose up -d --build postgres redis api celery-worker celery-beat
+```
+
+This removes local PostgreSQL/Redis volumes. Do not use it against a shared or production-like environment.
 
 ---
 
