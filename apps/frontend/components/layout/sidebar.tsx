@@ -113,13 +113,13 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
-          {entries.map((entry) => {
+          {entries.map((entry, idx) => {
             if (isNavGroup(entry)) {
               const isOpen    = openGroups.has(entry.href);
               const isGroupActive = entry.items.some((i) => isActive(i.href, i.exact)) || isActive(entry.href, entry.exact);
               const GroupIcon = entry.icon;
               return (
-                <div key={entry.href}>
+                <div key={`${entry.href}-${idx}`}>
                   <button
                     onClick={() => toggleGroup(entry.href)}
                     className={cn(
@@ -135,12 +135,12 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
                   </button>
                   {isOpen && (
                     <div className="ml-4 mt-0.5 space-y-0.5 border-l border-slate-100 pl-3">
-                      {entry.items.map((item) => {
+                      {entry.items.map((item, subIdx) => {
                         const ItemIcon = item.icon;
                         const active = isActive(item.href, item.exact);
                         return (
                           <Link
-                            key={item.href}
+                            key={`${item.href}-${subIdx}`}
                             href={item.href}
                             onClick={onClose}
                             className={cn(
@@ -166,7 +166,7 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
             const active = isActive(entry.href, entry.exact);
             return (
               <Link
-                key={entry.href}
+                key={`${entry.href}-${idx}`}
                 href={entry.href}
                 onClick={onClose}
                 className={cn(
