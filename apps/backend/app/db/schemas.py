@@ -941,6 +941,17 @@ class ActiveJobRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class CompletedJobRead(BaseModel):
+    project_id:    UUID
+    project_name:  str
+    project_no:    str | None = None
+    work_type:     str
+    process_id:    UUID
+    process_title: str
+    completed_at:  datetime | None = None
+    model_config = ConfigDict(from_attributes=True)
+
+
 # ── Phase 6: Servis Formları ──────────────────────────────────────────────────
 
 class ServiceFormCreate(BaseModel):

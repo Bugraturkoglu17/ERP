@@ -30,6 +30,7 @@ from app.db.models import (
 )
 from app.db.schemas import (
     ActiveJobRead,
+    CompletedJobRead,
     StoreBulkProcessCreate,
     StoreActivityRead,
     StoreProcessCreate,
@@ -727,3 +728,37 @@ async def get_active_jobs(
             days_remaining=calc_days_remaining(proc.target_end_date),
         ))
     return out
+
+
+# ── GET /process/completed-jobs ───────────────────────────────────────────────
+
+@router.get("/completed-jobs", response_model=list[CompletedJobRead])
+async def get_completed_jobs(
+    db:   AsyncSession = Depends(get_db),
+    user: User         = Depends(get_current_user),
+):
+    """Tamamlanan Tadilatlar sayfası — status=completed tadilat süreçleri."""
+    result = await db.execute(
+        select(StoreProcess, Project)
+        .join(Project, StoreProcess.project_id == Project.id)
+        .where(
+            StoreProcess.tenant_id == user.tenant_id,
+            StoreProcess.status == "completed",
+            StoreProcess.work_type == "tadilat",
+        )
+        .order_by(StoreProcess.completed_at.desc().nulls_last())
+    )
+    rows = result.all()
+
+    return [
+        CompletedJobRead(
+            project_id=project.id,
+            project_name=project.name,
+            project_no=project.project_no,
+            work_type=proc.work_type,
+            process_id=proc.id,
+            process_title=proc.title,
+            completed_at=proc.completed_at,
+        )
+        for proc, project in rows
+    ]

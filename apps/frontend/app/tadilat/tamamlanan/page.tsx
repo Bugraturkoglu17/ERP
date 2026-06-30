@@ -5,25 +5,14 @@ import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, FolderOpen, Receipt, Search, Store } from "lucide-react";
 import { apiGet } from "@/lib/api";
 
-type Project = {
-  id: string;
-  name: string;
-  project_no?: string;
-  status: string;
-  scope_codes?: string[];
-  updated_at?: string;
-  created_at?: string;
-};
-
-type Process = {
-  id: string;
+type CompletedJob = {
   project_id: string;
+  project_name: string;
+  project_no?: string;
   work_type: string;
-  title: string;
-  status: string;
-  progress_percent: number;
+  process_id: string;
+  process_title: string;
   completed_at?: string;
-  target_end_date?: string;
 };
 
 type ProgressPayment = {
@@ -39,9 +28,8 @@ type InvoiceRecord = {
   approval_status: string;
 };
 
-type TamamlananEntry = {
-  project: Project;
-  process: Process;
+type Row = {
+  job: CompletedJob;
   hakkedisStatus: string;
   faturaStatus: string;
   hakkedisAmount: number;
@@ -72,15 +60,15 @@ const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
 };
 
 export default function TamamlananTadilatlarPage() {
-  const [entries, setEntries] = useState<TamamlananEntry[]>([]);
+  const [rows,    setRows]    = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
-  const [query, setQuery]     = useState("");
+  const [query,   setQuery]   = useState("");
 
   useEffect(() => {
     (async () => {
       try {
-        const [projects, payments, invoices] = await Promise.all([
-          apiGet<Project[]>("/projects?limit=5000"),
+        const [jobs, payments, invoices] = await Promise.all([
+          apiGet<CompletedJob[]>("/process/completed-jobs"),
           apiGet<ProgressPayment[]>("/progress-payments").catch(() => [] as ProgressPayment[]),
           apiGet<InvoiceRecord[]>("/invoice-records").catch(() => [] as InvoiceRecord[]),
         ]);
@@ -97,35 +85,24 @@ export default function TamamlananTadilatlarPage() {
           invoicesByProject[i.project_id].push(i);
         });
 
-        const result: TamamlananEntry[] = [];
-        for (const p of (Array.isArray(projects) ? projects : [])) {
-          const isTadilat = (p.scope_codes ?? []).includes("tadilat") ||
-            p.status.toLowerCase() === "completed";
-          if (!isTadilat) continue;
+        const result: Row[] = (Array.isArray(jobs) ? jobs : []).map(job => {
+          const pp = paymentsByProject[job.project_id] ?? [];
+          const inv = invoicesByProject[job.project_id] ?? [];
+          const latestPayment = [...pp].sort((a) => a.approval_status === "onaylandi" ? -1 : 1)[0];
+          const latestInvoice = [...inv].sort((a) => a.approval_status === "onaylandi" ? -1 : 1)[0];
+          const hakkedisAmount = pp
+            .filter(x => x.approval_status === "onaylandi")
+            .reduce((s, x) => s + (x.amount ?? 0), 0);
 
-          const procs = await apiGet<Process[]>(`/process/projects/${p.id}/process`).catch(() => [] as Process[]);
-          const completed = (Array.isArray(procs) ? procs : []).filter(pr =>
-            pr.work_type === "tadilat" && pr.status === "completed"
-          );
+          return {
+            job,
+            hakkedisStatus: latestPayment?.approval_status ?? "none",
+            faturaStatus:   latestInvoice?.approval_status ?? "none",
+            hakkedisAmount,
+          };
+        });
 
-          for (const proc of completed) {
-            const pp = paymentsByProject[p.id] ?? [];
-            const inv = invoicesByProject[p.id] ?? [];
-            const latestPayment = pp.sort((a, b) => (a.approval_status === "onaylandi" ? -1 : 1))[0];
-            const latestInvoice = inv.sort((a, b) => (a.approval_status === "onaylandi" ? -1 : 1))[0];
-            const hakkedisAmount = pp.filter(x => x.approval_status === "onaylandi").reduce((s, x) => s + (x.amount ?? 0), 0);
-
-            result.push({
-              project: p,
-              process: proc,
-              hakkedisStatus: latestPayment?.approval_status ?? "none",
-              faturaStatus: latestInvoice?.approval_status ?? "none",
-              hakkedisAmount,
-            });
-          }
-        }
-
-        setEntries(result);
+        setRows(result);
       } catch (e) {
         console.error(e);
       } finally {
@@ -135,17 +112,16 @@ export default function TamamlananTadilatlarPage() {
   }, []);
 
   const filtered = useMemo(() => {
-    if (!query.trim()) return entries;
+    if (!query.trim()) return rows;
     const q = query.toLowerCase();
-    return entries.filter(e =>
-      e.project.name.toLowerCase().includes(q) ||
-      (e.project.project_no ?? "").toLowerCase().includes(q)
+    return rows.filter(r =>
+      r.job.project_name.toLowerCase().includes(q) ||
+      (r.job.project_no ?? "").toLowerCase().includes(q)
     );
-  }, [entries, query]);
+  }, [rows, query]);
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-lg font-bold text-slate-900">Tamamlanan Tadilatlar</h1>
@@ -194,30 +170,30 @@ export default function TamamlananTadilatlarPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {filtered.map((e) => {
-                const hSt = STATUS_BADGE[e.hakkedisStatus] ?? STATUS_BADGE.none;
-                const fSt = STATUS_BADGE[e.faturaStatus]   ?? STATUS_BADGE.none;
+              {filtered.map((r) => {
+                const hSt = STATUS_BADGE[r.hakkedisStatus] ?? STATUS_BADGE.none;
+                const fSt = STATUS_BADGE[r.faturaStatus]   ?? STATUS_BADGE.none;
                 return (
-                  <tr key={`${e.project.id}-${e.process.id}`} className="hover:bg-slate-50 transition-colors">
+                  <tr key={`${r.job.project_id}-${r.job.process_id}`} className="hover:bg-slate-50 transition-colors">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <Store className="h-4 w-4 text-slate-300 shrink-0" />
                         <div>
-                          <p className="text-sm font-semibold text-slate-900">{e.project.name}</p>
-                          {e.project.project_no && (
-                            <p className="text-[10px] font-mono text-slate-400">{e.project.project_no}</p>
+                          <p className="text-sm font-semibold text-slate-900">{r.job.project_name}</p>
+                          {r.job.project_no && (
+                            <p className="text-[10px] font-mono text-slate-400">{r.job.project_no}</p>
                           )}
                         </div>
                       </div>
                     </td>
                     <td className="px-4 py-3 hidden sm:table-cell">
-                      <span className="text-xs text-slate-600">{e.process.title}</span>
+                      <span className="text-xs text-slate-600">{r.job.process_title}</span>
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-500 hidden md:table-cell">
                       <div>
-                        <p>{fmtDate(e.process.completed_at)}</p>
-                        {e.hakkedisAmount > 0 && (
-                          <p className="text-green-600 font-medium">{fmtAmount(e.hakkedisAmount)}</p>
+                        <p>{fmtDate(r.job.completed_at)}</p>
+                        {r.hakkedisAmount > 0 && (
+                          <p className="text-green-600 font-medium">{fmtAmount(r.hakkedisAmount)}</p>
                         )}
                       </div>
                     </td>
@@ -233,11 +209,11 @@ export default function TamamlananTadilatlarPage() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <Link href={`/projects/${e.project.id}?tab=hakkediş`}
+                        <Link href={`/projects/${r.job.project_id}?tab=hakkediş`}
                           className="inline-flex items-center gap-1 text-[11px] text-blue-600 border border-blue-100 rounded-lg px-2 py-1 hover:bg-blue-50">
                           <Receipt className="h-3 w-3" /> Hakkediş
                         </Link>
-                        <Link href={`/projects/${e.project.id}?tab=process`}
+                        <Link href={`/projects/${r.job.project_id}?tab=process`}
                           className="inline-flex items-center gap-1 text-[11px] text-slate-600 border border-slate-200 rounded-lg px-2 py-1 hover:bg-slate-50">
                           <FolderOpen className="h-3 w-3" /> Kart
                         </Link>
