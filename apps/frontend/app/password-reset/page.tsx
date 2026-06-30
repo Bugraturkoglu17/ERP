@@ -1,12 +1,13 @@
 "use client";
 
 import { FormEvent, Suspense, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import axios from "axios";
 import { buildApiUrl } from "@/lib/api";
 
 function PasswordResetPageContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const initialEmail = useMemo(() => searchParams.get("email") || "", [searchParams]);
 
   const [email, setEmail] = useState(initialEmail);
@@ -48,7 +49,7 @@ function PasswordResetPageContent() {
       setNewPassword("");
       setConfirmPassword("");
       setTimeout(() => {
-        window.location.href = "/login";
+        router.replace("/login");
       }, 1200);
     } catch (err: any) {
       setError(err?.response?.data?.detail || "Parola güncellenemedi.");

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle, Building2, CheckCircle2, ChevronDown, ClipboardList,
   ExternalLink, Loader2, MessageSquare, Plus, Search, Trash2, User, X, Zap, Copy, Download, FileText, Image as ImageIcon
@@ -450,7 +450,7 @@ function DetailDrawer({
     setTimeout(() => setToast(null), 3000);
   };
 
-  const fetchHistory = async () => {
+  const fetchHistory = useCallback(async () => {
     try {
       const data = await apiGet<WhatsappMessageLog[]>(`/work-orders/${wo.id}/whatsapp-messages`);
       setMessages(Array.isArray(data) ? data : []);
@@ -459,7 +459,7 @@ function DetailDrawer({
     } finally {
       setLoadingHistory(false);
     }
-  };
+  }, [wo.id]);
 
   useEffect(() => {
     fetchHistory();
@@ -468,7 +468,7 @@ function DetailDrawer({
       onRefresh();
     }, 30000);
     return () => clearInterval(interval);
-  }, [wo.id]);
+  }, [fetchHistory, onRefresh]);
 
   const handleSend = async () => {
     if (!wo.assigned_to_phone) {
@@ -627,6 +627,7 @@ function DetailDrawer({
                       {wo.photos.map(photo => (
                         <a key={photo.id} href={photo.file_url} target="_blank" rel="noreferrer"
                            className="group relative block aspect-square rounded-xl overflow-hidden border border-slate-200 bg-slate-50">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img src={photo.file_url} alt={photo.file_name} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110" />
                           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-2">
                             <p className="text-[8px] font-bold text-white truncate drop-shadow-md">
@@ -903,7 +904,7 @@ export default function IsEmirleriPage() {
   const [filterType, setFilterType] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     const d = await apiGet<WorkOrder[]>("/work-orders").catch(() => []);
     const ordersList = Array.isArray(d) ? d : [];
@@ -917,8 +918,10 @@ export default function IsEmirleriPage() {
         setSelectedOrder(fresh);
       }
     }
-  };
+  }, [selectedOrder]);
 
+  // Initial load only; refresh paths call load explicitly to keep selected order in sync.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, []);
 
   const filtered = useMemo(() => orders.filter(o => {

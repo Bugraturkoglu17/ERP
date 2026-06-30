@@ -79,11 +79,14 @@ function PhotoGrid({ photos, onRemove }: { photos: LocalPhoto[]; onRemove: (id: 
       {photos.map(ph => (
         <div key={ph.id} className="relative group rounded-xl overflow-hidden border border-slate-200">
           {(ph.previewUrl || ph.file_url) ? (
-            <img
-              src={ph.previewUrl ?? ph.file_url}
-              alt={ph.file_name ?? "foto"}
-              className="w-full h-24 object-cover"
-            />
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={ph.previewUrl ?? ph.file_url}
+                alt={ph.file_name ?? "foto"}
+                className="w-full h-24 object-cover"
+              />
+            </>
           ) : (
             <div className="w-full h-24 bg-slate-100 flex items-center justify-center">
               <Camera className="h-6 w-6 text-slate-300" />
@@ -247,6 +250,7 @@ function CompletedView({ data, photos }: { data: WorkOrderData; photos: LocalPho
           <div className="grid grid-cols-3 gap-2">
             {photos.map(ph => ph.file_url ? (
               <a key={ph.id} href={ph.file_url} target="_blank" rel="noreferrer">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={ph.file_url} alt={ph.file_name ?? "foto"} className="rounded-xl w-full h-24 object-cover border border-slate-200" />
               </a>
             ) : null)}
@@ -451,6 +455,7 @@ export default function PublicWorkOrderPage() {
               {data.photos.filter(p => p.photo_type !== "completion").map(ph => (
                 ph.file_url ? (
                   <a key={ph.id} href={ph.file_url} target="_blank" rel="noreferrer">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={ph.file_url} alt={ph.file_name ?? "foto"} className="rounded-xl w-full h-24 object-cover border border-slate-200" />
                   </a>
                 ) : null

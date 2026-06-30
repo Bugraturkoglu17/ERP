@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api";
 import { 
   Package, 
@@ -143,7 +143,7 @@ export default function InventoryPage() {
   }
 
   // Fetch Transactions List
-  async function fetchTransactions() {
+  const fetchTransactions = useCallback(async () => {
     setTxLoading(true);
     try {
       const params = new URLSearchParams();
@@ -158,13 +158,13 @@ export default function InventoryPage() {
     } finally {
       setTxLoading(false);
     }
-  }
+  }, [txFilters]);
 
   useEffect(() => {
     if (activeTab === "transfers") {
       fetchTransactions();
     }
-  }, [activeTab, txFilters]);
+  }, [activeTab, fetchTransactions]);
 
   // Handle Unified Stock Transaction Form Submit
   async function handleTxSubmit(e: React.FormEvent) {

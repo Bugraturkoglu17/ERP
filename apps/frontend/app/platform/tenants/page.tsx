@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { apiGet, apiPatch, apiPost, apiPut } from "@/lib/api";
 import { getTokenPayloadFromStorage, isPlatformAdmin } from "@/lib/auth";
 import {
@@ -172,6 +172,7 @@ function ConfirmModal({ state, onClose }: { state: ConfirmState; onClose: () => 
 
 function PlatformTenantsPageContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [tab, setTab] = useState<TabKey>("firmalar");
   const [authorized, setAuthorized] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -345,11 +346,11 @@ function PlatformTenantsPageContent() {
   useEffect(() => {
     const payload = getTokenPayloadFromStorage();
     if (!payload) {
-      window.location.href = "/login";
+      router.replace("/login");
       return;
     }
     if (!isPlatformAdmin(payload)) {
-      window.location.href = "/";
+      router.replace("/");
       return;
     }
 

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { clearAuthToken, getAuthToken, hardRedirect } from "@/lib/session";
 
 const API_PREFIX = '/api/v1';
 
@@ -48,7 +49,7 @@ export const api = axios.create({
 
 api.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('token');
+    const token = getAuthToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -60,16 +61,16 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401 && typeof window !== 'undefined') {
-      localStorage.removeItem('token');
+      clearAuthToken();
       const pathname = window.location.pathname;
       if (pathname !== '/login' && pathname !== '/password-reset') {
-        window.location.href = '/login';
+        hardRedirect('/login');
       }
     }
     if (error.response?.status === 403 && typeof window !== 'undefined') {
       const pathname = window.location.pathname;
       if (pathname !== '/' && pathname !== '/platform' && pathname !== '/login') {
-        window.location.href = '/';
+        hardRedirect('/');
       }
     }
     return Promise.reject(error);

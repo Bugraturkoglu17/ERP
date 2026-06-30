@@ -1,4 +1,5 @@
 import { apiGet } from "@/lib/api";
+import { hasAuthToken } from "@/lib/session";
 
 export type TenantContext = {
   tenant_id: string;
@@ -46,7 +47,7 @@ export async function fetchTenantContext(force = false): Promise<TenantContext |
     return null;
   }
 
-  if (!localStorage.getItem("token")) {
+  if (!hasAuthToken()) {
     return null;
   }
 

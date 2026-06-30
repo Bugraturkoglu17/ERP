@@ -1,5 +1,6 @@
 import axios from "axios";
 import { buildApiUrl } from "@/lib/api";
+import { setAuthToken } from "@/lib/session";
 
 export const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_LOGIN === "true";
 
@@ -34,9 +35,7 @@ export async function demoLogin(target: LoginTarget): Promise<{ ok: boolean; err
       { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
     );
 
-    if (typeof window !== "undefined") {
-      localStorage.setItem("token", res.data.access_token);
-    }
+    setAuthToken(res.data.access_token);
 
     return { ok: true };
   } catch (err: any) {

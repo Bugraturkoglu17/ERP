@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { apiGet } from "@/lib/api";
 import { getTokenPayloadFromStorage, isPlatformAdmin } from "@/lib/auth";
+import { useRouter } from "next/navigation";
 
 type Tenant = {
   id: string;
@@ -38,6 +39,7 @@ type Audit = {
 };
 
 export default function PlatformDashboardPage() {
+  const router = useRouter();
   const [authorized, setAuthorized] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -48,11 +50,11 @@ export default function PlatformDashboardPage() {
   useEffect(() => {
     const payload = getTokenPayloadFromStorage();
     if (!payload) {
-      window.location.href = "/login";
+      router.replace("/login");
       return;
     }
     if (!isPlatformAdmin(payload)) {
-      window.location.href = "/";
+      router.replace("/");
       return;
     }
 

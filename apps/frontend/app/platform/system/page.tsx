@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { apiGet } from "@/lib/api";
 import { getTokenPayloadFromStorage, isPlatformAdmin } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 
@@ -48,17 +49,7 @@ export default function SystemModulesPage() {
 
     const fetchData = async () => {
       try {
-        const token = localStorage.getItem("token");
-        const res = await fetch("http://localhost:8000/api/v1/meta/dashboard", {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
-        if (!res.ok) {
-          throw new Error("Failed to fetch system data");
-        }
-        const json = await res.json();
-        setData(json);
+        setData(await apiGet<MetaData>("/meta/dashboard"));
       } catch (err: any) {
         setError(err.message);
       } finally {

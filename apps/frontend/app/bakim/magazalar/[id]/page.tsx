@@ -9,6 +9,7 @@ import {
   Trash2, Upload, Wrench, X,
 } from "lucide-react";
 import { apiDelete, apiGet, apiPost, buildApiUrl } from "@/lib/api";
+import { getAuthToken } from "@/lib/session";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -75,7 +76,7 @@ function getRegion(project: Project): string {
 }
 
 async function openDoc(docId: string) {
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  const token = getAuthToken();
   const res = await fetch(buildApiUrl(`/documents/${docId}/download`), {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
@@ -85,7 +86,7 @@ async function openDoc(docId: string) {
 }
 
 async function downloadDoc(docId: string, fileName?: string) {
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  const token = getAuthToken();
   const res = await fetch(buildApiUrl(`/documents/${docId}/download`), {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
@@ -121,7 +122,7 @@ function UploadModal({
       fd.append("project_id", projectId);
       fd.append("doc_type", config.docType);
       fd.append("file", file);
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      const token = getAuthToken();
       const res = await fetch(buildApiUrl("/documents/upload"), {
         method: "POST",
         headers: token ? { Authorization: `Bearer ${token}` } : {},

@@ -1,15 +1,19 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import axios from "axios";
 import { buildApiUrl } from "@/lib/api";
 import { parseJwt } from "@/lib/auth";
+import { setAuthToken } from "@/lib/session";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -31,19 +35,19 @@ export default function LoginPage() {
       );
 
       const token = response.data.access_token;
-      localStorage.setItem("token", token);
+      setAuthToken(token);
       
       const payload = parseJwt(token);
       if (payload && payload.roles?.includes("platform_admin")) {
-        window.location.href = "/platform";
+        router.replace("/platform");
       } else {
-        window.location.href = "/";
+        router.replace("/");
       }
     } catch (err: any) {
       const errorMessage = err.response?.data?.detail;
       if (typeof errorMessage === "string" && errorMessage.includes("parola yenileme gerekli")) {
         const resetEmail = encodeURIComponent(email.trim());
-        window.location.href = `/password-reset?email=${resetEmail}`;
+        router.replace(`/password-reset?email=${resetEmail}`);
         return;
       }
       if (Array.isArray(errorMessage)) {

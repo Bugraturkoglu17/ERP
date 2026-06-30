@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { ChevronRight, LogOut, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { getVisibleNavEntries, isNavGroup, type NavGroup } from "@/lib/navigation";
 import { getRoles, getTokenPayloadFromStorage } from "@/lib/auth";
 import { apiGet } from "@/lib/api";
+import { logout } from "@/lib/session";
 
 type SidebarProps = {
   mobileOpen?: boolean;
@@ -27,6 +28,7 @@ function useActiveGroup(groups: NavGroup[], pathname: string): string | null {
 export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [roles, setRoles]       = useState<string[]>([]);
   const [fullName, setFullName] = useState("Kullanıcı");
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
@@ -75,10 +77,7 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
   };
 
   const handleLogout = () => {
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("token");
-      window.location.href = "/login";
-    }
+    logout(router);
   };
 
   return (

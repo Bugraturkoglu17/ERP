@@ -26,26 +26,28 @@ interface RouteItem {
   status: 'active' | 'pending' | 'deprecated';
 }
 
+// FastAPI endpoint'lerinin listesi
+const ROUTES: RouteItem[] = [
+  { path: '/api/v1/auth/login', method: 'POST', desc: 'E-posta + şifre ile JWT login', status: 'active' },
+  { path: '/api/v1/auth/me', method: 'GET', desc: 'Mevcut kullanıcı profil bilgilerini getirir', status: 'active' },
+  { path: '/api/v1/auth/users', method: 'GET', desc: 'Tüm personel listesi ve yetkileri', status: 'active' },
+  { path: '/api/v1/projects', method: 'GET', desc: 'Proje ve şantiyelerin listesi', status: 'active' },
+  { path: '/api/v1/projects', method: 'POST', desc: 'Yeni mekanik tesisat projesi tanımla', status: 'active' },
+  { path: '/api/v1/inventory/materials', method: 'GET', desc: 'Envanter malzeme kataloğu', status: 'active' },
+  { path: '/api/v1/inventory/warehouses', method: 'GET', desc: 'Şantiye ve Merkez depoları listesi', status: 'active' },
+  { path: '/api/v1/inventory/transfer', method: 'POST', desc: 'Depolar arası çift yönlü stok transferi', status: 'active' },
+  { path: '/api/v1/finance/invoices', method: 'GET', desc: 'Hakediş icmalleri ve faturalar', status: 'active' },
+  { path: '/api/v1/finance/expenses', method: 'POST', desc: 'Şantiye masraf girişi kaydı', status: 'active' },
+  { path: '/api/v1/documents/upload', method: 'POST', desc: 'OCI Object Storage döküman yükleme', status: 'active' },
+];
+
 export default function ApiControlPanel() {
   const [activeTab, setActiveTab] = useState<'docs' | 'routes' | 'health'>('docs');
   const [apiHealth, setApiHealth] = useState<'loading' | 'online' | 'offline'>('loading');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [endpointsCount, setEndpointsCount] = useState(0);
 
-  // FastAPI endpoint'lerinin listesi
-  const routes: RouteItem[] = [
-    { path: '/api/v1/auth/login', method: 'POST', desc: 'E-posta + şifre ile JWT login', status: 'active' },
-    { path: '/api/v1/auth/me', method: 'GET', desc: 'Mevcut kullanıcı profil bilgilerini getirir', status: 'active' },
-    { path: '/api/v1/auth/users', method: 'GET', desc: 'Tüm personel listesi ve yetkileri', status: 'active' },
-    { path: '/api/v1/projects', method: 'GET', desc: 'Proje ve şantiyelerin listesi', status: 'active' },
-    { path: '/api/v1/projects', method: 'POST', desc: 'Yeni mekanik tesisat projesi tanımla', status: 'active' },
-    { path: '/api/v1/inventory/materials', method: 'GET', desc: 'Envanter malzeme kataloğu', status: 'active' },
-    { path: '/api/v1/inventory/warehouses', method: 'GET', desc: 'Şantiye ve Merkez depoları listesi', status: 'active' },
-    { path: '/api/v1/inventory/transfer', method: 'POST', desc: 'Depolar arası çift yönlü stok transferi', status: 'active' },
-    { path: '/api/v1/finance/invoices', method: 'GET', desc: 'Hakediş icmalleri ve faturalar', status: 'active' },
-    { path: '/api/v1/finance/expenses', method: 'POST', desc: 'Şantiye masraf girişi kaydı', status: 'active' },
-    { path: '/api/v1/documents/upload', method: 'POST', desc: 'OCI Object Storage döküman yükleme', status: 'active' },
-  ];
+  const routes = ROUTES;
 
   const checkHealth = async () => {
     setIsRefreshing(true);
@@ -65,7 +67,7 @@ export default function ApiControlPanel() {
 
   useEffect(() => {
     checkHealth();
-    setEndpointsCount(routes.length + 21); // Toplam otomatik okunan endpoint sayısı
+    setEndpointsCount(ROUTES.length + 21); // Toplam otomatik okunan endpoint sayısı
   }, []);
 
   return (

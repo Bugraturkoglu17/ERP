@@ -6,6 +6,7 @@ import {
   CheckCircle2, Clock, Download, Eye, FileText, FolderOpen, Search, Store, Wrench,
 } from "lucide-react";
 import { apiGet, buildApiUrl } from "@/lib/api";
+import { getAuthToken } from "@/lib/session";
 
 type Project = { id: string; name: string; project_no?: string; status: string; scope_codes?: string[] };
 
@@ -31,7 +32,7 @@ function fmtDate(d: string) {
 }
 
 async function fetchDocUrl(docId: string): Promise<string> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  const token = getAuthToken();
   const res = await fetch(buildApiUrl(`/documents/${docId}/download`), {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });

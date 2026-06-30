@@ -11,6 +11,7 @@ import {
   RefreshCw, Save, Send, StickyNote, Trash2, Upload, Wrench, X, XCircle,
 } from "lucide-react";
 import { apiDelete, apiGet, apiPatch, apiPost, buildApiUrl } from "@/lib/api";
+import { getAuthToken } from "@/lib/session";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -103,7 +104,7 @@ async function uploadFile(file: File, projectId: string, docType: string): Promi
   fd.append("project_id", projectId);
   fd.append("doc_type", docType);
   fd.append("file", file);
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  const token = getAuthToken();
   const res = await fetch(buildApiUrl("/documents/upload"), {
     method: "POST",
     headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -114,7 +115,7 @@ async function uploadFile(file: File, projectId: string, docType: string): Promi
 }
 
 async function openDoc(docId: string) {
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  const token = getAuthToken();
   const res = await fetch(buildApiUrl(`/documents/${docId}/download`), {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   }).catch(() => null);
@@ -1100,7 +1101,7 @@ function DocUploadModal({ projectId, isRevision, onClose, onDone }: {
       fd.append("doc_type", docType);
       fd.append("revision_note", revNote);
       fd.append("file", file);
-      const token = localStorage.getItem("token") ?? "";
+      const token = getAuthToken() ?? "";
       const res = await fetch(buildApiUrl("/documents/upload"), {
         method: "POST", headers: { Authorization: `Bearer ${token}` }, body: fd,
       });

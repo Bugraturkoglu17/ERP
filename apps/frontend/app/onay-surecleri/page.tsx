@@ -8,6 +8,7 @@ import {
   FolderOpen, Loader2, RefreshCw, XCircle,
 } from "lucide-react";
 import { apiGet, apiPatch, apiPost, buildApiUrl } from "@/lib/api";
+import { getAuthToken } from "@/lib/session";
 
 type ApprovalRequest = {
   id: string;
@@ -106,7 +107,7 @@ function OnayPage() {
 
   const openDoc = async (docId: string) => {
     try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      const token = getAuthToken();
       const res = await fetch(buildApiUrl(`/documents/${docId}/download`), {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });

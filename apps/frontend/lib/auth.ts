@@ -1,3 +1,5 @@
+import { getAuthToken } from "@/lib/session";
+
 export type JwtPayload = {
   sub?: string;
   roles?: string[];
@@ -40,11 +42,7 @@ export function parseJwt(token: string | null | undefined): JwtPayload | null {
 }
 
 export function getTokenPayloadFromStorage(): JwtPayload | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-  const token = localStorage.getItem("token");
-  return parseJwt(token);
+  return parseJwt(getAuthToken());
 }
 
 export function hasRole(payload: JwtPayload | null, role: string): boolean {

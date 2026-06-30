@@ -802,6 +802,7 @@ export default function SettingsPage() {
                   </div>
                   {settings.logoUrl ? (
                     <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50/50 p-1">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={settings.logoUrl} alt="Logo Önizleme" className="h-full w-full object-contain" onError={(e) => { (e.target as any).src = "https://images.unsplash.com/photo-1560179707-f14e90ef3623?w=100"; }} />
                     </div>
                   ) : (
@@ -1063,7 +1064,7 @@ export default function SettingsPage() {
                       <Sparkles className="h-4 w-4 text-amber-500 animate-pulse" /> Hazır Zincir Market Şablonları
                     </h4>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      Türkiye'nin en yaygın zincir marketlerinin güncel şube verilerini otomatik olarak kurumsal hiyerarşinize aktarın veya CSV şablonu olarak indirin.
+                      Türkiye&apos;nin en yaygın zincir marketlerinin güncel şube verilerini otomatik olarak kurumsal hiyerarşinize aktarın veya CSV şablonu olarak indirin.
                     </p>
                   </div>
                 </div>
@@ -1113,7 +1114,7 @@ export default function SettingsPage() {
                         ) : (
                           <Sparkles className="h-3 w-3" />
                         )}
-                        ERP'ye Aktar
+                        ERP&apos;ye Aktar
                       </button>
                       <button
                         onClick={() => handleDownloadCSV("Migros")}
@@ -1146,7 +1147,7 @@ export default function SettingsPage() {
                         ) : (
                           <Sparkles className="h-3 w-3" />
                         )}
-                        ERP'ye Aktar
+                        ERP&apos;ye Aktar
                       </button>
                       <button
                         onClick={() => handleDownloadCSV("A101")}
@@ -1179,7 +1180,7 @@ export default function SettingsPage() {
                         ) : (
                           <Sparkles className="h-3 w-3" />
                         )}
-                        ERP'ye Aktar
+                        ERP&apos;ye Aktar
                       </button>
                       <button
                         onClick={() => handleDownloadCSV("BİM")}
@@ -1212,7 +1213,7 @@ export default function SettingsPage() {
                         ) : (
                           <Sparkles className="h-3 w-3" />
                         )}
-                        ERP'ye Aktar
+                        ERP&apos;ye Aktar
                       </button>
                       <button
                         onClick={() => handleDownloadCSV("all")}

@@ -3,24 +3,25 @@
 import "./globals.css";
 import { Menu } from "lucide-react";
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { fetchTenantContext } from "@/lib/tenant-context";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { getTokenPayloadFromStorage, isPlatformAdmin } from "@/lib/auth";
+import { hasAuthToken } from "@/lib/session";
 
 function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [title, setTitle] = useState("Yönetim Paneli");
   const pathname = usePathname();
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [hasToken, setHasToken] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-    setHasToken(!!token);
+    setHasToken(hasAuthToken());
     const payload = getTokenPayloadFromStorage();
     if (payload) {
       setIsAdmin(isPlatformAdmin(payload));
@@ -32,9 +33,9 @@ function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!mounted) return;
     if (!isPublicRoute && !hasToken) {
-      window.location.href = "/login";
+      router.replace("/login");
     }
-  }, [mounted, isPublicRoute, hasToken]);
+  }, [mounted, isPublicRoute, hasToken, router]);
 
   useEffect(() => {
     if (pathname === "/login" || pathname === "/password-reset") {

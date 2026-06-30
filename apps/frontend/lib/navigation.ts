@@ -56,13 +56,13 @@ export const NAV_ENTRIES: NavEntry[] = [
   },
   {
     label: "Lisanslar",
-    href: "/platform/lisanslar",
+    href: "/platform/tenants",
     icon: CreditCard,
     allowedRoles: ["platform_admin"],
   },
   {
     label: "Kullanıcılar",
-    href: "/platform/kullanicilar",
+    href: "/admin/users",
     icon: Users,
     allowedRoles: ["platform_admin"],
   },
@@ -158,7 +158,7 @@ export const NAV_ENTRIES: NavEntry[] = [
   // ── Düz linkler ────────────────────────────────────────────────────────────
   {
     label: "Faturalar / Hakkedişler",
-    href: "/hakkedisler",
+    href: "/finance",
     icon: Receipt,
     allowedRoles: ["admin", "saha_muhendisi"],
   },
