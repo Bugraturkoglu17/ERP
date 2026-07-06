@@ -16,8 +16,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, is_platform_admin
 from app.core.security import create_access_token, create_refresh_token, get_user_permissions, get_user_roles, hash_password, verify_password
-from app.db.models import PlatformTenantSettings, Role, Tenant, TenantEmailMode, User, UserRole, UserSecurityPolicy
+from app.db.models import PlatformPlan, PlatformSubscription, PlatformTenantSettings, Role, Tenant, TenantEmailMode, User, UserRole, UserSecurityPolicy
 from app.db.schemas import CompletePasswordResetRequest, MessageResponse, TenantContextRead, TenantProfileUpdate, TenantSettingsUpsert, Token, TokenRefresh, UserRead
+from app.services.entitlement_service import EntitlementService
 
 router = APIRouter()
 
@@ -32,6 +33,58 @@ def _parse_opt_out_templates(raw: str | None) -> list[str]:
     except json.JSONDecodeError:
         return []
     return []
+
+
+async def _build_tenant_context_read(db: AsyncSession, tenant: Tenant, settings: PlatformTenantSettings | None) -> TenantContextRead:
+    entitlements = await EntitlementService.resolve_entitlements(db, tenant.id)
+    usage_summary = await EntitlementService.usage_summary(db, tenant.id)
+    subscription_payload = None
+    plan_payload = None
+    if entitlements.get("subscription_id"):
+        subscription = await db.get(PlatformSubscription, UUID(str(entitlements["subscription_id"])))
+        if subscription:
+            subscription_payload = {
+                "id": str(subscription.id),
+                "plan_id": str(subscription.plan_id),
+                "status": subscription.status,
+                "starts_at": subscription.starts_at.isoformat() if subscription.starts_at else None,
+                "ends_at": subscription.ends_at.isoformat() if subscription.ends_at else None,
+            }
+    if entitlements.get("plan_id"):
+        plan = await db.get(PlatformPlan, UUID(str(entitlements["plan_id"])))
+        if plan:
+            plan_payload = {"id": str(plan.id), "code": plan.code, "name": plan.name}
+
+    return TenantContextRead(
+        tenant_id=tenant.id,
+        tenant_name=tenant.name,
+        tenant_code=tenant.code,
+        logo_url=tenant.logo_url,
+        tax_no=settings.tax_no if settings else None,
+        sector=settings.sector if settings else None,
+        country=settings.country if settings else None,
+        theme_color=settings.theme_color if settings else None,
+        domain=settings.domain if settings else None,
+        subdomain=settings.subdomain if settings else None,
+        email_mode=settings.email_mode if settings else TenantEmailMode.PLATFORM,
+        from_name=settings.from_name if settings else None,
+        from_email=settings.from_email if settings else None,
+        reply_to=settings.reply_to if settings else None,
+        email_domain_verified=settings.email_domain_verified if settings else False,
+        email_provider_identity_id=settings.email_provider_identity_id if settings else None,
+        email_branding=json.loads(settings.email_branding) if settings and settings.email_branding else None,
+        email_notifications_enabled=settings.email_notifications_enabled if settings else True,
+        email_digest_mode=settings.email_digest_mode if settings else "immediate",
+        email_opt_out_templates=_parse_opt_out_templates(settings.email_opt_out_templates if settings else None),
+        plan=plan_payload,
+        subscription=subscription_payload,
+        active_modules=entitlements.get("modules", []),
+        active_features=entitlements.get("features", []),
+        feature_flags=entitlements.get("features", []),
+        effective_quotas=entitlements.get("quotas", {}),
+        usage_summary=usage_summary.get("usage", {}),
+        entitlement_source=entitlements.get("entitlement_source", {}),
+    )
 
 
 @router.post("/login", response_model=Token, tags=["auth"])
@@ -150,28 +203,7 @@ async def get_tenant_context(
         raise HTTPException(status_code=404, detail="Firma bulunamadı.")
 
     settings = await db.get(PlatformTenantSettings, tenant.id)
-    return TenantContextRead(
-        tenant_id=tenant.id,
-        tenant_name=tenant.name,
-        tenant_code=tenant.code,
-        logo_url=tenant.logo_url,
-        tax_no=settings.tax_no if settings else None,
-        sector=settings.sector if settings else None,
-        country=settings.country if settings else None,
-        theme_color=settings.theme_color if settings else None,
-        domain=settings.domain if settings else None,
-        subdomain=settings.subdomain if settings else None,
-        email_mode=settings.email_mode if settings else TenantEmailMode.PLATFORM,
-        from_name=settings.from_name if settings else None,
-        from_email=settings.from_email if settings else None,
-        reply_to=settings.reply_to if settings else None,
-        email_domain_verified=settings.email_domain_verified if settings else False,
-        email_provider_identity_id=settings.email_provider_identity_id if settings else None,
-        email_branding=json.loads(settings.email_branding) if settings and settings.email_branding else None,
-        email_notifications_enabled=settings.email_notifications_enabled if settings else True,
-        email_digest_mode=settings.email_digest_mode if settings else "immediate",
-        email_opt_out_templates=_parse_opt_out_templates(settings.email_opt_out_templates if settings else None),
-    )
+    return await _build_tenant_context_read(db, tenant, settings)
 
 
 @router.put("/tenant-context/settings", response_model=TenantContextRead, tags=["auth"])
@@ -204,28 +236,7 @@ async def update_tenant_context_settings(
     await db.commit()
     await db.refresh(settings)
 
-    return TenantContextRead(
-        tenant_id=tenant.id,
-        tenant_name=tenant.name,
-        tenant_code=tenant.code,
-        logo_url=tenant.logo_url,
-        tax_no=settings.tax_no,
-        sector=settings.sector,
-        country=settings.country,
-        theme_color=settings.theme_color,
-        domain=settings.domain,
-        subdomain=settings.subdomain,
-        email_mode=settings.email_mode,
-        from_name=settings.from_name,
-        from_email=settings.from_email,
-        reply_to=settings.reply_to,
-        email_domain_verified=settings.email_domain_verified,
-        email_provider_identity_id=settings.email_provider_identity_id,
-        email_branding=json.loads(settings.email_branding) if settings.email_branding else None,
-        email_notifications_enabled=settings.email_notifications_enabled,
-        email_digest_mode=settings.email_digest_mode,
-        email_opt_out_templates=_parse_opt_out_templates(settings.email_opt_out_templates),
-    )
+    return await _build_tenant_context_read(db, tenant, settings)
 
 
 @router.put("/tenant-context/profile", response_model=TenantContextRead, tags=["auth"])
@@ -254,28 +265,7 @@ async def update_tenant_context_profile(
     await db.refresh(tenant)
 
     settings = await db.get(PlatformTenantSettings, tenant.id)
-    return TenantContextRead(
-        tenant_id=tenant.id,
-        tenant_name=tenant.name,
-        tenant_code=tenant.code,
-        logo_url=tenant.logo_url,
-        tax_no=settings.tax_no if settings else None,
-        sector=settings.sector if settings else None,
-        country=settings.country if settings else None,
-        theme_color=settings.theme_color if settings else None,
-        domain=settings.domain if settings else None,
-        subdomain=settings.subdomain if settings else None,
-        email_mode=settings.email_mode if settings else TenantEmailMode.PLATFORM,
-        from_name=settings.from_name if settings else None,
-        from_email=settings.from_email if settings else None,
-        reply_to=settings.reply_to if settings else None,
-        email_domain_verified=settings.email_domain_verified if settings else False,
-        email_provider_identity_id=settings.email_provider_identity_id if settings else None,
-        email_branding=json.loads(settings.email_branding) if settings and settings.email_branding else None,
-        email_notifications_enabled=settings.email_notifications_enabled if settings else True,
-        email_digest_mode=settings.email_digest_mode if settings else "immediate",
-        email_opt_out_templates=_parse_opt_out_templates(settings.email_opt_out_templates if settings else None),
-    )
+    return await _build_tenant_context_read(db, tenant, settings)
 
 
 # ── User CRUD for Admin & RBAC ───────────────────────────────────────────────
@@ -339,6 +329,9 @@ async def create_user(
 
     await db.commit()
     await db.refresh(db_user)
+    if db_user.tenant_id:
+        await EntitlementService.record_usage(db, db_user.tenant_id, "users", 1, source="auth.users.create", event_ref=str(db_user.id))
+        await db.commit()
     return db_user
 
 

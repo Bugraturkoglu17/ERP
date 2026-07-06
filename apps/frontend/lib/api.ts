@@ -53,6 +53,10 @@ api.interceptors.request.use((config) => {
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    const contextToken = window.localStorage.getItem("tenant_context_token");
+    if (contextToken) {
+      config.headers["X-Tenant-Context"] = contextToken;
+    }
   }
   return config;
 });

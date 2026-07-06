@@ -2,6 +2,55 @@
 
 Bu doküman `architecture/` dizinindeki manifest dosyalari (JSON) okunarak otomatik olarak uretilmistir.
 
+## Sprint 18 Registry Spine
+
+Sprint 18 ile platform mimarisine lisanslanabilir ve marketplace'e hazır registry omurgası eklenmiştir.
+
+- **Module Registry:** `apps/backend/registry/modules.json`
+- **Feature Registry:** `apps/backend/registry/features.json`
+- **Quota Registry:** `apps/backend/registry/quotas.json`
+- **Marketplace Registry:** `apps/backend/registry/marketplace.json`
+- **Runtime Resolver:** `app.services.entitlement_service.EntitlementService`
+- **Frontend Navigation Registry v2:** `apps/frontend/lib/navigation.ts`
+- **Agent Context:** `apps/backend/scripts/agent_context.py modules`
+
+Bu registry katmanı mevcut business logic'i değiştirmez; plan, subscription, tenant override, marketplace installation ve usage meter kayıtlarını tek entitlement çıktısında birleştirir.
+
+### Sprint 18.5 Enforcement Pilot
+
+- **Backend Enforced Modules:** `documents`, `work_orders`, `finance`
+- **Backend Enforced Features:** `whatsapp.notifications`
+- **Backend Enforced Quotas:** `whatsapp_messages`
+- **Visibility-only Modules:** `projects`, `approvals`, `inventory`, `procurement`, `field_reports`, `whatsapp`, `users`, `notifications`
+- **Usage Meter Events:** `documents.upload`, `documents.version`, `work_orders.create`, `whatsapp.sent`, `auth.users.create`
+- **Tenant Context:** `/api/v1/auth/tenant-context` artık `active_modules`, `active_features`, `effective_quotas`, `usage_summary`, `entitlement_source` döndürür.
+
+---
+
+## Domain: Platform
+
+**Description:** Tenant, lisans, plan, entitlement, module registry, feature flags, usage meter, quota ve marketplace altyapısı.
+
+### Entities
+`Tenant`, `PlatformTenantSettings`, `PlatformPlan`, `PlatformSubscription`, `TenantEntitlementOverride`, `TenantUsageMeter`, `MarketplaceInstallation`, `PlatformAdminAction`, `PlatformContextSession`
+
+### Endpoints / Routes
+`app.api.v1.routes.platform`, `app.api.v1.routes.meta`
+
+### Security & Roles
+- **Allowed Roles:** platform_admin
+- **Tenant Helper:** `EntitlementService.resolve_entitlements`
+
+### Events & Notifications
+- **Emitted Events:** plan_created, subscription_assigned, tenant_entitlement_override_changed, marketplace_installation_changed, usage_meter_recorded
+- **Notifications:** tenant_status_changed, tenant_admin_provisioned, tenant_admin_password_reset
+
+### Storage & Database
+- **Storage Prefixes:** None
+- **Indexes:** uq_tenant_entitlement_override, uq_tenant_usage_period, uq_marketplace_installation
+
+---
+
 ## Domain: Approvals
 
 **Description:** Satınalma, doküman veya puantaj (progress payment) süreçleri için ortak onay altyapısı.

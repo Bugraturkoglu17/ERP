@@ -13,7 +13,7 @@ from sqlalchemy import select, desc, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 
-from app.core.dependencies import get_current_user as _orig_get_current_user, get_db, require_role
+from app.core.dependencies import get_current_user as _orig_get_current_user, get_db, require_module, require_role
 from app.db.models import StoreActivity, StoreInvoiceRecord, User
 from app.core.permissions import verify_project_tenant, verify_invoice_tenant
 
@@ -41,7 +41,9 @@ async def list_all_invoices(
     period: Optional[str] = None,
     db:   AsyncSession = Depends(get_db),
     user: User         = Depends(get_current_user),
+    _module_user: User = Depends(require_module("finance")),
 ):
+    user.tenant_id = _module_user.tenant_id
     """Tenant genelinde tüm fatura kayıtlarını döner (isteğe bağlı tür/dönem filtresi)."""
     filters = [StoreInvoiceRecord.tenant_id == user.tenant_id]
     if invoice_type:
@@ -62,7 +64,9 @@ async def delete_invoice(
     invoice_id: UUID,
     db:   AsyncSession = Depends(get_db),
     user: User         = Depends(get_current_user),
+    _module_user: User = Depends(require_module("finance")),
 ):
+    user.tenant_id = _module_user.tenant_id
     inv = await verify_invoice_tenant(db, invoice_id, user)
     await db.delete(inv)
     await db.commit()
@@ -73,7 +77,9 @@ async def list_invoices(
     project_id: UUID,
     db:   AsyncSession = Depends(get_db),
     user: User         = Depends(get_current_user),
+    _module_user: User = Depends(require_module("finance")),
 ):
+    user.tenant_id = _module_user.tenant_id
     await verify_project_tenant(db, project_id, user)
     result = await db.execute(
         select(StoreInvoiceRecord)
@@ -89,7 +95,9 @@ async def create_invoice(
     body: InvoiceRecordCreate,
     db:   AsyncSession = Depends(get_db),
     user: User         = Depends(get_current_user),
+    _module_user: User = Depends(require_module("finance")),
 ):
+    user.tenant_id = _module_user.tenant_id
     await verify_project_tenant(db, project_id, user)
     inv = StoreInvoiceRecord(
         tenant_id=user.tenant_id,

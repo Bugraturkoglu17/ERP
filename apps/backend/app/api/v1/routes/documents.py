@@ -15,7 +15,7 @@ from app.core.database import get_db
 from app.core.storage import storage, sanitize_filename
 from app.core.exceptions import NotFoundError, ConflictError
 from app.db.models import Document, User
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, require_module
 from app.core.permissions import verify_project_tenant, verify_document_tenant
 from app.core.upload_validator import validate_uploaded_file
 from app.db.schemas import (
@@ -25,6 +25,7 @@ from app.db.schemas import (
     DocumentVersionCreate,
     DocumentDownloadResponse,
 )
+from app.services.entitlement_service import EntitlementService
 
 router = APIRouter()
 
@@ -67,7 +68,9 @@ async def upload_document(
     file:          UploadFile = File(...),
     db:           AsyncSession = Depends(get_db),
     current_user: User         = Depends(get_current_user),
+    _module_user: User         = Depends(require_module("documents")),
 ) -> Document:
+    current_user.tenant_id = _module_user.tenant_id
     # ── 0 · Tenant doğrulaması (P0 security fix) ───────────────────────────────
     await verify_project_tenant(db, project_id, current_user)
 
@@ -121,6 +124,9 @@ async def upload_document(
         await db.rollback()
         raise HTTPException(status_code=500, detail=f"Veritabanı kaydı başarısız: {e}")
 
+    await EntitlementService.record_usage(db, current_user.tenant_id, "documents", 1, source="documents.upload", event_ref=str(doc.id))
+    await EntitlementService.record_usage(db, current_user.tenant_id, "storage_bytes", len(content), source="documents.upload", event_ref=str(doc.id))
+    await db.commit()
     await populate_uploader_details(doc, db)
     return doc
 
@@ -134,7 +140,9 @@ async def list_project_documents(
     project_id: uuid.UUID,
     db:         AsyncSession = Depends(get_db),
     current_user: User         = Depends(get_current_user),
+    _module_user: User         = Depends(require_module("documents")),
 ) -> list[Document]:
+    current_user.tenant_id = _module_user.tenant_id
     # ── Tenant doğrulaması (P0 security fix) ──────────────────────────────────
     await verify_project_tenant(db, project_id, current_user)
 
@@ -169,7 +177,9 @@ async def download_document(
     doc_id: uuid.UUID,
     db:     AsyncSession = Depends(get_db),
     current_user: User   = Depends(get_current_user),  # P0: login zorunlu
+    _module_user: User   = Depends(require_module("documents")),
 ) -> DocumentDownloadResponse:
+    current_user.tenant_id = _module_user.tenant_id
     # ── Tenant doğrulaması (P0 security fix) ──────────────────────────────────
     doc = await verify_document_tenant(db, doc_id, current_user)
 
@@ -189,7 +199,9 @@ async def upload_document_version(
     file:          UploadFile = File(...),
     db:            AsyncSession = Depends(get_db),
     current_user: User         = Depends(get_current_user),
+    _module_user: User         = Depends(require_module("documents")),
 ) -> Document:
+    current_user.tenant_id = _module_user.tenant_id
     # ── 0 · Tenant doğrulaması (P0 security fix) ───────────────────────────────
     old_doc = await verify_document_tenant(db, doc_id, current_user)
 
@@ -247,6 +259,9 @@ async def upload_document_version(
         await db.rollback()
         raise HTTPException(status_code=500, detail=f"Versiyon kaydı başarısız: {e}")
 
+    await EntitlementService.record_usage(db, current_user.tenant_id, "documents", 1, source="documents.version", event_ref=str(new_doc.id))
+    await EntitlementService.record_usage(db, current_user.tenant_id, "storage_bytes", len(content), source="documents.version", event_ref=str(new_doc.id))
+    await db.commit()
     await populate_uploader_details(new_doc, db)
     return new_doc
 

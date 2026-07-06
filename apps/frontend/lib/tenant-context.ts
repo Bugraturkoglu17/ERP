@@ -38,6 +38,14 @@ export type TenantContext = {
   email_domain_verified?: boolean;
   email_provider_identity_id?: string | null;
   email_branding?: Record<string, any> | null;
+  plan?: Record<string, any> | null;
+  subscription?: Record<string, any> | null;
+  active_modules?: string[];
+  active_features?: string[];
+  feature_flags?: string[];
+  effective_quotas?: Record<string, number>;
+  usage_summary?: Record<string, any>;
+  entitlement_source?: Record<string, any>;
 };
 
 const CACHE_KEY = "tenant_context_v1";

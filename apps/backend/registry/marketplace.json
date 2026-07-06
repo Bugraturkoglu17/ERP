@@ -1,0 +1,6 @@
+[
+  { "id": "retail-maintenance-pack", "name": "Retail Maintenance Pack", "category": "industry_pack", "module_ids": ["work_orders", "service_forms", "whatsapp"], "feature_ids": ["whatsapp.templates"], "status": "draft" },
+  { "id": "inventory-procurement-pack", "name": "Inventory + Procurement Pack", "category": "enterprise_pack", "module_ids": ["inventory", "procurement"], "feature_ids": ["inventory.low_stock_alerts", "procurement.po_receive"], "status": "draft" },
+  { "id": "ai-operations-pack", "name": "AI Operations Pack", "category": "ai_pack", "module_ids": ["ai"], "feature_ids": ["ai.assistant"], "status": "draft" },
+  { "id": "workflow-automation-pack", "name": "Workflow Automation Pack", "category": "automation_pack", "module_ids": ["workflow"], "feature_ids": ["workflow.studio"], "status": "draft" }
+]

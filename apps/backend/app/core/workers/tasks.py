@@ -196,6 +196,17 @@ def send_whatsapp_message_task(self, audit_id: str) -> dict:
                         wa_msg.status = WorkOrderWhatsappStatus.SENT
                         wa_msg.sent_at = datetime.now(timezone.utc).replace(tzinfo=None)
 
+                    if audit.tenant_id:
+                        from app.services.entitlement_service import EntitlementService
+                        await EntitlementService.record_usage(
+                            session,
+                            tenant_id=audit.tenant_id,
+                            meter_key="whatsapp_messages",
+                            quantity=1,
+                            source="whatsapp.sent",
+                            event_ref=str(audit.id),
+                        )
+
                     await session.commit()
 
                     return {

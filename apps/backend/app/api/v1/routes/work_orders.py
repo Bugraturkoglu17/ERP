@@ -20,7 +20,7 @@ from pydantic import BaseModel
 from sqlalchemy import select, desc, func as sa_func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import get_current_user, get_db, require_role
+from app.core.dependencies import entitlement_http_error, get_current_user, get_db, require_feature, require_module, require_quota, require_role
 from app.core.storage import storage, sanitize_filename
 from app.core.permissions import verify_project_tenant, verify_work_order_tenant
 from app.core.upload_validator import validate_uploaded_file
@@ -35,6 +35,7 @@ from app.db.models import (
 from app.core.workers.tasks import send_whatsapp_message_task
 from app.services.whatsapp_service import WorkOrderNotification, whatsapp_service
 from app.core.notification_service import resolve_template_components, resolve_key_path
+from app.services.entitlement_service import EntitlementService
 
 router = APIRouter()
 
@@ -480,8 +481,10 @@ async def create_work_order(
     payload: WorkOrderCreate,
     db:   AsyncSession = Depends(get_db),
     user: User         = Depends(require_role("admin", "saha_muhendisi", "operasyon", "yonetici")),
+    _module_user: User = Depends(require_module("work_orders")),
 ):
-    await verify_project_tenant(db, payload.project_id, user)
+    user.tenant_id = _module_user.tenant_id
+    proj = await verify_project_tenant(db, payload.project_id, user)
 
     wo = WorkOrder(
         id=uuid4(),
@@ -515,6 +518,8 @@ async def create_work_order(
 
     await db.commit()
     await db.refresh(wo)
+    await EntitlementService.record_usage(db, user.tenant_id, "work_orders", 1, source="work_orders.create", event_ref=str(wo.id))
+    await db.commit()
 
     # Auto-send WhatsApp if requested
     if payload.send_whatsapp and payload.assigned_to_phone:
@@ -544,7 +549,9 @@ async def list_work_orders(
     work_type:  Optional[str]  = None,
     db:   AsyncSession = Depends(get_db),
     user: User         = Depends(require_role("admin", "saha_muhendisi", "operasyon", "yonetici")),
+    _module_user: User = Depends(require_module("work_orders")),
 ):
+    user.tenant_id = _module_user.tenant_id
     filters = [WorkOrder.is_deleted == False]
     if user.tenant_id:
         filters.append(WorkOrder.tenant_id == user.tenant_id)
@@ -730,6 +737,13 @@ def parse_coordinates(url_or_str: Optional[str]) -> tuple[str, str]:
 async def _execute_whatsapp_sending(wo: WorkOrder, db: AsyncSession, user: User) -> None:
     if not wo.assigned_to_phone:
         raise HTTPException(status_code=400, detail="Atanacak kişinin telefon numarası girilmemiş.")
+    tenant_id = wo.tenant_id or user.tenant_id
+    if not tenant_id:
+        raise entitlement_http_error(status.HTTP_403_FORBIDDEN, "ENTITLEMENT_CONTEXT_MISSING", "Tenant bağlamı bulunamadı.")
+    if not await EntitlementService.is_feature_enabled(db, tenant_id, "whatsapp.notifications"):
+        raise entitlement_http_error(status.HTTP_403_FORBIDDEN, "FEATURE_NOT_ENABLED", "whatsapp.notifications özelliği bu tenant için etkin değil.")
+    if not await EntitlementService.quota_available(db, tenant_id, "whatsapp_messages", 1):
+        raise entitlement_http_error(status.HTTP_429_TOO_MANY_REQUESTS, "QUOTA_EXCEEDED", "whatsapp_messages kotası aşıldı.")
 
     # 2-minute rate limit check
     from datetime import timedelta
@@ -878,7 +892,11 @@ async def send_whatsapp(
     work_order_id: UUID,
     db:   AsyncSession = Depends(get_db),
     user: User         = Depends(require_role("admin", "saha_muhendisi", "operasyon", "yonetici")),
+    _module_user: User = Depends(require_module("work_orders")),
+    _feature_user: User = Depends(require_feature("whatsapp.notifications")),
+    _quota_user: User = Depends(require_quota("whatsapp_messages", 1)),
 ):
+    user.tenant_id = _module_user.tenant_id
     wo = await verify_work_order_tenant(db, work_order_id, user)
     
     await _execute_whatsapp_sending(wo, db, user)
@@ -935,7 +953,9 @@ async def upload_admin_photo(
     file: UploadFile = File(...),
     db:   AsyncSession = Depends(get_db),
     user: User         = Depends(require_role("admin", "saha_muhendisi", "operasyon", "yonetici")),
+    _module_user: User = Depends(require_module("work_orders")),
 ):
+    user.tenant_id = _module_user.tenant_id
     wo = await verify_work_order_tenant(db, work_order_id, user)
 
     content = await file.read()

@@ -80,6 +80,16 @@ Bu doküman otomatik olarak üretilmiştir. API route'larının genel dökümün
 | GET | `/api/v1/platform/subscriptions` | platform, platform | No/Unknown | list_subscriptions |
 | POST | `/api/v1/platform/subscriptions/assign` | platform, platform | No/Unknown | assign_subscription |
 | GET | `/api/v1/platform/tenants` | platform, platform | No/Unknown | list_tenants |
+| GET | `/api/v1/platform/modules` | platform | Yes | list_modules |
+| GET | `/api/v1/platform/features` | platform | Yes | list_features |
+| GET | `/api/v1/platform/quotas` | platform | Yes | list_quotas |
+| GET | `/api/v1/platform/marketplace/listings` | platform | Yes | list_marketplace_listings |
+| POST | `/api/v1/platform/tenants/{tenant_id}/marketplace/install` | platform | Yes | install_marketplace_listing |
+| GET | `/api/v1/platform/tenants/{tenant_id}/entitlements` | platform | Yes | get_tenant_entitlements |
+| PUT | `/api/v1/platform/tenants/{tenant_id}/overrides` | platform | Yes | upsert_tenant_override |
+| GET | `/api/v1/platform/tenants/{tenant_id}/usage` | platform | Yes | get_tenant_usage |
+| POST | `/api/v1/platform/tenants/{tenant_id}/usage` | platform | Yes | record_tenant_usage |
+| GET | `/api/v1/meta/modules` | meta | Yes | module_registry_summary |
 | POST | `/api/v1/platform/tenants` | platform, platform | No/Unknown | create_tenant |
 | POST | `/api/v1/platform/tenants/provision-admin` | platform, platform | No/Unknown | provision_tenant_admin |
 | PATCH | `/api/v1/platform/tenants/{tenant_id}` | platform, platform | No/Unknown | update_tenant |

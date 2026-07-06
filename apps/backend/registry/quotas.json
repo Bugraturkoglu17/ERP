@@ -1,0 +1,10 @@
+[
+  { "id": "users", "name": "Users", "unit": "count", "default_limit": 10, "period": "lifetime" },
+  { "id": "storage_gb", "name": "Storage", "unit": "gb", "default_limit": 5, "period": "lifetime" },
+  { "id": "whatsapp_messages", "name": "WhatsApp Messages", "unit": "message", "default_limit": 500, "period": "monthly" },
+  { "id": "ai_tokens", "name": "AI Tokens", "unit": "token", "default_limit": 0, "period": "monthly" },
+  { "id": "projects", "name": "Projects", "unit": "count", "default_limit": 100, "period": "lifetime" },
+  { "id": "documents", "name": "Documents", "unit": "count", "default_limit": 10000, "period": "lifetime" },
+  { "id": "storage_bytes", "name": "Storage Bytes", "unit": "byte", "default_limit": 0, "period": "lifetime" },
+  { "id": "work_orders", "name": "Work Orders", "unit": "count", "default_limit": 1000, "period": "monthly" }
+]

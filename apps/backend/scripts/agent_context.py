@@ -71,6 +71,30 @@ def cmd_security(args):
                 for p in public:
                     print(f"  - {p} (from {data.get('domain')})")
 
+
+def cmd_modules(args):
+    backend_dir = get_backend_dir()
+    registry_dir = os.path.join(backend_dir, "registry")
+    modules = load_json(os.path.join(registry_dir, "modules.json")) or []
+    features = load_json(os.path.join(registry_dir, "features.json")) or []
+    quotas = load_json(os.path.join(registry_dir, "quotas.json")) or []
+    print("=== Module Registry v2 ===")
+    print(f"Modules: {len(modules)}")
+    print(f"Features: {len(features)}")
+    print(f"Quotas: {len(quotas)}")
+    backend_enforced_modules = {"documents", "work_orders", "finance"}
+    visibility_modules = {"projects", "approvals", "inventory", "procurement", "field_reports", "whatsapp", "users", "notifications"}
+    for module in modules:
+        module_id = module.get("id")
+        features_for_module = [f.get("id") for f in features if f.get("module_id") == module_id]
+        enforcement = "backend_enforced" if module_id in backend_enforced_modules else "visibility_only" if module_id in visibility_modules else "none"
+        print(f"- {module.get('id')} [{module.get('category')}/{module.get('plan_tier')}]")
+        print(f"    Dependencies: {', '.join(module.get('dependencies', [])) or 'None'}")
+        print(f"    Routes: {', '.join(module.get('routes', [])) or 'None'}")
+        print(f"    Features: {', '.join(features_for_module) or 'None'}")
+        print(f"    Quotas: {', '.join(q.get('id') for q in quotas) if module_id in backend_enforced_modules else 'None'}")
+        print(f"    Enforcement: {enforcement}")
+
 def cmd_bootstrap(args):
     print("=== GOLABS ERP Bootstrap Sequence Initiated ===")
     root_dir = os.path.dirname(os.path.dirname(get_backend_dir()))
@@ -109,6 +133,9 @@ def main():
     
     # Security command
     parser_security = subparsers.add_parser("security", help="Get overview of domain security and public endpoints")
+
+    # Module registry command
+    parser_modules = subparsers.add_parser("modules", help="Get module, feature and quota registry overview")
     
     args = parser.parse_args()
     
@@ -120,6 +147,8 @@ def main():
         cmd_impact(args)
     elif args.command == "security":
         cmd_security(args)
+    elif args.command == "modules":
+        cmd_modules(args)
     else:
         parser.print_help()
 

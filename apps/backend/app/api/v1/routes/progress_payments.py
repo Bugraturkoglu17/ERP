@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import get_current_user as _orig_get_current_user, get_db, require_role
+from app.core.dependencies import get_current_user as _orig_get_current_user, get_db, require_module, require_role
 from app.db.models import StoreActivity, StoreApprovalRequest, StoreProgressPayment, User
 from app.core.permissions import verify_project_tenant, verify_payment_tenant
 
@@ -55,7 +55,9 @@ async def list_all_payments(
     payment_type: Optional[str] = None,
     db:   AsyncSession = Depends(get_db),
     user: User         = Depends(get_current_user),
+    _module_user: User = Depends(require_module("finance")),
 ):
+    user.tenant_id = _module_user.tenant_id
     filters = [StoreProgressPayment.tenant_id == user.tenant_id]
     if payment_type:
         filters.append(StoreProgressPayment.payment_type == payment_type)
@@ -76,7 +78,9 @@ async def list_payments(
     project_id: UUID,
     db:   AsyncSession = Depends(get_db),
     user: User         = Depends(get_current_user),
+    _module_user: User = Depends(require_module("finance")),
 ):
+    user.tenant_id = _module_user.tenant_id
     await verify_project_tenant(db, project_id, user)
     result = await db.execute(
         select(StoreProgressPayment)
@@ -94,7 +98,9 @@ async def create_payment(
     body: ProgressPaymentCreate,
     db:   AsyncSession = Depends(get_db),
     user: User         = Depends(get_current_user),
+    _module_user: User = Depends(require_module("finance")),
 ):
+    user.tenant_id = _module_user.tenant_id
     await verify_project_tenant(db, project_id, user)
     payment = StoreProgressPayment(
         tenant_id=user.tenant_id,
@@ -159,7 +165,9 @@ async def delete_payment(
     payment_id: UUID,
     db:   AsyncSession = Depends(get_db),
     user: User         = Depends(get_current_user),
+    _module_user: User = Depends(require_module("finance")),
 ):
+    user.tenant_id = _module_user.tenant_id
     payment = await verify_payment_tenant(db, payment_id, user)
 
     # Bağlı onay taleplerini iptal et
@@ -189,7 +197,9 @@ async def update_payment(
     body: ProgressPaymentUpdate,
     db:   AsyncSession = Depends(get_db),
     user: User         = Depends(get_current_user),
+    _module_user: User = Depends(require_module("finance")),
 ):
+    user.tenant_id = _module_user.tenant_id
     payment = await verify_payment_tenant(db, payment_id, user)
 
     was_submitted = payment.submitted_for_approval
@@ -236,7 +246,9 @@ async def update_payment(
 async def sync_payment_approvals(
     db:   AsyncSession = Depends(get_db),
     user: User         = Depends(get_current_user),
+    _module_user: User = Depends(require_module("finance")),
 ):
+    user.tenant_id = _module_user.tenant_id
     """submitted_for_approval=True ama ilişkili StoreApprovalRequest olmayan
     hakkedişler için otomatik approval kaydı oluşturur. Duplicate oluşturmaz."""
     result = await db.execute(

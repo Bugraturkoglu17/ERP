@@ -1,0 +1,56 @@
+{
+  "domain": "platform",
+  "description": "Tenant, lisans, plan, entitlement, module registry, feature flags, usage meter, quota ve marketplace altyapısı.",
+  "entities": [
+    "Tenant",
+    "PlatformTenantSettings",
+    "PlatformPlan",
+    "PlatformSubscription",
+    "TenantEntitlementOverride",
+    "TenantUsageMeter",
+    "MarketplaceInstallation",
+    "PlatformAdminAction",
+    "PlatformContextSession"
+  ],
+  "routes": [
+    "app.api.v1.routes.platform",
+    "app.api.v1.routes.meta"
+  ],
+  "roles": [
+    "platform_admin"
+  ],
+  "tenant_helper": "EntitlementService.resolve_entitlements",
+  "notifications": [
+    "tenant_status_changed",
+    "tenant_admin_provisioned",
+    "tenant_admin_password_reset"
+  ],
+  "events": [
+    "plan_created",
+    "subscription_assigned",
+    "tenant_entitlement_override_changed",
+    "marketplace_installation_changed",
+    "usage_meter_recorded"
+  ],
+  "storage_prefixes": [],
+  "indexes": [
+    "uq_tenant_entitlement_override",
+    "uq_tenant_usage_period",
+    "uq_marketplace_installation"
+  ],
+  "public_endpoints": [],
+  "dependencies": [
+    "auth",
+    "projects",
+    "work_orders",
+    "documents",
+    "finance",
+    "notifications"
+  ],
+  "registries": [
+    "apps/backend/registry/modules.json",
+    "apps/backend/registry/features.json",
+    "apps/backend/registry/quotas.json",
+    "apps/backend/registry/marketplace.json"
+  ]
+}

@@ -10,6 +10,7 @@ from app.core.database import get_db
 from app.core.dependencies import require_role
 from app.core.workers import celery_app
 from fastapi.routing import APIRoute
+from app.services.entitlement_service import EntitlementService
 
 router = APIRouter(tags=["meta"])
 
@@ -155,6 +156,11 @@ async def architecture_registry() -> Dict[str, Any]:
             "total_routes": total_routes,
             "total_public_endpoints": total_public_endpoints,
             "all_events": sorted(list(all_events))
+        },
+        "module_registry": {
+            "total_modules": len(EntitlementService.modules_registry()),
+            "total_features": len(EntitlementService.features_registry()),
+            "total_quotas": len(EntitlementService.quotas_registry()),
         }
     }
 
@@ -164,10 +170,12 @@ async def impact_analysis_api(
     entity: str = None, 
     domain: str = None, 
     route: str = None, 
-    event: str = None
+    event: str = None,
+    feature: str = None,
+    module: str = None,
 ) -> Dict[str, Any]:
     from app.core.impact import perform_impact_analysis
-    return perform_impact_analysis(entity, domain, route, event)
+    return perform_impact_analysis(entity=entity, domain=domain, route=route, event=event, feature=feature, module=module)
 
 
 @router.get("/meta/dashboard", summary="Meta Dashboard Data", dependencies=[Depends(require_role("platform_admin"))])
@@ -203,6 +211,28 @@ async def meta_dashboard() -> Dict[str, Any]:
         "status": "online",
         "domains": registry.get("domains", []),
         "summary": registry.get("summary", {}),
+        "module_registry": registry.get("module_registry", {}),
+        "modules": EntitlementService.modules_registry(),
+        "features": EntitlementService.features_registry(),
+        "quotas": EntitlementService.quotas_registry(),
         "events": events,
         "tasks": tasks
+    }
+
+
+@router.get("/meta/modules", summary="Module Registry", dependencies=[Depends(require_role("platform_admin", "admin"))])
+async def module_registry_summary() -> Dict[str, Any]:
+    modules = EntitlementService.modules_registry()
+    features = EntitlementService.features_registry()
+    quotas = EntitlementService.quotas_registry()
+    return {
+        "modules": modules,
+        "features": features,
+        "quotas": quotas,
+        "summary": {
+            "total_modules": len(modules),
+            "total_features": len(features),
+            "total_quotas": len(quotas),
+            "categories": sorted({m.get("category", "unknown") for m in modules}),
+        },
     }

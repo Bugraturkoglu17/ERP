@@ -17,7 +17,9 @@ export default function Page() {
       return;
     }
 
-    if (isPlatformAdmin(payload)) {
+    // If platform admin has an active tenant context, let them access the tenant dashboard /
+    const hasContext = !!window.localStorage.getItem("tenant_context_token");
+    if (isPlatformAdmin(payload) && !hasContext) {
       setPlatformUser(true);
       router.replace("/platform");
       return;

@@ -9,6 +9,10 @@ const ERROR_MAP: Record<string, string> = {
   TENANT_FORBIDDEN: "Bu veriye veya işlem yetkisine sahip değilsiniz (Tenant İzolasyon İhlali).",
   AUTH_REQUIRED: "Bu işlem için oturum açmış olmanız gerekmektedir.",
   RATE_LIMITED: "Çok fazla istek gönderdiniz. Lütfen bir süre bekleyin.",
+  MODULE_NOT_ENABLED: "Bu modül mevcut lisansınızda aktif değil.",
+  FEATURE_NOT_ENABLED: "Bu özellik mevcut planınızda aktif değil.",
+  QUOTA_EXCEEDED: "Kullanım limitiniz doldu. Planınızı yükseltmeniz gerekebilir.",
+  ENTITLEMENT_CONTEXT_MISSING: "Bu işlem için geçerli firma bağlamı bulunamadı.",
   GENERIC_ERROR: "Sistemde beklenmeyen bir hata oluştu. Lütfen teknik ekibe başvurun."
 };
 

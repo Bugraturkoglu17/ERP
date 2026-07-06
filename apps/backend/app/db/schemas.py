@@ -65,6 +65,14 @@ class TenantContextRead(BaseModel):
     email_notifications_enabled: bool = True
     email_digest_mode: str = "immediate"
     email_opt_out_templates: list[str] = Field(default_factory=list)
+    plan: dict[str, Any] | None = None
+    subscription: dict[str, Any] | None = None
+    active_modules: list[str] = Field(default_factory=list)
+    active_features: list[str] = Field(default_factory=list)
+    feature_flags: list[str] = Field(default_factory=list)
+    effective_quotas: dict[str, int] = Field(default_factory=dict)
+    usage_summary: dict[str, Any] = Field(default_factory=dict)
+    entitlement_source: dict[str, Any] = Field(default_factory=dict)
 
 
 class TenantProfileUpdate(BaseModel):
@@ -181,7 +189,9 @@ class PlatformPlanCreate(BaseModel):
     name: str
     max_users: int = 10
     storage_limit_gb: int = 5
-    modules: list[str] = []
+    modules: list[str] = Field(default_factory=list)
+    features: list[str] = Field(default_factory=list)
+    quotas: dict[str, int] = Field(default_factory=dict)
 
 
 class PlatformPlanRead(BaseModel):
@@ -191,6 +201,8 @@ class PlatformPlanRead(BaseModel):
     max_users: int
     storage_limit_gb: int
     modules: list[str]
+    features: list[str] = Field(default_factory=list)
+    quotas: dict[str, int] = Field(default_factory=dict)
     is_active: bool
     created_at: datetime
 
@@ -200,6 +212,7 @@ class PlatformSubscriptionAssignRequest(BaseModel):
     plan_id: UUID
     status: str = "active"
     ends_at: datetime | None = None
+    overrides: dict[str, Any] = Field(default_factory=dict)
 
 
 class PlatformSubscriptionRead(BaseModel):
@@ -207,9 +220,86 @@ class PlatformSubscriptionRead(BaseModel):
     tenant_id: UUID
     plan_id: UUID
     status: str
+    overrides: dict[str, Any] = Field(default_factory=dict)
     starts_at: datetime
     ends_at: datetime | None
     created_at: datetime
+
+
+class RegistryModuleRead(BaseModel):
+    id: str
+    name: str
+    category: str
+    plan_tier: str
+    dependencies: list[str] = Field(default_factory=list)
+    navigation: list[str] = Field(default_factory=list)
+    permissions: list[str] = Field(default_factory=list)
+    events: list[str] = Field(default_factory=list)
+    routes: list[str] = Field(default_factory=list)
+    entities: list[str] = Field(default_factory=list)
+    marketplace_ready: bool = False
+
+
+class RegistryFeatureRead(BaseModel):
+    id: str
+    name: str
+    module_id: str
+    category: str
+    plan_tier: str
+    enabled_by_default: bool = False
+
+
+class RegistryQuotaRead(BaseModel):
+    id: str
+    name: str
+    unit: str
+    default_limit: int
+    period: str
+
+
+class TenantEntitlementRead(BaseModel):
+    tenant_id: UUID | str
+    plan_id: UUID | str | None = None
+    subscription_id: UUID | str | None = None
+    modules: list[str] = Field(default_factory=list)
+    features: list[str] = Field(default_factory=list)
+    quotas: dict[str, int] = Field(default_factory=dict)
+    entitlement_source: dict[str, Any] = Field(default_factory=dict)
+
+
+class TenantOverrideUpsert(BaseModel):
+    target_type: str
+    target_id: str
+    enabled: bool = True
+    limit_value: int | None = None
+    reason: str | None = None
+
+
+class UsageMeterRecordRequest(BaseModel):
+    meter_key: str
+    quantity: int = 1
+    source: str = "manual"
+    event_ref: str | None = None
+    period_key: str | None = None
+
+
+class UsageSummaryRead(BaseModel):
+    tenant_id: UUID | str
+    usage: dict[str, Any]
+    quotas: dict[str, int]
+
+
+class MarketplaceListingRead(BaseModel):
+    id: str
+    name: str
+    category: str
+    module_ids: list[str] = Field(default_factory=list)
+    feature_ids: list[str] = Field(default_factory=list)
+    status: str
+
+
+class MarketplaceInstallRequest(BaseModel):
+    listing_id: str
 
 
 class PlatformAuditRead(BaseModel):
@@ -220,6 +310,30 @@ class PlatformAuditRead(BaseModel):
     target_user_id: UUID | None
     details: str | None
     created_at: datetime
+
+
+class ContextSessionRead(BaseModel):
+    id: UUID
+    platform_admin_id: UUID
+    tenant_id: UUID
+    tenant_name: str
+    mode: str
+    reason: str | None
+    ticket_ref: str | None
+    status: str
+    started_at: datetime
+    expires_at: datetime
+    ended_at: datetime | None
+    ended_reason: str | None
+
+
+class SupportAnalyticsRead(BaseModel):
+    today_sessions_count: int
+    total_sessions_count: int
+    read_only_pct: float
+    support_write_pct: float
+    top_tenants: list[dict]
+    avg_duration_minutes: float
 
 
 # ── Role / Permission ─────────────────────────────────────────────────────────

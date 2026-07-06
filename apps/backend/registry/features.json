@@ -1,0 +1,12 @@
+[
+  { "id": "workflow.studio", "name": "Workflow Studio", "module_id": "workflow", "category": "automation", "plan_tier": "enterprise", "enabled_by_default": false },
+  { "id": "ai.assistant", "name": "AI Assistant", "module_id": "ai", "category": "ai", "plan_tier": "enterprise", "enabled_by_default": false },
+  { "id": "whatsapp.templates", "name": "Custom WhatsApp Templates", "module_id": "whatsapp", "category": "integration", "plan_tier": "professional", "enabled_by_default": false },
+  { "id": "whatsapp.notifications", "name": "WhatsApp Notifications", "module_id": "whatsapp", "category": "integration", "plan_tier": "professional", "enabled_by_default": false },
+  { "id": "finance.cashflow", "name": "Cashflow Dashboard", "module_id": "finance", "category": "professional", "plan_tier": "professional", "enabled_by_default": true },
+  { "id": "documents.versioning", "name": "Document Versioning", "module_id": "documents", "category": "core", "plan_tier": "core", "enabled_by_default": true },
+  { "id": "inventory.low_stock_alerts", "name": "Low Stock Alerts", "module_id": "inventory", "category": "enterprise", "plan_tier": "enterprise", "enabled_by_default": true },
+  { "id": "procurement.po_receive", "name": "Purchase Order Receiving", "module_id": "procurement", "category": "enterprise", "plan_tier": "enterprise", "enabled_by_default": true },
+  { "id": "platform.support_context", "name": "Platform Support Context", "module_id": "platform", "category": "enterprise", "plan_tier": "enterprise", "enabled_by_default": true },
+  { "id": "marketplace.install", "name": "Marketplace Installations", "module_id": "platform", "category": "marketplace", "plan_tier": "enterprise", "enabled_by_default": false }
+]

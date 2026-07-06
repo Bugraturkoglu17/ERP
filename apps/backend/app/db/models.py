@@ -849,6 +849,8 @@ class PlatformPlan(SQLModel, table=True):
     max_users: int = Field(default=10, ge=1)
     storage_limit_gb: int = Field(default=5, ge=1)
     modules: str = Field(default="[]", description="JSON array")
+    features: str = Field(default="[]", description="JSON array of feature ids")
+    quotas_json: str = Field(default="{}", description="JSON object of quota limits")
     is_active: bool = Field(default=True)
     created_at: datetime = Field(default_factory=utc_now, nullable=False)
 
@@ -860,9 +862,53 @@ class PlatformSubscription(SQLModel, table=True):
     tenant_id: UUID = Field(foreign_key="tenants.id", index=True)
     plan_id: UUID = Field(foreign_key="platform_plans.id", index=True)
     status: str = Field(default="trial", max_length=32, index=True)
+    overrides_json: str = Field(default="{}", description="JSON object for subscription-scoped overrides")
     starts_at: datetime = Field(default_factory=utc_now)
     ends_at: Optional[datetime] = None
     created_at: datetime = Field(default_factory=utc_now, nullable=False)
+
+
+class TenantEntitlementOverride(SQLModel, table=True):
+    __tablename__ = "tenant_entitlement_overrides"
+    __table_args__ = (UniqueConstraint("tenant_id", "target_type", "target_id", name="uq_tenant_entitlement_override"),)
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    tenant_id: UUID = Field(foreign_key="tenants.id", index=True)
+    target_type: str = Field(max_length=20, index=True)  # module | feature | quota
+    target_id: str = Field(max_length=120, index=True)
+    enabled: bool = Field(default=True, index=True)
+    limit_value: Optional[int] = Field(default=None)
+    reason: Optional[str] = Field(default=None, max_length=500)
+    created_by: Optional[UUID] = Field(foreign_key="users.id", default=None)
+    created_at: datetime = Field(default_factory=utc_now, nullable=False)
+    updated_at: datetime = Field(default_factory=utc_now, sa_column_kwargs={"onupdate": utc_now})
+
+
+class TenantUsageMeter(SQLModel, table=True):
+    __tablename__ = "tenant_usage_meters"
+    __table_args__ = (UniqueConstraint("tenant_id", "meter_key", "period_key", name="uq_tenant_usage_period"),)
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    tenant_id: UUID = Field(foreign_key="tenants.id", index=True)
+    meter_key: str = Field(max_length=80, index=True)
+    period_key: str = Field(max_length=40, index=True)
+    quantity: int = Field(default=0, ge=0)
+    source: str = Field(default="system", max_length=80)
+    last_event_ref: Optional[str] = Field(default=None, max_length=160)
+    updated_at: datetime = Field(default_factory=utc_now, sa_column_kwargs={"onupdate": utc_now})
+
+
+class MarketplaceInstallation(SQLModel, table=True):
+    __tablename__ = "marketplace_installations"
+    __table_args__ = (UniqueConstraint("tenant_id", "listing_id", name="uq_marketplace_installation"),)
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    tenant_id: UUID = Field(foreign_key="tenants.id", index=True)
+    listing_id: str = Field(max_length=120, index=True)
+    status: str = Field(default="installed", max_length=30, index=True)
+    installed_by: Optional[UUID] = Field(foreign_key="users.id", default=None)
+    installed_at: datetime = Field(default_factory=utc_now, nullable=False)
+    updated_at: datetime = Field(default_factory=utc_now, sa_column_kwargs={"onupdate": utc_now})
 
 
 class PlatformAdminAction(SQLModel, table=True):
@@ -875,6 +921,23 @@ class PlatformAdminAction(SQLModel, table=True):
     target_user_id: Optional[UUID] = Field(foreign_key="users.id", default=None, index=True)
     details: Optional[str] = Field(default=None, max_length=2000)
     created_at: datetime = Field(default_factory=utc_now, nullable=False, index=True)
+
+
+class PlatformContextSession(SQLModel, table=True):
+    __tablename__ = "platform_context_sessions"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    platform_admin_id: UUID = Field(foreign_key="users.id", index=True)
+    tenant_id: UUID = Field(foreign_key="tenants.id", index=True)
+    tenant_name: str = Field(max_length=255)
+    mode: str = Field(max_length=32, index=True)  # "read_only" | "support_write"
+    reason: Optional[str] = Field(default=None, max_length=1000)
+    ticket_ref: Optional[str] = Field(default=None, max_length=120)
+    status: str = Field(default="active", max_length=32, index=True)  # "active" | "ended" | "expired" | "revoked"
+    started_at: datetime = Field(default_factory=utc_now, nullable=False)
+    expires_at: datetime = Field(nullable=False)
+    ended_at: Optional[datetime] = None
+    ended_reason: Optional[str] = Field(default=None, max_length=1000)
 
 
 class UserSecurityPolicy(SQLModel, table=True):

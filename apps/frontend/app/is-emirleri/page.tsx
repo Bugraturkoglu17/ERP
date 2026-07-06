@@ -7,6 +7,7 @@ import {
   ExternalLink, Loader2, MessageSquare, Plus, Search, Trash2, User, X, Zap, Copy, Download, FileText, Image as ImageIcon
 } from "lucide-react";
 import { apiDelete, apiGet, apiPost } from "@/lib/api";
+import { translateError } from "@/lib/error-translator";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -38,6 +39,23 @@ type WhatsappMessageLog = {
   created_at: string;
   updated_at: string;
 };
+
+function hasFeatureFlag(featureId: string): boolean {
+  if (typeof window === "undefined") return true;
+  const raw = window.localStorage.getItem("tenant_context_data") || window.sessionStorage.getItem("tenant_context_v1");
+  if (!raw) return true;
+  try {
+    const parsed = JSON.parse(raw);
+    const features = Array.isArray(parsed?.active_features)
+      ? parsed.active_features
+      : Array.isArray(parsed?.feature_flags)
+        ? parsed.feature_flags
+        : [];
+    return features.includes(featureId);
+  } catch {
+    return true;
+  }
+}
 
 const WORK_TYPES = [
   { value: "maintenance",   label: "Bakım"    },
@@ -392,6 +410,9 @@ function CreateModal({ onClose, onDone }: { onClose: () => void; onDone: () => v
 function SendWhatsAppBtn({ wo, onRefresh }: { wo: WorkOrder; onRefresh: () => void }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const canSendWhatsapp = hasFeatureFlag("whatsapp.notifications");
+
+  if (!canSendWhatsapp) return null;
 
   const send = async () => {
     if (!wo.assigned_to_phone) {
@@ -408,7 +429,10 @@ function SendWhatsAppBtn({ wo, onRefresh }: { wo: WorkOrder; onRefresh: () => vo
       await apiPost(`/work-orders/${wo.id}/send-whatsapp`, {});
       onRefresh();
     } catch (ex: any) {
-      setErr(ex?.response?.data?.detail ?? "WhatsApp mesajı gönderilemedi.");
+      const detail = ex?.response?.data?.detail;
+      const type = typeof detail === "object" ? detail.type : ex?.response?.data?.type;
+      const fallback = typeof detail === "string" ? detail : "WhatsApp mesajı gönderilemedi.";
+      setErr(translateError(type, fallback));
     } finally { setBusy(false); }
   };
 
@@ -444,6 +468,7 @@ function DetailDrawer({
   } | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const canSendWhatsapp = hasFeatureFlag("whatsapp.notifications");
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToast({ message, type });
@@ -484,9 +509,13 @@ function DetailDrawer({
     } catch (ex: any) {
       const code = ex?.response?.status;
       if (code === 429) {
-        showToast("Bu iş emri için son 2 dakika içinde bildirim gönderildi.", "error");
+        const detail = ex?.response?.data?.detail;
+        const type = typeof detail === "object" ? detail.type : ex?.response?.data?.type;
+        showToast(translateError(type, "Bu iş emri için son 2 dakika içinde bildirim gönderildi."), "error");
       } else {
-        showToast(apiErrMsg(ex, "Mesaj gönderilemedi."), "error");
+        const detail = ex?.response?.data?.detail;
+        const type = typeof detail === "object" ? detail.type : ex?.response?.data?.type;
+        showToast(translateError(type, apiErrMsg(ex, "Mesaj gönderilemedi.")), "error");
       }
     } finally {
       setSending(false);
@@ -741,14 +770,16 @@ function DetailDrawer({
 
             {/* Buttons Panel */}
             <div className="flex gap-2 flex-wrap">
-              <button 
-                onClick={handleSend} 
-                disabled={sending}
-                className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 text-white font-semibold text-xs px-4 py-2.5 hover:bg-emerald-700 disabled:opacity-50 transition-colors shadow-sm shadow-emerald-100"
-              >
-                {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
-                {lastStatus === 'none' ? "WhatsApp Gönder" : "Yeniden Gönder"}
-              </button>
+              {canSendWhatsapp && (
+                <button 
+                  onClick={handleSend} 
+                  disabled={sending}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 text-white font-semibold text-xs px-4 py-2.5 hover:bg-emerald-700 disabled:opacity-50 transition-colors shadow-sm shadow-emerald-100"
+                >
+                  {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
+                  {lastStatus === 'none' ? "WhatsApp Gönder" : "Yeniden Gönder"}
+                </button>
+              )}
               
               <button
                 onClick={loadPreview}

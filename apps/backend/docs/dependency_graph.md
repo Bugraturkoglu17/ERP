@@ -4,6 +4,12 @@ Bu grafik `architecture/` JSON'larindaki `dependencies` tanimlarina gore uretilm
 
 ```mermaid
 graph TD;
+    platform["Platform"];
+    platform --> projects;
+    platform --> work_orders;
+    platform --> documents;
+    platform --> finance;
+    platform --> notifications;
     approvals["Approvals"];
     approvals --> projects;
     documents["Documents"];

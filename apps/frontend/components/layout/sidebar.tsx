@@ -9,13 +9,14 @@ import { getVisibleNavEntries, isNavGroup, type NavGroup } from "@/lib/navigatio
 import { getRoles, getTokenPayloadFromStorage } from "@/lib/auth";
 import { apiGet } from "@/lib/api";
 import { logout } from "@/lib/session";
+import { fetchTenantContext } from "@/lib/tenant-context";
 
 type SidebarProps = {
   mobileOpen?: boolean;
   onClose?: () => void;
 };
 
-function useActiveGroup(groups: NavGroup[], pathname: string): string | null {
+function getActiveGroup(groups: NavGroup[], pathname: string): string | null {
   for (const g of groups) {
     if (pathname === g.href || pathname.startsWith(g.href + "/") ||
         g.items.some((i) => pathname === i.href.split("?")[0] || pathname.startsWith(i.href.split("?")[0] + "/"))) {
@@ -32,6 +33,8 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
   const [roles, setRoles]       = useState<string[]>([]);
   const [fullName, setFullName] = useState("Kullanıcı");
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
+  const [hasContext, setHasContext] = useState(false);
+  const [entitlements, setEntitlements] = useState<{ modules?: string[]; features?: string[] }>();
 
   useEffect(() => {
     const payload = getTokenPayloadFromStorage();
@@ -42,16 +45,54 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
       .catch(() => {});
   }, []);
 
-  const entries = getVisibleNavEntries(roles);
-  const navGroups = entries.filter(isNavGroup) as NavGroup[];
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const contextToken = window.localStorage.getItem("tenant_context_token");
+      setHasContext(Boolean(contextToken));
+      const rawContext = window.localStorage.getItem("tenant_context_data") || window.sessionStorage.getItem("tenant_context_v1");
+      try {
+        const parsed = rawContext ? JSON.parse(rawContext) : null;
+        const modules = Array.isArray(parsed?.active_modules)
+          ? parsed.active_modules
+          : Array.isArray(parsed?.enabled_modules)
+            ? parsed.enabled_modules
+            : undefined;
+        const features = Array.isArray(parsed?.active_features)
+          ? parsed.active_features
+          : Array.isArray(parsed?.feature_flags)
+            ? parsed.feature_flags
+            : undefined;
+        setEntitlements(modules || features ? { modules, features } : undefined);
+      } catch {
+        setEntitlements(undefined);
+      }
+    }
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!roles.length) return;
+    const isPlatformUser = roles.includes("platform_admin");
+    if (isPlatformUser && !hasContext) return;
+    if (hasContext) return;
+    fetchTenantContext()
+      .then((ctx) => {
+        const modules = Array.isArray(ctx?.active_modules) ? ctx.active_modules : undefined;
+        const features = Array.isArray(ctx?.active_features) ? ctx.active_features : Array.isArray(ctx?.feature_flags) ? ctx.feature_flags : undefined;
+        setEntitlements(modules || features ? { modules, features } : undefined);
+      })
+      .catch(() => {});
+  }, [roles, hasContext]);
+
   const isPlatform = roles.includes("platform_admin");
+  const entries = getVisibleNavEntries(roles, isPlatform, hasContext, entitlements);
+  const navGroups = entries.filter(isNavGroup) as NavGroup[];
 
   // Auto-open the group that contains the current path
   useEffect(() => {
-    const active = useActiveGroup(navGroups, pathname);
+    const active = getActiveGroup(navGroups, pathname);
     if (active) setOpenGroups((prev) => new Set(Array.from(prev).concat(active)));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname, roles]);
+  }, [pathname, roles, hasContext]);
 
   const toggleGroup = (href: string) => {
     setOpenGroups((prev) => {

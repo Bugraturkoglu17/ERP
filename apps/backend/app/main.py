@@ -14,6 +14,7 @@ from app.core.config import settings
 from app.core.database import close_db, init_db
 from app.core.exceptions import AppException, ErrorCode
 from app.core.middleware.logging_middleware import StructuredLoggingMiddleware
+from app.core.middleware.context_middleware import TenantContextMiddleware
 
 # ── App ────────────────────────────────────────────────────────────────────────
 app = FastAPI(
@@ -44,6 +45,7 @@ app.add_middleware(
     allow_headers    = ["*"],
 )
 app.add_middleware(StructuredLoggingMiddleware)
+app.add_middleware(TenantContextMiddleware)
 
 
 # ── Exception Handler ─────────────────────────────────────────────────────────

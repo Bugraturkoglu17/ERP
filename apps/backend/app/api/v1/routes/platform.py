@@ -21,7 +21,9 @@ from app.db.models import (
     PlatformPlan,
     PlatformSubscription,
     PlatformTenantSettings,
+    MarketplaceInstallation,
     Role,
+    TenantEntitlementOverride,
     Tenant,
     TenantStatus,
     User,
@@ -34,17 +36,27 @@ from app.db.schemas import (
     PlatformPlanRead,
     PlatformSubscriptionAssignRequest,
     PlatformSubscriptionRead,
+    MarketplaceInstallRequest,
+    MarketplaceListingRead,
+    RegistryFeatureRead,
+    RegistryModuleRead,
+    RegistryQuotaRead,
     TenantAdminProvisionRequest,
     TenantAdminRead,
+    TenantEntitlementRead,
     TenantAdminResetRequest,
     TenantAdminUpdateRequest,
     TenantCreate,
     TenantRead,
     TenantSettingsRead,
     TenantSettingsUpsert,
+    TenantOverrideUpsert,
+    UsageMeterRecordRequest,
+    UsageSummaryRead,
     TenantUpdate,
     UserRead,
 )
+from app.services.entitlement_service import EntitlementService
 
 router = APIRouter()
 
@@ -59,6 +71,59 @@ def _parse_opt_out_templates(raw: str | None) -> list[str]:
     except json.JSONDecodeError:
         return []
     return []
+
+
+def _parse_json_list(raw: str | None) -> list[str]:
+    if not raw:
+        return []
+    try:
+        parsed = json.loads(raw)
+        if isinstance(parsed, list):
+            return [str(item) for item in parsed]
+    except json.JSONDecodeError:
+        return []
+    return []
+
+
+def _parse_json_dict(raw: str | None) -> dict:
+    if not raw:
+        return {}
+    try:
+        parsed = json.loads(raw)
+        if isinstance(parsed, dict):
+            return parsed
+    except json.JSONDecodeError:
+        return {}
+    return {}
+
+
+def _plan_read(plan: PlatformPlan) -> PlatformPlanRead:
+    quotas = {k: int(v) for k, v in _parse_json_dict(plan.quotas_json).items() if isinstance(v, (int, float, str)) and str(v).isdigit()}
+    return PlatformPlanRead(
+        id=plan.id,
+        code=plan.code,
+        name=plan.name,
+        max_users=plan.max_users,
+        storage_limit_gb=plan.storage_limit_gb,
+        modules=_parse_json_list(plan.modules),
+        features=_parse_json_list(plan.features),
+        quotas=quotas,
+        is_active=plan.is_active,
+        created_at=plan.created_at,
+    )
+
+
+def _subscription_read(sub: PlatformSubscription) -> PlatformSubscriptionRead:
+    return PlatformSubscriptionRead(
+        id=sub.id,
+        tenant_id=sub.tenant_id,
+        plan_id=sub.plan_id,
+        status=sub.status,
+        overrides=_parse_json_dict(sub.overrides_json),
+        starts_at=sub.starts_at,
+        ends_at=sub.ends_at,
+        created_at=sub.created_at,
+    )
 
 
 VALID_TENANT_STATUSES = {"trial", "active", "suspended", "archived"}
@@ -556,6 +621,8 @@ async def create_plan(
         max_users=payload.max_users,
         storage_limit_gb=payload.storage_limit_gb,
         modules=json.dumps(payload.modules or []),
+        features=json.dumps(payload.features or []),
+        quotas_json=json.dumps({"users": payload.max_users, "storage_gb": payload.storage_limit_gb, **(payload.quotas or {})}),
     )
     db.add(plan)
     await db.flush()
@@ -563,16 +630,7 @@ async def create_plan(
     await db.commit()
     await db.refresh(plan)
 
-    return PlatformPlanRead(
-        id=plan.id,
-        code=plan.code,
-        name=plan.name,
-        max_users=plan.max_users,
-        storage_limit_gb=plan.storage_limit_gb,
-        modules=json.loads(plan.modules or "[]"),
-        is_active=plan.is_active,
-        created_at=plan.created_at,
-    )
+    return _plan_read(plan)
 
 
 @router.get("/plans", response_model=list[PlatformPlanRead], tags=["platform"])
@@ -584,19 +642,7 @@ async def list_plans(
 
     result = await db.execute(select(PlatformPlan).order_by(PlatformPlan.created_at.desc()))
     rows = list(result.scalars())
-    return [
-        PlatformPlanRead(
-            id=row.id,
-            code=row.code,
-            name=row.name,
-            max_users=row.max_users,
-            storage_limit_gb=row.storage_limit_gb,
-            modules=json.loads(row.modules or "[]"),
-            is_active=row.is_active,
-            created_at=row.created_at,
-        )
-        for row in rows
-    ]
+    return [_plan_read(row) for row in rows]
 
 
 @router.post("/subscriptions/assign", response_model=PlatformSubscriptionRead, status_code=201, tags=["platform"])
@@ -619,6 +665,7 @@ async def assign_subscription(
         tenant_id=tenant.id,
         plan_id=plan.id,
         status=payload.status,
+        overrides_json=json.dumps(payload.overrides or {}, ensure_ascii=False),
         ends_at=payload.ends_at,
     )
     db.add(sub)
@@ -626,7 +673,7 @@ async def assign_subscription(
     await _log_action(db, user, "subscription.assign", tenant_id=tenant.id, details={"plan_id": str(plan.id), "status": payload.status})
     await db.commit()
     await db.refresh(sub)
-    return sub
+    return _subscription_read(sub)
 
 
 @router.get("/subscriptions", response_model=list[PlatformSubscriptionRead], tags=["platform"])
@@ -641,7 +688,158 @@ async def list_subscriptions(
     if tenant_id:
         query = query.where(PlatformSubscription.tenant_id == tenant_id)
     result = await db.execute(query)
-    return list(result.scalars())
+    return [_subscription_read(row) for row in result.scalars()]
+
+
+@router.get("/modules", response_model=list[RegistryModuleRead], tags=["platform"])
+async def list_modules(
+    user: User = Depends(get_current_user),
+) -> list[dict]:
+    _ensure_platform_admin(user)
+    return EntitlementService.modules_registry()
+
+
+@router.get("/features", response_model=list[RegistryFeatureRead], tags=["platform"])
+async def list_features(
+    user: User = Depends(get_current_user),
+) -> list[dict]:
+    _ensure_platform_admin(user)
+    return EntitlementService.features_registry()
+
+
+@router.get("/quotas", response_model=list[RegistryQuotaRead], tags=["platform"])
+async def list_quotas(
+    user: User = Depends(get_current_user),
+) -> list[dict]:
+    _ensure_platform_admin(user)
+    return EntitlementService.quotas_registry()
+
+
+@router.get("/marketplace/listings", response_model=list[MarketplaceListingRead], tags=["platform"])
+async def list_marketplace_listings(
+    user: User = Depends(get_current_user),
+) -> list[dict]:
+    _ensure_platform_admin(user)
+    return EntitlementService.marketplace_registry()
+
+
+@router.post("/tenants/{tenant_id}/marketplace/install", tags=["platform"])
+async def install_marketplace_listing(
+    tenant_id: UUID,
+    payload: MarketplaceInstallRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> dict:
+    _ensure_platform_admin(user)
+    tenant = await db.get(Tenant, tenant_id)
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant bulunamadı.")
+    listings = {item.get("id"): item for item in EntitlementService.marketplace_registry()}
+    if payload.listing_id not in listings:
+        raise HTTPException(status_code=404, detail="Marketplace paketi bulunamadı.")
+    existing = await db.execute(
+        select(MarketplaceInstallation).where(
+            MarketplaceInstallation.tenant_id == tenant_id,
+            MarketplaceInstallation.listing_id == payload.listing_id,
+        )
+    )
+    installation = existing.scalar_one_or_none()
+    if installation:
+        installation.status = "installed"
+    else:
+        installation = MarketplaceInstallation(tenant_id=tenant_id, listing_id=payload.listing_id, installed_by=user.id)
+    db.add(installation)
+    await _log_action(db, user, "marketplace.install", tenant_id=tenant_id, details={"listing_id": payload.listing_id})
+    await db.commit()
+    return {"status": "installed", "listing_id": payload.listing_id}
+
+
+@router.get("/tenants/{tenant_id}/entitlements", response_model=TenantEntitlementRead, tags=["platform"])
+async def get_tenant_entitlements(
+    tenant_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> dict:
+    _ensure_platform_admin(user)
+    tenant = await db.get(Tenant, tenant_id)
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant bulunamadı.")
+    return await EntitlementService.resolve_entitlements(db, tenant_id)
+
+
+@router.put("/tenants/{tenant_id}/overrides", response_model=TenantEntitlementRead, tags=["platform"])
+async def upsert_tenant_override(
+    tenant_id: UUID,
+    payload: TenantOverrideUpsert,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> dict:
+    _ensure_platform_admin(user)
+    if payload.target_type not in {"module", "feature", "quota"}:
+        raise HTTPException(status_code=400, detail="target_type module, feature veya quota olmalıdır.")
+    tenant = await db.get(Tenant, tenant_id)
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant bulunamadı.")
+    existing = await db.execute(
+        select(TenantEntitlementOverride).where(
+            TenantEntitlementOverride.tenant_id == tenant_id,
+            TenantEntitlementOverride.target_type == payload.target_type,
+            TenantEntitlementOverride.target_id == payload.target_id,
+        )
+    )
+    override = existing.scalar_one_or_none()
+    if not override:
+        override = TenantEntitlementOverride(
+            tenant_id=tenant_id,
+            target_type=payload.target_type,
+            target_id=payload.target_id,
+            created_by=user.id,
+        )
+    override.enabled = payload.enabled
+    override.limit_value = payload.limit_value
+    override.reason = payload.reason
+    db.add(override)
+    await _log_action(
+        db,
+        user,
+        "tenant.entitlement.override",
+        tenant_id=tenant_id,
+        details=payload.model_dump(),
+    )
+    await db.commit()
+    return await EntitlementService.resolve_entitlements(db, tenant_id)
+
+
+@router.get("/tenants/{tenant_id}/usage", response_model=UsageSummaryRead, tags=["platform"])
+async def get_tenant_usage(
+    tenant_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> dict:
+    _ensure_platform_admin(user)
+    return await EntitlementService.usage_summary(db, tenant_id)
+
+
+@router.post("/tenants/{tenant_id}/usage", response_model=UsageSummaryRead, tags=["platform"])
+async def record_tenant_usage(
+    tenant_id: UUID,
+    payload: UsageMeterRecordRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> dict:
+    _ensure_platform_admin(user)
+    await EntitlementService.record_usage(
+        db,
+        tenant_id=tenant_id,
+        meter_key=payload.meter_key,
+        quantity=payload.quantity,
+        source=payload.source,
+        event_ref=payload.event_ref,
+        period_key=payload.period_key,
+    )
+    await _log_action(db, user, "tenant.usage.record", tenant_id=tenant_id, details=payload.model_dump())
+    await db.commit()
+    return await EntitlementService.usage_summary(db, tenant_id)
 
 
 @router.get("/audit", response_model=list[PlatformAuditRead], tags=["platform"])
@@ -659,3 +857,502 @@ async def list_audit_logs(
 
     result = await db.execute(query)
     return list(result.scalars())
+
+
+@router.get("/health-check", tags=["platform"])
+async def get_health_check(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    _ensure_platform_admin(user)
+
+    status = {
+        "database": "ok",
+        "redis": "ok",
+        "celery": "ok",
+        "whatsapp": "ok",
+        "email": "ok"
+    }
+
+    # DB Check
+    try:
+        from sqlalchemy import text
+        await db.execute(text("SELECT 1"))
+    except Exception as e:
+        status["database"] = f"failed: {str(e)}"
+
+    # Redis Check
+    try:
+        import redis.asyncio as aioredis
+        from app.core.config import settings
+        r = aioredis.Redis.from_url(settings.REDIS_URL, socket_connect_timeout=2)
+        await r.ping()
+        await r.aclose()
+    except Exception as e:
+        status["redis"] = f"failed: {str(e)}"
+
+    # Celery Check
+    try:
+        from app.core.workers import celery_app
+        if not celery_app.conf.broker_url:
+            status["celery"] = "not_configured"
+        else:
+            if status["redis"] != "ok":
+                status["celery"] = "failed: Redis connection failed"
+    except Exception as e:
+        status["celery"] = f"failed: {str(e)}"
+
+    # WhatsApp Check
+    try:
+        from app.core.config import settings
+        if not settings.WHATSAPP_ACCESS_TOKEN or not settings.WHATSAPP_PHONE_NUMBER_ID:
+            status["whatsapp"] = "not_configured"
+        else:
+            status["whatsapp"] = "configured"
+    except Exception as e:
+        status["whatsapp"] = f"failed: {str(e)}"
+
+    # Email Check
+    try:
+        from app.core.config import settings
+        if not settings.RESEND_API_KEY:
+            status["email"] = "not_configured"
+        else:
+            status["email"] = "configured"
+    except Exception as e:
+        status["email"] = f"failed: {str(e)}"
+
+    return {"status": "ok", "details": status}
+
+
+@router.get("/system-metrics", tags=["platform"])
+async def get_system_metrics(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    _ensure_platform_admin(user)
+
+    from sqlalchemy import func
+    from app.db.models import Tenant, TenantStatus, User, Project, WorkOrder, PlatformPlan, PlatformSubscription
+
+    # Counts
+    total_tenants_stmt = select(func.count(Tenant.id))
+    active_tenants_stmt = select(func.count(Tenant.id)).where(Tenant.status == TenantStatus.ACTIVE)
+    suspended_tenants_stmt = select(func.count(Tenant.id)).where(Tenant.status == TenantStatus.SUSPENDED)
+    total_users_stmt = select(func.count(User.id))
+    total_projects_stmt = select(func.count(Project.id))
+    total_work_orders_stmt = select(func.count(WorkOrder.id))
+
+    total_tenants = (await db.execute(total_tenants_stmt)).scalar() or 0
+    active_tenants = (await db.execute(active_tenants_stmt)).scalar() or 0
+    suspended_tenants = (await db.execute(suspended_tenants_stmt)).scalar() or 0
+    total_users = (await db.execute(total_users_stmt)).scalar() or 0
+    total_projects = (await db.execute(total_projects_stmt)).scalar() or 0
+    total_work_orders = (await db.execute(total_work_orders_stmt)).scalar() or 0
+
+    # Plan distribution
+    plan_distribution = {}
+    try:
+        plan_dist_stmt = select(PlatformPlan.name, func.count(PlatformSubscription.id)).join(
+            PlatformSubscription, PlatformSubscription.plan_id == PlatformPlan.id
+        ).group_by(PlatformPlan.name)
+        dist_res = await db.execute(plan_dist_stmt)
+        for row in dist_res.all():
+            plan_distribution[row[0]] = row[1]
+    except Exception:
+        pass
+
+    return {
+        "total_tenants": total_tenants,
+        "active_tenants": active_tenants,
+        "suspended_tenants": suspended_tenants,
+        "total_users": total_users,
+        "total_projects": total_projects,
+        "total_work_orders": total_work_orders,
+        "plan_distribution": plan_distribution
+    }
+
+
+from pydantic import BaseModel
+from typing import Optional, Literal
+from fastapi import Header
+from app.db.schemas import ContextSessionRead, SupportAnalyticsRead
+
+class ContextStartRequest(BaseModel):
+    tenant_id: UUID
+    mode: Literal["read_only", "support_write"]
+    reason: Optional[str] = None
+    ticket_ref: Optional[str] = None
+
+class ContextStartResponse(BaseModel):
+    context_token: str
+    tenant_id: UUID
+    tenant_name: str
+    mode: str
+    expires_at: str
+    enabled_modules: list[str]
+    feature_flags: list[str]
+    active_modules: list[str] = []
+    active_features: list[str] = []
+    effective_quotas: dict[str, int] = {}
+    usage_summary: dict = {}
+    entitlement_source: dict = {}
+    plan: dict | None = None
+    subscription: dict | None = None
+    context_id: UUID
+
+@router.post("/context/start", response_model=ContextStartResponse, tags=["platform"])
+async def start_context(
+    payload: ContextStartRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    _ensure_platform_admin(user)
+    
+    # Reason policy
+    if payload.mode == "support_write":
+        if not payload.reason or len(payload.reason.strip()) < 10:
+            raise HTTPException(
+                status_code=400,
+                detail="Destek/Yazma (support_write) modu için en az 10 karakter uzunluğunda işlem gerekçesi (reason) girmek zorunludur."
+            )
+            
+    from app.db.models import Tenant, PlatformContextSession
+    tenant = await db.get(Tenant, payload.tenant_id)
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Firma bulunamadı.")
+        
+    entitlements = await EntitlementService.resolve_entitlements(db, tenant.id)
+    usage_summary = await EntitlementService.usage_summary(db, tenant.id)
+    enabled_modules = entitlements["modules"]
+    feature_flags = entitlements["features"]
+            
+    # Create the stateful PlatformContextSession in DB
+    from datetime import datetime, timedelta, timezone
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    duration_minutes = 30
+    expires_at = now + timedelta(minutes=duration_minutes)
+    
+    session = PlatformContextSession(
+        platform_admin_id=user.id,
+        tenant_id=tenant.id,
+        tenant_name=tenant.name,
+        mode=payload.mode,
+        reason=payload.reason,
+        ticket_ref=payload.ticket_ref,
+        status="active",
+        started_at=now,
+        sa_column_kwargs={}, # local SQLModel helper
+        expires_at=expires_at
+    )
+    db.add(session)
+    await db.flush() # gets session.id
+    
+    from app.services.context_service import create_context_token
+    token = create_context_token(
+        actor_user_id=str(user.id),
+        tenant_id=str(tenant.id),
+        mode=payload.mode,
+        reason=payload.reason,
+        ticket_ref=payload.ticket_ref,
+        duration_minutes=duration_minutes,
+        context_id=str(session.id)
+    )
+    
+    audit_details = {
+        "context_id": str(session.id),
+        "mode": payload.mode,
+        "reason": payload.reason,
+        "ticket_ref": payload.ticket_ref,
+    }
+    await _log_action(
+        db, 
+        actor=user, 
+        action="context_started", 
+        tenant_id=tenant.id, 
+        details=audit_details
+    )
+    await db.commit()
+    
+    return ContextStartResponse(
+        context_token=token,
+        tenant_id=tenant.id,
+        tenant_name=tenant.name,
+        mode=payload.mode,
+        expires_at=expires_at.isoformat() + "Z",
+        enabled_modules=enabled_modules,
+        feature_flags=feature_flags,
+        active_modules=enabled_modules,
+        active_features=feature_flags,
+        effective_quotas=entitlements.get("quotas", {}),
+        usage_summary=usage_summary.get("usage", {}),
+        entitlement_source=entitlements.get("entitlement_source", {}),
+        plan=entitlements.get("entitlement_source", {}).get("plan"),
+        subscription={"id": entitlements.get("subscription_id"), "plan_id": entitlements.get("plan_id")} if entitlements.get("subscription_id") else None,
+        context_id=session.id
+    )
+
+@router.post("/context/end", tags=["platform"])
+async def end_context(
+    x_tenant_context: Optional[str] = Header(None, alias="X-Tenant-Context"),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    _ensure_platform_admin(user)
+    
+    if x_tenant_context:
+        from app.services.context_service import decode_context_token
+        try:
+            payload = decode_context_token(x_tenant_context)
+            context_id = payload.get("context_id")
+            if context_id:
+                from app.db.models import PlatformContextSession
+                from datetime import datetime, timezone
+                session = await db.get(PlatformContextSession, UUID(context_id))
+                if session and session.status == "active":
+                    session.status = "ended"
+                    session.ended_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                    session.ended_reason = "Ended by platform admin"
+                    db.add(session)
+        except Exception:
+            pass
+            
+    await _log_action(db, user, "context_ended")
+    await db.commit()
+    return {"status": "ok"}
+
+@router.post("/context/renew", tags=["platform"])
+async def renew_context(
+    x_tenant_context: Optional[str] = Header(None, alias="X-Tenant-Context"),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    _ensure_platform_admin(user)
+    if not x_tenant_context:
+        raise HTTPException(status_code=400, detail="X-Tenant-Context başlığı eksik.")
+        
+    from app.services.context_service import decode_context_token
+    try:
+        payload = decode_context_token(x_tenant_context)
+        context_id = payload.get("context_id")
+        if not context_id:
+            raise HTTPException(status_code=400, detail="Bağlam içinde oturum kimliği bulunamadı.")
+            
+        from app.db.models import PlatformContextSession
+        from datetime import datetime, timedelta, timezone
+        session = await db.get(PlatformContextSession, UUID(context_id))
+        if not session or session.status != "active":
+            raise HTTPException(status_code=400, detail="Uzatılacak aktif destek oturumu bulunamadı.")
+            
+        # Extend expires_at by 30 mins from now
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        duration_minutes = 30
+        new_expires_at = now + timedelta(minutes=duration_minutes)
+        session.expires_at = new_expires_at
+        db.add(session)
+        
+        await _log_action(
+            db, 
+            actor=user, 
+            action="context_renewed", 
+            tenant_id=session.tenant_id, 
+            details={"context_id": context_id}
+        )
+        await db.commit()
+        
+        # Issue new token
+        from app.services.context_service import create_context_token
+        new_token = create_context_token(
+            actor_user_id=str(user.id),
+            tenant_id=str(session.tenant_id),
+            mode=session.mode,
+            reason=session.reason,
+            ticket_ref=session.ticket_ref,
+            duration_minutes=duration_minutes,
+            context_id=str(session.id)
+        )
+        
+        return {
+            "context_token": new_token,
+            "expires_at": new_expires_at.isoformat() + "Z"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Oturum yenilenemedi: {str(e)}")
+
+@router.post("/context/revoke/{session_id}", tags=["platform"])
+async def revoke_context(
+    session_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    _ensure_platform_admin(user)
+    
+    from app.db.models import PlatformContextSession
+    from datetime import datetime, timezone
+    session = await db.get(PlatformContextSession, session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Destek oturumu bulunamadı.")
+        
+    session.status = "revoked"
+    session.ended_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    session.ended_reason = "Platform yöneticisi tarafından sonlandırıldı (Force Revoked)"
+    db.add(session)
+    
+    await _log_action(
+        db, 
+        actor=user, 
+        action="context_revoked", 
+        tenant_id=session.tenant_id, 
+        details={"context_id": str(session_id)}
+    )
+    await db.commit()
+    return {"status": "ok"}
+
+@router.get("/context/active", response_model=list[ContextSessionRead], tags=["platform"])
+async def list_active_contexts(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    _ensure_platform_admin(user)
+    
+    from app.db.models import PlatformContextSession
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    
+    # Also auto-expire any active session in the database whose time has passed
+    expire_stmt = select(PlatformContextSession).where(
+        PlatformContextSession.status == "active",
+        PlatformContextSession.expires_at < now
+    )
+    to_expire = (await db.execute(expire_stmt)).scalars().all()
+    for s in to_expire:
+        s.status = "expired"
+        s.ended_at = s.expires_at
+        db.add(s)
+    if to_expire:
+        await db.commit()
+        
+    stmt = select(PlatformContextSession).where(
+        PlatformContextSession.status == "active",
+        PlatformContextSession.expires_at >= now
+    ).order_by(PlatformContextSession.started_at.desc())
+    
+    res = await db.execute(stmt)
+    return res.scalars().all()
+
+@router.get("/context/history", response_model=list[ContextSessionRead], tags=["platform"])
+async def list_context_history(
+    range_filter: Optional[str] = Query("today", alias="range"),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    _ensure_platform_admin(user)
+    
+    from app.db.models import PlatformContextSession
+    from datetime import datetime, timedelta, timezone
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    
+    stmt = select(PlatformContextSession)
+    
+    if range_filter == "today":
+        start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        stmt = stmt.where(PlatformContextSession.started_at >= start_date)
+    elif range_filter == "week":
+        start_date = now - timedelta(days=7)
+        stmt = stmt.where(PlatformContextSession.started_at >= start_date)
+    elif range_filter == "month":
+        start_date = now - timedelta(days=30)
+        stmt = stmt.where(PlatformContextSession.started_at >= start_date)
+        
+    stmt = stmt.order_by(PlatformContextSession.started_at.desc())
+    res = await db.execute(stmt)
+    return res.scalars().all()
+
+@router.get("/context/analytics", response_model=SupportAnalyticsRead, tags=["platform"])
+async def get_support_analytics(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    _ensure_platform_admin(user)
+    
+    from app.db.models import PlatformContextSession
+    from datetime import datetime, timezone
+    from sqlalchemy import func
+    
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    # 1. Today's sessions count
+    today_count_stmt = select(func.count(PlatformContextSession.id)).where(PlatformContextSession.started_at >= today_start)
+    today_sessions_count = (await db.execute(today_count_stmt)).scalar() or 0
+    
+    # 2. Total sessions count
+    total_count_stmt = select(func.count(PlatformContextSession.id))
+    total_sessions_count = (await db.execute(total_count_stmt)).scalar() or 0
+    
+    # 3. Read-only vs Support-write pct
+    read_only_pct = 0.0
+    support_write_pct = 0.0
+    if total_sessions_count > 0:
+        ro_stmt = select(func.count(PlatformContextSession.id)).where(PlatformContextSession.mode == "read_only")
+        ro_count = (await db.execute(ro_stmt)).scalar() or 0
+        read_only_pct = round((ro_count / total_sessions_count) * 100, 1)
+        support_write_pct = round(100 - read_only_pct, 1)
+        
+    # 4. Top tenants
+    top_stmt = select(
+        PlatformContextSession.tenant_name,
+        func.count(PlatformContextSession.id).label("count")
+    ).group_by(PlatformContextSession.tenant_name).order_by(func.count(PlatformContextSession.id).desc()).limit(5)
+    top_res = await db.execute(top_stmt)
+    top_tenants = [{"tenant_name": row[0], "count": row[1]} for row in top_res.all()]
+    
+    # 5. Average support session duration
+    avg_duration_minutes = 0.0
+    duration_stmt = select(PlatformContextSession.started_at, PlatformContextSession.ended_at).where(
+        PlatformContextSession.ended_at.is_not(None)
+    )
+    durations = (await db.execute(duration_stmt)).all()
+    if durations:
+        total_minutes = sum((row[1] - row[0]).total_seconds() / 60.0 for row in durations)
+        avg_duration_minutes = round(total_minutes / len(durations), 1)
+        
+    return {
+        "today_sessions_count": today_sessions_count,
+        "total_sessions_count": total_sessions_count,
+        "read_only_pct": read_only_pct,
+        "support_write_pct": support_write_pct,
+        "top_tenants": top_tenants,
+        "avg_duration_minutes": avg_duration_minutes
+    }
+
+@router.get("/context/current", tags=["platform"])
+async def current_context(
+    x_tenant_context: Optional[str] = Header(None, alias="X-Tenant-Context"),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    _ensure_platform_admin(user)
+    if not x_tenant_context:
+        return {"active": False}
+        
+    from app.services.context_service import decode_context_token
+    try:
+        payload = decode_context_token(x_tenant_context)
+        from app.db.models import Tenant
+        from datetime import datetime, timezone
+        tenant = await db.get(Tenant, UUID(payload["tenant_id"]))
+        tenant_name = tenant.name if tenant else "Bilinmeyen Firma"
+        return {
+            "active": True,
+            "tenant_id": payload["tenant_id"],
+            "tenant_name": tenant_name,
+            "mode": payload["mode"],
+            "expires_at": datetime.fromtimestamp(payload["exp"], tz=timezone.utc).isoformat(),
+        }
+    except Exception:
+        return {"active": False}
+
+
