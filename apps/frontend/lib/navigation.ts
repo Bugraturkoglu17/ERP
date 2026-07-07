@@ -96,7 +96,6 @@ export const QUOTA_REGISTRY_V2 = [
   { id: "ai_tokens", label: "AI Tokens / Month", defaultLimit: 0 },
   { id: "projects", label: "Projects", defaultLimit: 100 },
   { id: "documents", label: "Documents", defaultLimit: 10000 },
-  { id: "storage_bytes", label: "Storage Bytes", defaultLimit: 0 },
   { id: "work_orders", label: "Work Orders / Month", defaultLimit: 1000 },
 ];
 

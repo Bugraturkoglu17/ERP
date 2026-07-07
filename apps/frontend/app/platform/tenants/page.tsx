@@ -128,8 +128,21 @@ type ConfirmState = {
   action: () => Promise<void>;
 };
 
+type QuotaDraft = {
+  limit: string;
+  period: string;
+};
+
 const TABS = ["firmalar", "yoneticiler", "lisans", "audit"] as const;
 type TabKey = (typeof TABS)[number];
+
+const QUOTA_PERIOD_OPTIONS = [
+  { value: "daily", label: "Günlük" },
+  { value: "weekly", label: "Haftalık" },
+  { value: "monthly", label: "Aylık" },
+  { value: "yearly", label: "Yıllık" },
+  { value: "lifetime", label: "Süresiz" },
+];
 
 const STATUS_LABELS: Record<string, string> = {
   trial: "Deneme",
@@ -238,6 +251,7 @@ function PlatformTenantsPageContent() {
   const [planlar, setPlanlar] = useState<Plan[]>([]);
   const [lisanslar, setLisanslar] = useState<Lisans[]>([]);
   const [tenantEntitlement, setTenantEntitlement] = useState<TenantEntitlement | null>(null);
+  const [quotaDrafts, setQuotaDrafts] = useState<Record<string, QuotaDraft>>({});
   const [audit, setAudit] = useState<Audit[]>([]);
 
   const [firmaForm, setFirmaForm] = useState({
@@ -328,6 +342,20 @@ function PlatformTenantsPageContent() {
   }, [firmalar, searchFirma, statusFilter]);
 
   const selectedPlan = useMemo(() => planlar.find((p) => p.id === atamaForm.plan_id) || null, [planlar, atamaForm.plan_id]);
+
+  useEffect(() => {
+    if (!tenantEntitlement) return;
+    setQuotaDrafts((prev) => {
+      const next: Record<string, QuotaDraft> = {};
+      for (const quota of QUOTA_REGISTRY_V2) {
+        next[quota.id] = {
+          limit: prev[quota.id]?.limit ?? String(tenantEntitlement.quotas[quota.id] ?? quota.defaultLimit),
+          period: prev[quota.id]?.period ?? "monthly",
+        };
+      }
+      return next;
+    });
+  }, [tenantEntitlement]);
 
   const aktifLisans = useMemo(() => {
     if (!lisanslar.length) return null;
@@ -831,7 +859,7 @@ function PlatformTenantsPageContent() {
     }
   };
 
-  const updateTenantQuota = async (quotaId: string, limitValue: number, label: string) => {
+  const updateTenantQuota = async (quotaId: string, limitValue: number, label: string, period?: string) => {
     if (!selectedFirmaId) return;
     setBusy(true);
     try {
@@ -840,7 +868,7 @@ function PlatformTenantsPageContent() {
         target_id: quotaId,
         enabled: true,
         limit_value: limitValue,
-        reason: `Platform admin quick quota ${label} from tenant screen`,
+        reason: `Platform admin quick quota ${label}${period ? ` (${period})` : ""} from tenant screen`,
       });
       setTenantEntitlement({ ...entitlement, usage: tenantEntitlement?.usage || {} });
       pushToast("ok", `${quotaId} limiti ${label}.`);
@@ -849,6 +877,27 @@ function PlatformTenantsPageContent() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const setQuotaDraft = (quotaId: string, patch: Partial<QuotaDraft>) => {
+    setQuotaDrafts((prev) => ({
+      ...prev,
+      [quotaId]: {
+        limit: prev[quotaId]?.limit ?? "0",
+        period: prev[quotaId]?.period ?? "monthly",
+        ...patch,
+      },
+    }));
+  };
+
+  const applyQuotaDraft = async (quotaId: string) => {
+    const draft = quotaDrafts[quotaId];
+    const parsed = Number.parseInt(draft?.limit || "0", 10);
+    if (Number.isNaN(parsed) || parsed < 0) {
+      pushToast("err", "Limit değeri 0 veya daha büyük bir sayı olmalıdır.");
+      return;
+    }
+    await updateTenantQuota(quotaId, parsed, `${parsed} olarak ayarlandı`, draft?.period);
   };
 
   const exportAuditCsv = () => {
@@ -1293,6 +1342,7 @@ function PlatformTenantsPageContent() {
                                 const limit = tenantEntitlement.quotas[quota.id] ?? quota.defaultLimit;
                                 const usage = tenantEntitlement.usage?.[quota.id]?.quantity || 0;
                                 const isFrozen = limit === 0;
+                                const draft = quotaDrafts[quota.id] || { limit: String(limit), period: "monthly" };
                                 return (
                                   <div key={quota.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                                     <div className="flex items-start justify-between gap-2">
@@ -1305,6 +1355,28 @@ function PlatformTenantsPageContent() {
                                       </span>
                                     </div>
                                     <div className="mt-3 grid grid-cols-2 gap-2">
+                                      <label className="space-y-1">
+                                        <span className="text-[10px] font-bold text-slate-400">Limit</span>
+                                        <input
+                                          type="number"
+                                          min={0}
+                                          value={draft.limit}
+                                          onChange={(event) => setQuotaDraft(quota.id, { limit: event.target.value })}
+                                          className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[11px] font-bold text-slate-800 outline-none focus:border-emerald-400"
+                                        />
+                                      </label>
+                                      <label className="space-y-1">
+                                        <span className="text-[10px] font-bold text-slate-400">Periyot</span>
+                                        <select
+                                          value={draft.period}
+                                          onChange={(event) => setQuotaDraft(quota.id, { period: event.target.value })}
+                                          className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[11px] font-bold text-slate-800 outline-none focus:border-emerald-400"
+                                        >
+                                          {QUOTA_PERIOD_OPTIONS.map((option) => (
+                                            <option key={option.value} value={option.value}>{option.label}</option>
+                                          ))}
+                                        </select>
+                                      </label>
                                       <button
                                         type="button"
                                         disabled={busy}
@@ -1316,10 +1388,26 @@ function PlatformTenantsPageContent() {
                                       <button
                                         type="button"
                                         disabled={busy}
-                                        onClick={() => updateTenantQuota(quota.id, quota.defaultLimit, "varsayılan limite çekildi")}
+                                        onClick={() => updateTenantQuota(quota.id, quota.defaultLimit, "varsayılan limite çekildi", draft.period)}
                                         className="rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-[10px] font-black text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
                                       >
-                                        Aktifleştir
+                                        Varsayılan
+                                      </button>
+                                      <button
+                                        type="button"
+                                        disabled={busy}
+                                        onClick={() => updateTenantQuota(quota.id, 0, "sıfırlandı", draft.period)}
+                                        className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-black text-slate-600 hover:bg-slate-100 disabled:opacity-50"
+                                      >
+                                        Sıfırla
+                                      </button>
+                                      <button
+                                        type="button"
+                                        disabled={busy}
+                                        onClick={() => applyQuotaDraft(quota.id)}
+                                        className="rounded-lg border border-blue-200 bg-blue-50 px-2 py-1.5 text-[10px] font-black text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+                                      >
+                                        Uygula
                                       </button>
                                     </div>
                                   </div>
