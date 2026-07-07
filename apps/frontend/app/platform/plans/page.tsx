@@ -1,1 +1,2 @@
-export { default } from "../tenants/page";
+import Page from "../tenants/page";
+export default Page;
