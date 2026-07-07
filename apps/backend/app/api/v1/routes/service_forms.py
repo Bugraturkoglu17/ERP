@@ -24,19 +24,20 @@ router = APIRouter()
 MONTHS_TR = ["", "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
              "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
 
+from app.core.utils.helpers import utc_now
 
-def utc_now():
-    return datetime.now(timezone.utc).replace(tzinfo=None)
-
+from app.core.services.activity_logger import ActivityLoggerService
 
 async def _log_activity(db, project_id, tenant_id, user, title, description=None):
-    act = StoreActivity(
-        tenant_id=tenant_id, project_id=project_id,
-        user_id=user.id, user_name=user.full_name or user.email,
-        activity_type="service_form_uploaded", title=title,
-        description=description, created_at=utc_now(),
+    await ActivityLoggerService.log_activity(
+        db=db,
+        project_id=project_id,
+        tenant_id=tenant_id,
+        user=user,
+        activity_type="service_form_uploaded",
+        title=title,
+        description=description,
     )
-    db.add(act)
 
 
 # ── GET /service-forms (tenant genelinde bulk) ────────────────────────────────

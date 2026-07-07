@@ -27,10 +27,7 @@ from app.db.schemas import (
 
 router = APIRouter()
 
-
-def utc_now() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
-
+from app.core.utils.helpers import utc_now
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Tedarikçiler (Suppliers)

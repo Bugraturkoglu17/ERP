@@ -1,30 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api";
 import { 
-  FolderTree, 
-  Plus, 
-  Search, 
-  Filter, 
-  LayoutGrid, 
-  List, 
-  Calendar,
-  Layers,
-  ChevronRight,
-  UserPlus,
-  Users,
-  CheckCircle,
-  Clock,
-  Briefcase,
-  TrendingUp,
-  MapPin,
-  Building2,
-  Bookmark,
-  Sparkles,
-  X,
-  FileCheck
+  Plus, X, Search, List, LayoutGrid, Calendar, 
+  UserPlus, FolderTree 
 } from "lucide-react";
+
+import { useProjectsData } from "@/hooks/use-projects-data";
+import { ProjectList } from "@/components/modules/projects/project-list";
+import { ProjectFilters } from "@/components/modules/projects/project-filters";
+import { ProjectSummaryCards } from "@/components/modules/projects/project-summary-cards";
+import { DataState } from "@/components/common/data-state";
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string; border: string }> = {
   inquiry: { label: "Keşif / Keşif Aşaması", color: "text-purple-700", bg: "bg-purple-50", border: "border-purple-100" },
@@ -43,9 +29,16 @@ const SCOPE_TAGS: Record<string, { label: string; color: string; bg: string }> =
   other: { label: "Diğer", color: "text-slate-700 border-slate-300", bg: "bg-slate-100" }
 };
 
+// Export for use in components
+export { STATUS_MAP, SCOPE_TAGS };
+
 export default function ProjectsPage() {
-  const [projects, setProjects] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    projects, customers, regions, branches, usersList, loading, error,
+    refetch, loadRegions, loadBranches, getAssignments,
+    createProject, updateProject, deleteProject, assignUser
+  } = useProjectsData();
+
   const [viewMode, setViewMode] = useState<"table" | "kanban" | "gantt">("table");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatusFilter, setSelectedStatusFilter] = useState("all");
@@ -53,12 +46,6 @@ export default function ProjectsPage() {
   // Selection & Details panel state
   const [activeProject, setActiveProject] = useState<any>(null);
   const [assignments, setAssignments] = useState<any[]>([]);
-  const [usersList, setUsersList] = useState<any[]>([]);
-
-  // Create Project Cascade State
-  const [customers, setCustomers] = useState<any[]>([]);
-  const [regions, setRegions] = useState<any[]>([]);
-  const [branches, setBranches] = useState<any[]>([]);
 
   // Modals state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -66,7 +53,7 @@ export default function ProjectsPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   // Forms state
-  const [projectForm, setProjectForm] = useState({
+  const [projectForm, setProjectForm] = useState(() => ({
     customer_id: "",
     region_id: "",
     branch_id: "",
@@ -78,7 +65,7 @@ export default function ProjectsPage() {
     scope_codes: [] as string[],
     contract_value: "",
     status: "inquiry"
-  });
+  }));
 
   const [assignmentForm, setAssignmentForm] = useState({
     user_id: "",
@@ -87,68 +74,30 @@ export default function ProjectsPage() {
   });
   const [otherScopeLabel, setOtherScopeLabel] = useState("");
 
+  // Select first project when data loads
   useEffect(() => {
-    async function loadInitialData() {
-      setLoading(true);
-      try {
-        const [projs, custs, usrs] = await Promise.all([
-          apiGet("/projects").catch(() => []),
-          apiGet("/projects/customers").catch(() => []),
-          apiGet("/auth/users").catch(() => [])
-        ]);
-
-        setProjects(Array.isArray(projs) ? projs : []);
-        setCustomers(Array.isArray(custs) ? custs : []);
-        setUsersList(Array.isArray(usrs) ? usrs : []);
-
-        if (Array.isArray(projs) && projs.length > 0) {
-          handleSelectProject(projs[0]);
-        }
-      } catch (err) {
-        console.error("Initial load error:", err);
-      } finally {
-        setLoading(false);
-      }
+    if (projects.length > 0 && !activeProject) {
+      handleSelectProject(projects[0]);
     }
-    loadInitialData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projects]);
 
   async function handleSelectProject(proj: any) {
     setActiveProject(proj);
-    try {
-      const assigns = await apiGet(`/projects/${proj.id}/assignments`);
-      setAssignments(Array.isArray(assigns) ? assigns : []);
-    } catch (err) {
-      console.error("Assignments load error:", err);
-      setAssignments([]);
-    }
+    const assigns = await getAssignments(proj.id);
+    setAssignments(assigns);
   }
 
   // Cascade Load Regions
   async function handleCustomerChange(custId: string) {
     setProjectForm(prev => ({ ...prev, customer_id: custId, region_id: "", branch_id: "" }));
-    setRegions([]);
-    setBranches([]);
-    if (!custId) return;
-    try {
-      const data = await apiGet(`/projects/regions/${custId}`);
-      setRegions(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error("Regions fetch error:", err);
-    }
+    await loadRegions(custId);
   }
 
   // Cascade Load Branches
   async function handleRegionChange(regId: string) {
     setProjectForm(prev => ({ ...prev, region_id: regId, branch_id: "" }));
-    setBranches([]);
-    if (!regId) return;
-    try {
-      const data = await apiGet(`/projects/branches/${regId}`);
-      setBranches(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error("Branches fetch error:", err);
-    }
+    await loadBranches(regId);
   }
 
   async function handleCreateProject(e: React.FormEvent) {
@@ -177,14 +126,10 @@ export default function ProjectsPage() {
         status: projectForm.status
       };
 
-      const newProj = await apiPost("/projects", payload);
+      const newProj = await createProject(payload);
       alert("Yeni proje ve şantiye başarıyla kaydedildi.");
       setIsCreateModalOpen(false);
-      // Reload
-      const projs = await apiGet<any[]>("/projects");
-      const nextProjects = Array.isArray(projs) ? projs : [];
-      setProjects(nextProjects);
-      if (nextProjects.length > 0) {
+      if (newProj) {
         handleSelectProject(newProj);
       }
     } catch (err: any) {
@@ -203,7 +148,7 @@ export default function ProjectsPage() {
         is_lead: assignmentForm.is_lead
       };
 
-      await apiPost(`/projects/${activeProject.id}/assignments`, payload);
+      await assignUser(activeProject.id, payload);
       alert("Personel ataması başarıyla yapıldı.");
       setIsAssignModalOpen(false);
       setAssignmentForm({ user_id: "", role_at_project: "Mühendis", is_lead: false });
@@ -258,10 +203,8 @@ export default function ProjectsPage() {
         contract_value: projectForm.contract_value ? parseFloat(projectForm.contract_value) : null,
         status: projectForm.status,
       };
-      const updated = await apiPatch<any>(`/projects/${activeProject.id}`, payload);
-      const nextProjects = projects.map((p) => (p.id === activeProject.id ? { ...p, ...updated } : p));
-      setProjects(nextProjects);
-      setActiveProject({ ...activeProject, ...updated });
+      const updated = await updateProject(activeProject.id, payload);
+      setActiveProject({ ...activeProject, ...(updated || {}) });
       setIsEditModalOpen(false);
       alert("Proje başarıyla güncellendi.");
     } catch (err: any) {
@@ -274,10 +217,8 @@ export default function ProjectsPage() {
     const ok = confirm(`"${activeProject.name}" projesini silmek istediğinize emin misiniz?`);
     if (!ok) return;
     try {
-      await apiDelete(`/projects/${activeProject.id}`);
-      const nextProjects = projects.filter((p) => p.id !== activeProject.id);
-      setProjects(nextProjects);
-      setActiveProject(nextProjects[0] || null);
+      await deleteProject(activeProject.id);
+      setActiveProject(null);
       setAssignments([]);
       alert("Proje silindi.");
     } catch (err: any) {
@@ -292,19 +233,15 @@ export default function ProjectsPage() {
     return matchesSearch && matchesStatus;
   });
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full min-h-[500px]">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-slate-500 font-semibold text-sm">Şantiyeler ve Projeler listeleniyor...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6 max-w-[1600px] mx-auto animate-in fade-in duration-200">
+    <DataState
+      loading={loading}
+      error={error}
+      isEmpty={filteredProjects.length === 0}
+      emptyTitle="Proje bulunamadı"
+      emptyDescription="Henüz kayıtlı proje yok veya arama kriterlerine uygun sonuç bulunmuyor."
+    >
+      <div className="space-y-6 max-w-[1600px] mx-auto animate-in fade-in duration-200">
       {/* Top Header Card */}
       <div className="corp-header">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -391,141 +328,12 @@ export default function ProjectsPage() {
           
           {/* Table View */}
           {viewMode === "table" && (
-            <div className="corp-card">
-              <div className="md:hidden divide-y divide-slate-100">
-                {filteredProjects.map((p) => {
-                  let statusBadgeClass = "corp-badge-secondary";
-                  if (p.status === "in_progress") statusBadgeClass = "corp-badge-success";
-                  else if (p.status === "inquiry") statusBadgeClass = "corp-badge-warning";
-                  else if (p.status === "approved" || p.status === "invoice_pend") statusBadgeClass = "corp-badge-info";
-                  else if (p.status === "cancelled") statusBadgeClass = "corp-badge-danger";
-
-                  const label = STATUS_MAP[p.status]?.label?.split(" / ")[0] || "Taslak";
-                  
-                  return (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => handleSelectProject(p)}
-                      className={`w-full px-4 py-4 text-left transition-all ${
-                        activeProject?.id === p.id ? "bg-blue-50/30 font-bold" : "hover:bg-slate-50/50"
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-slate-900 text-sm font-bold leading-5">{p.name}</p>
-                          <span className="inline-flex mt-1 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">
-                            {p.project_no || "SIS-PROJE"}
-                          </span>
-                        </div>
-                        <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 mt-1" />
-                      </div>
-
-                      <div className="mt-3 flex flex-wrap gap-1.5">
-                        {p.scope_codes.map((code: string) => {
-                          const tag = SCOPE_TAGS[code] || { label: code, color: "text-slate-700", bg: "bg-slate-50" };
-                          return (
-                            <span key={code} className={`px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wider ${tag.color} ${tag.bg}`}>
-                              {tag.label}
-                            </span>
-                          );
-                        })}
-                        {p.scope_codes.length === 0 && <span className="text-xs text-slate-300 italic">Kapsam belirlenmemiş</span>}
-                      </div>
-
-                      <div className="mt-3 flex items-center justify-between gap-2">
-                        <span className={statusBadgeClass}>
-                          {label}
-                        </span>
-                        <span className="text-xs font-black text-slate-900">
-                          {p.contract_value ? `₺{p.contract_value.toLocaleString("tr")}` : "Teklif"}
-                        </span>
-                      </div>
-                    </button>
-                  );
-                })}
-                {filteredProjects.length === 0 && (
-                  <div className="px-6 py-16 text-center text-slate-400 italic">
-                    Filtreye uygun kayıtlı proje bulunamadı.
-                  </div>
-                )}
-              </div>
-
-              <div className="hidden md:block overflow-x-auto">
-                <table className="corp-table">
-                  <thead>
-                    <tr>
-                      <th className="corp-th">Proje Kodu & Adı</th>
-                      <th className="corp-th">Tasarım Kapsamı</th>
-                      <th className="corp-th">Süreç Durumu</th>
-                      <th className="corp-th">Sözleşme Tutarı</th>
-                      <th className="corp-th text-right">Detaylar</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredProjects.map((p) => {
-                      let statusBadgeClass = "corp-badge-secondary";
-                      if (p.status === "in_progress") statusBadgeClass = "corp-badge-success";
-                      else if (p.status === "inquiry") statusBadgeClass = "corp-badge-warning";
-                      else if (p.status === "approved" || p.status === "invoice_pend") statusBadgeClass = "corp-badge-info";
-                      else if (p.status === "cancelled") statusBadgeClass = "corp-badge-danger";
-
-                      const label = STATUS_MAP[p.status]?.label?.split(" / ")[0] || "Taslak";
-                      
-                      return (
-                        <tr 
-                          key={p.id} 
-                          onClick={() => handleSelectProject(p)}
-                          className={`hover:bg-slate-50/50 cursor-pointer ${
-                            activeProject?.id === p.id ? "bg-blue-50/30 font-semibold" : ""
-                          }`}
-                        >
-                          <td className="corp-td">
-                            <div>
-                              <p className="text-slate-900 text-sm font-bold">{p.name}</p>
-                              <span className="inline-flex mt-1 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">
-                                {p.project_no || "SIS-PROJE"}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="corp-td">
-                            <div className="flex flex-wrap gap-1">
-                              {p.scope_codes.map((code: string) => {
-                                const tag = SCOPE_TAGS[code] || { label: code, color: "text-slate-700 border-slate-200", bg: "bg-slate-50" };
-                                return (
-                                  <span key={code} className={`px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wider ${tag.color} ${tag.bg}`}>
-                                    {tag.label}
-                                  </span>
-                                );
-                              })}
-                              {p.scope_codes.length === 0 && <span className="text-xs text-slate-350 italic">Kapsam belirlenmemiş</span>}
-                            </div>
-                          </td>
-                          <td className="corp-td">
-                            <span className={statusBadgeClass}>
-                              {label}
-                            </span>
-                          </td>
-                          <td className="corp-td font-bold text-slate-900">
-                            {p.contract_value ? `₺${p.contract_value.toLocaleString("tr")}` : <span className="text-slate-300 italic">Teklif Aşamasında</span>}
-                          </td>
-                          <td className="corp-td text-right">
-                            <ChevronRight className="w-4 h-4 text-slate-400 inline-block" />
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {filteredProjects.length === 0 && (
-                      <tr>
-                        <td colSpan={5} className="corp-td text-center text-slate-450 italic py-16">
-                          Filtreye uygun kayıtlı proje bulunamadı.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <ProjectList
+              projects={filteredProjects}
+              selectedId={activeProject?.id}
+              onSelect={handleSelectProject}
+              viewMode="table"
+            />
           )}
 
           {viewMode === "kanban" && (
@@ -1081,5 +889,6 @@ export default function ProjectsPage() {
         </div>
       )}
     </div>
+    </DataState>
   );
 }

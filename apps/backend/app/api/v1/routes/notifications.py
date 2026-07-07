@@ -20,10 +20,7 @@ from app.db.models import ErpNotification, User
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-
-def utc_now() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
-
+from app.core.utils.helpers import utc_now
 
 class NotificationRead(BaseModel):
     id: UUID

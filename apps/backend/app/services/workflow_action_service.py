@@ -1,4 +1,5 @@
 import logging
+import json
 from typing import Any, Dict, List
 
 from sqlmodel import Session, select
@@ -15,42 +16,95 @@ INITIAL_ACTIONS = [
         "module_id": "notifications",
         "label_tr": "Sistem Bildirimi Gönder",
         "required_feature": None,
-        "celery_task": "app.core.workers.tasks.send_notification_task"
+        "celery_task": "app.core.workers.tasks.send_notification_task",
+        "config_schema": json.dumps({
+            "type": "object",
+            "properties": {
+                "user_id": {"type": "string", "title": "Kullanıcı ID"},
+                "title": {"type": "string", "title": "Başlık"},
+                "message": {"type": "string", "title": "Mesaj", "format": "textarea"}
+            },
+            "required": ["user_id", "title", "message"]
+        })
     },
     {
         "action_type": "send_whatsapp",
         "module_id": "whatsapp",
         "label_tr": "WhatsApp Mesajı Gönder",
         "required_feature": "whatsapp.outbound",
-        "celery_task": "app.core.workers.tasks.send_whatsapp_message_task"
+        "celery_task": "app.core.workers.tasks.send_whatsapp_message_task",
+        "config_schema": json.dumps({
+            "type": "object",
+            "properties": {
+                "phone_number": {"type": "string", "title": "Telefon Numarası"},
+                "template_name": {"type": "string", "title": "Şablon Adı"},
+                "language": {"type": "string", "title": "Dil", "default": "tr"},
+                "variables": {"type": "string", "title": "Değişkenler (JSON)", "format": "textarea"}
+            },
+            "required": ["phone_number", "template_name"]
+        })
     },
     {
         "action_type": "create_approval",
         "module_id": "approvals",
         "label_tr": "Onay Talebi Oluştur",
         "required_feature": None,
-        "celery_task": None # handled via local service
+        "celery_task": None,
+        "config_schema": json.dumps({
+            "type": "object",
+            "properties": {
+                "approver_id": {"type": "string", "title": "Onaycı Kullanıcı ID"},
+                "record_type": {"type": "string", "title": "Kayıt Tipi (Örn: work_order)"},
+                "record_id": {"type": "string", "title": "Kayıt ID"},
+                "description": {"type": "string", "title": "Açıklama", "format": "textarea"}
+            },
+            "required": ["approver_id", "record_type", "record_id"]
+        })
     },
     {
         "action_type": "update_work_order",
         "module_id": "work_orders",
         "label_tr": "İş Emrini Güncelle",
         "required_feature": None,
-        "celery_task": None
+        "celery_task": None,
+        "config_schema": json.dumps({
+            "type": "object",
+            "properties": {
+                "work_order_id": {"type": "string", "title": "İş Emri ID"},
+                "status": {"type": "string", "title": "Yeni Durum", "enum": ["pending", "in_progress", "completed", "cancelled"]}
+            },
+            "required": ["work_order_id", "status"]
+        })
     },
     {
         "action_type": "add_process_note",
         "module_id": "store_process",
         "label_tr": "Sürece Not Ekle",
         "required_feature": None,
-        "celery_task": None
+        "celery_task": None,
+        "config_schema": json.dumps({
+            "type": "object",
+            "properties": {
+                "entity_id": {"type": "string", "title": "Varlık ID"},
+                "note": {"type": "string", "title": "Not", "format": "textarea"}
+            },
+            "required": ["entity_id", "note"]
+        })
     },
     {
         "action_type": "request_document_revision",
         "module_id": "documents",
         "label_tr": "Döküman Revizyonu İste",
         "required_feature": "documents.revisions",
-        "celery_task": None
+        "celery_task": None,
+        "config_schema": json.dumps({
+            "type": "object",
+            "properties": {
+                "document_id": {"type": "string", "title": "Döküman ID"},
+                "reason": {"type": "string", "title": "Gerekçe", "format": "textarea"}
+            },
+            "required": ["document_id", "reason"]
+        })
     }
 ]
 
@@ -80,6 +134,7 @@ class WorkflowActionService:
                     label_tr=action_data["label_tr"],
                     required_feature=action_data["required_feature"],
                     celery_task=action_data["celery_task"],
+                    config_schema=action_data.get("config_schema"),
                     is_active=True
                 )
                 self.db.add(new_action)
@@ -89,6 +144,7 @@ class WorkflowActionService:
                 existing.module_id = action_data["module_id"]
                 existing.required_feature = action_data["required_feature"]
                 existing.celery_task = action_data["celery_task"]
+                existing.config_schema = action_data.get("config_schema")
                 self.db.add(existing)
 
         await self.db.commit()

@@ -21,10 +21,7 @@ from app.db.schemas import ApprovalRequestCreate, ApprovalRequestRead, ApprovalR
 
 router = APIRouter()
 
-
-def utc_now():
-    return datetime.now(timezone.utc).replace(tzinfo=None)
-
+from app.core.utils.helpers import utc_now
 
 # ── GET /approvals (tenant genelinde tüm onaylar) ────────────────────────────
 

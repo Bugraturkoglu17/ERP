@@ -9,5 +9,7 @@
   { "id": "procurement.po_receive", "name": "Purchase Order Receiving", "module_id": "procurement", "category": "enterprise", "plan_tier": "enterprise", "enabled_by_default": true },
   { "id": "platform.support_context", "name": "Platform Support Context", "module_id": "platform", "category": "enterprise", "plan_tier": "enterprise", "enabled_by_default": true },
   { "id": "marketplace.install", "name": "Marketplace Installations", "module_id": "platform", "category": "marketplace", "plan_tier": "enterprise", "enabled_by_default": false },
-  { "id": "workflow.templates", "name": "Workflow Templates", "module_id": "workflow", "category": "automation", "plan_tier": "enterprise", "enabled_by_default": false }
+  { "id": "workflow.templates", "name": "Workflow Templates", "module_id": "workflow", "category": "automation", "plan_tier": "enterprise", "enabled_by_default": false },
+  { "id": "workflow.analytics", "name": "Workflow Analytics", "module_id": "workflow", "category": "automation", "plan_tier": "enterprise", "enabled_by_default": false },
+  { "id": "workflow.email_alerts", "name": "Workflow Email Alerts", "module_id": "workflow", "category": "automation", "plan_tier": "enterprise", "enabled_by_default": false }
 ]

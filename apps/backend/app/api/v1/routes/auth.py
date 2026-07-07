@@ -83,6 +83,8 @@ async def _build_tenant_context_read(db: AsyncSession, tenant: Tenant, settings:
         email_notifications_enabled=settings.email_notifications_enabled if settings else True,
         email_digest_mode=settings.email_digest_mode if settings else "immediate",
         email_opt_out_templates=_parse_opt_out_templates(settings.email_opt_out_templates if settings else None),
+        workflow_email_alerts_enabled=settings.workflow_email_alerts_enabled if settings else False,
+        workflow_alert_recipients=_parse_opt_out_templates(settings.workflow_alert_recipients if settings else None),
         plan=plan_payload,
         subscription=subscription_payload,
         active_modules=entitlements.get("modules", []),

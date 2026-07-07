@@ -88,6 +88,27 @@ services:
       retries: 3
       start_period: 30s
 
+  beat:
+    build:
+      context: ./apps/backend
+    container_name: golabs-erp-beat
+    restart: always
+    command: celery -A app.core.workers.tasks beat --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-golabs_erp}
+      - REDIS_URL=redis://redis:6379/0
+      - AUTO_MIGRATE=false
+      - EMAIL_PROVIDER=${EMAIL_PROVIDER:-resend}
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - EMAIL_FROM_DEFAULT=${EMAIL_FROM_DEFAULT:-info@golabstek.com}
+      - EMAIL_FROM_NAME_DEFAULT=${EMAIL_FROM_NAME_DEFAULT:-GOLABS ERP}
+      - EMAIL_REPLY_TO_DEFAULT=${EMAIL_REPLY_TO_DEFAULT:-info@golabstek.com}
+    depends_on:
+      - db
+      - redis
+    networks:
+      - golabs-network
+
 networks:
   golabs-network:
     driver: bridge

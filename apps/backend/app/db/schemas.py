@@ -65,6 +65,8 @@ class TenantContextRead(BaseModel):
     email_notifications_enabled: bool = True
     email_digest_mode: str = "immediate"
     email_opt_out_templates: list[str] = Field(default_factory=list)
+    workflow_email_alerts_enabled: bool = False
+    workflow_alert_recipients: list[str] | None = None
     plan: dict[str, Any] | None = None
     subscription: dict[str, Any] | None = None
     active_modules: list[str] = Field(default_factory=list)
@@ -160,6 +162,8 @@ class TenantSettingsUpsert(BaseModel):
     email_notifications_enabled: bool | None = None
     email_digest_mode: str | None = None
     email_opt_out_templates: list[str] | None = None
+    workflow_email_alerts_enabled: bool | None = None
+    workflow_alert_recipients: list[str] | None = None
 
 
 class TenantSettingsRead(TenantSettingsUpsert):
@@ -1327,6 +1331,18 @@ class WorkflowTemplateRead(BaseModel):
     created_at:        datetime
     model_config = ConfigDict(from_attributes=True)
 
+
+class WorkflowRunStats(BaseModel):
+    total_runs: int = 0
+    total_completed: int = 0
+    total_failed: int = 0
+    total_stalled: int = 0
+    total_running: int = 0
+    completed_today: int = 0
+    failed_today: int = 0
+    avg_duration_ms: float = 0.0
+    most_failing_workflow_id: UUID | None = None
+    most_failing_workflow_name: str | None = None
 
 class WorkflowTemplateClone(BaseModel):
     name: str | None = None  # if not provided, uses template's name

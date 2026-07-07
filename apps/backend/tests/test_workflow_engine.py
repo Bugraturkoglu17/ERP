@@ -19,7 +19,9 @@ def mock_action_service():
 
 @pytest.fixture
 def mock_db():
-    return AsyncMock()
+    db = AsyncMock()
+    db.query = MagicMock()
+    return db
 
 # ---------------------------------------------------------------------------
 # Tests

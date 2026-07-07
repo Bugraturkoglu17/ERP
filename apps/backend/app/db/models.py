@@ -23,8 +23,7 @@ from sqlalchemy.orm import mapped_column, relationship, Mapped
 from sqlmodel import SQLModel, Field, Relationship
 
 
-def utc_now() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+from app.core.utils.helpers import utc_now
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -776,6 +775,8 @@ class PlatformTenantSettings(SQLModel, table=True):
     email_notifications_enabled: bool = Field(default=True)
     email_digest_mode: str = Field(default="immediate", max_length=20)
     email_opt_out_templates: Optional[str] = Field(default=None, description="JSON array")
+    workflow_email_alerts_enabled: bool = Field(default=False)
+    workflow_alert_recipients: Optional[str] = Field(default=None, description="JSON array of emails")
     updated_at: datetime = Field(default_factory=utc_now, sa_column_kwargs={"onupdate": utc_now})
 
 

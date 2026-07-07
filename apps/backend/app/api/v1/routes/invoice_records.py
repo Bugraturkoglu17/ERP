@@ -23,8 +23,8 @@ from app.db.schemas import InvoiceRecordCreate, InvoiceRecordRead
 router = APIRouter()
 
 
-def utc_now():
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+from app.core.utils.helpers import utc_now
+
 
 
 INVOICE_TYPE_LABELS = {

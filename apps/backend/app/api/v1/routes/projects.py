@@ -58,23 +58,22 @@ crud_project    = CRUDBase(Project)
 crud_assignment = CRUDBase(ProjectAssignment)
 
 
+from app.core.security.validators import (
+    has_admin_role as _val_has_admin_role,
+    tenant_mismatch as _val_tenant_mismatch,
+    require_tenant_user as _val_require_tenant_user,
+)
+
 def _has_admin_role(user: User) -> bool:
-    return "admin" in (user.default_role or "")
+    return _val_has_admin_role(user)
 
 
 def _tenant_mismatch(user: User, tenant_id: object) -> bool:
-    if is_platform_admin(user):
-        return False
-    if user.tenant_id is None or tenant_id is None:
-        return True
-    return str(user.tenant_id) != str(tenant_id)
+    return _val_tenant_mismatch(user, tenant_id)
 
 
 def _require_tenant_user(user: User) -> None:
-    if is_platform_admin(user):
-        return
-    if user.tenant_id is None:
-        raise HTTPException(status_code=403, detail="Tenant bağlamı bulunamadı.")
+    _val_require_tenant_user(user)
 
 
 def _parse_scope_codes(raw: object) -> list[str]:

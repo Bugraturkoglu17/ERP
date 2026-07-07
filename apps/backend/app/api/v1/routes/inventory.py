@@ -53,15 +53,10 @@ router = APIRouter()
 LOW_STOCK_ALERT_COOLDOWN_MINUTES = 180
 
 
+from app.core.services.user_service import UserService
+
 async def _tenant_admin_emails(db: AsyncSession, tenant_id: uuid.UUID) -> list[str]:
-    result = await db.execute(
-        select(User.email).where(
-            User.tenant_id == tenant_id,
-            User.default_role == "admin",
-            User.is_active.is_(True),
-        )
-    )
-    return [email for email in result.scalars().all() if email]
+    return await UserService.get_tenant_admin_emails(db, tenant_id)
 
 
 async def _notify_low_stock_if_needed(
@@ -115,8 +110,10 @@ async def _notify_low_stock_if_needed(
     )
 
 
+from app.core.security.validators import same_tenant as _val_same_tenant
+
 def _same_tenant(user: User, tenant_id: object) -> bool:
-    return str(user.tenant_id) == str(tenant_id)
+    return _val_same_tenant(user, tenant_id)
 
 
 async def _warehouse_in_scope(db: AsyncSession, user: User, warehouse: Warehouse) -> bool:

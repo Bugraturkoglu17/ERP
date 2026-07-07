@@ -50,8 +50,7 @@ ENGINEER_FIRE_EMAIL   = "fire@golabs.local"
 WAREHOUSE_MGR_EMAIL   = "depo@golabs.local"
 
 
-def utc_now() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+from app.core.utils.helpers import utc_now
 
 
 async def get_or_create(model: type, session: AsyncSession, **kwargs: Any) -> tuple[bool, Any]:

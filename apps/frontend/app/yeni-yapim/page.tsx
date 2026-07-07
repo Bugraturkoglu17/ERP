@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertTriangle, Building2, ChevronRight, FolderOpen, Loader2,
   MoreVertical, Plus, Search, Store, X,
 } from "lucide-react";
 import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api";
+import { DataState } from "@/components/common/data-state";
+import { SearchInput } from "@/components/common/search-input";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -687,48 +689,54 @@ export default function YeniYapimPage() {
   const [jobs,     setJobs]     = useState<ActiveJob[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [grouped,  setGrouped]  = useState<ProjectWithProcesses[]>([]);
-  const [loading,   setLoading]   = useState(true);
-  const [wizard,    setWizard]    = useState(false);
-  const [search,    setSearch]    = useState("");
+  const [loading,  setLoading]  = useState(true);
+  const [error,    setError]    = useState<string | null>(null);
+  const [wizard,   setWizard]   = useState(false);
+  const [search,   setSearch]   = useState("");
 
-  const load = async () => {
-    setLoading(true);
-    const [j, p] = await Promise.all([
-      apiGet<ActiveJob[]>("/process/active-jobs").catch(() => [] as ActiveJob[]),
-      apiGet<Project[]>("/projects?limit=5000").catch(() => [] as Project[]),
-    ]);
+  const load = useCallback(async () => {
+    setLoading(true); setError(null);
+    try {
+      const [j, p] = await Promise.all([
+        apiGet<ActiveJob[]>("/process/active-jobs").catch(() => [] as ActiveJob[]),
+        apiGet<Project[]>("/projects?limit=5000").catch(() => [] as Project[]),
+      ]);
 
-    const activeJobs = (Array.isArray(j) ? j : []).filter(jb => jb.work_type === "yeni_yapim");
-    const allProjects = Array.isArray(p) ? p : [];
-    setJobs(activeJobs);
-    setProjects(allProjects);
+      const activeJobs = (Array.isArray(j) ? j : []).filter(jb => jb.work_type === "yeni_yapim");
+      const allProjects = Array.isArray(p) ? p : [];
+      setJobs(activeJobs);
+      setProjects(allProjects);
 
-    // Yeni yapım mağazaları: store_type=new_build VEYA aktif yeni yapım süreci olanlar
-    const newBuildIds = new Set(activeJobs.map(jb => jb.project_id));
-    const newBuildProjects = allProjects.filter(pr =>
-      parseStoreType(pr.description) === "new_build" || newBuildIds.has(pr.id)
-    );
+      // Yeni yapım mağazaları: store_type=new_build VEYA aktif yeni yapım süreci olanlar
+      const newBuildIds = new Set(activeJobs.map(jb => jb.project_id));
+      const newBuildProjects = allProjects.filter(pr =>
+        parseStoreType(pr.description) === "new_build" || newBuildIds.has(pr.id)
+      );
 
-    // Her proje için süreçleri yükle
-    const entries: ProjectWithProcesses[] = await Promise.all(
-      newBuildProjects.map(async pr => {
-        try {
-          const procs = await apiGet<StoreProcess[]>(`/process/projects/${pr.id}/process`);
-          const filtered = (procs ?? []).filter(proc =>
-            proc.work_type === "yeni_yapim" && proc.status !== "deleted"
-          );
-          return { project: pr, processes: filtered };
-        } catch {
-          return { project: pr, processes: [] };
-        }
-      })
-    );
+      // Her proje için süreçleri yükle
+      const entries: ProjectWithProcesses[] = await Promise.all(
+        newBuildProjects.map(async pr => {
+          try {
+            const procs = await apiGet<StoreProcess[]>(`/process/projects/${pr.id}/process`);
+            const filtered = (procs ?? []).filter(proc =>
+              proc.work_type === "yeni_yapim" && proc.status !== "deleted"
+            );
+            return { project: pr, processes: filtered };
+          } catch {
+            return { project: pr, processes: [] };
+          }
+        })
+      );
 
-    setGrouped(entries);
-    setLoading(false);
-  };
+      setGrouped(entries);
+    } catch (ex: any) {
+      setError(ex?.message ?? "Veriler yüklenemedi.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
 
   const filteredGrouped = grouped.filter(e =>
     !search ||
@@ -761,30 +769,27 @@ export default function YeniYapimPage() {
       </div>
 
       {/* Search */}
-      <div className="relative max-w-xs">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
-        <input value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="Mağaza ara..."
-          className="w-full rounded-xl border border-slate-200 pl-9 pr-4 py-2 text-sm focus:border-blue-500 focus:outline-none" />
-      </div>
+      <SearchInput
+        value={search}
+        onChange={setSearch}
+        placeholder="Mağaza ara..."
+        className="w-full max-w-xs"
+      />
 
-      {loading ? (
-        <div className="flex items-center justify-center py-16">
-          <div className="h-6 w-6 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
-        </div>
-      ) : filteredGrouped.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 gap-4 rounded-2xl border border-dashed border-slate-200 bg-white">
-          <Building2 className="h-12 w-12 text-slate-200" />
-          <div className="text-center">
-            <p className="text-sm font-semibold text-slate-600">Henüz yeni yapım işi başlatılmamış.</p>
-            <p className="text-xs text-slate-400 mt-1">Yeni bir mağaza oluşturun veya mevcut mağaza için süreç başlatın.</p>
-          </div>
+      <DataState
+        loading={loading}
+        error={error}
+        isEmpty={filteredGrouped.length === 0}
+        emptyTitle="Henüz yeni yapım işi başlatılmamış."
+        emptyDescription="Yeni bir mağaza oluşturun veya mevcut mağaza için süreç başlatın."
+        emptyIcon={<Building2 className="h-12 w-12 text-slate-200" />}
+        emptyAction={
           <button onClick={() => setWizard(true)}
             className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">
             <Plus className="h-4 w-4" /> Yeni Yapım Başlat
           </button>
-        </div>
-      ) : (
+        }
+      >
         <div className="space-y-4">
           {filteredGrouped.map(entry => (
             <ProjectRow
@@ -794,7 +799,7 @@ export default function YeniYapimPage() {
             />
           ))}
         </div>
-      )}
+      </DataState>
 
       {wizard && (
         <Wizard

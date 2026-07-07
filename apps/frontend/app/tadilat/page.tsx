@@ -1,23 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Activity, CheckCircle2, Flame, FolderOpen, HardHat,
   Loader2, Plus, Search, Store, Thermometer, Wrench, X,
 } from "lucide-react";
-import { apiGet, apiPost } from "@/lib/api";
+import { apiPost } from "@/lib/api";
+import { useStoreProcessData } from "@/hooks/use-store-process-data";
+import { DataState } from "@/components/common/data-state";
+import { SearchInput } from "@/components/common/search-input";
 
-type Project = {
-  id: string; name: string; project_no?: string; status: string;
-  scope_codes?: string[]; updated_at?: string;
-};
-type ActiveJob = {
-  project_id: string; project_name: string; project_no?: string;
-  process_id: string;
-  work_type: string; process_title: string; current_stage?: string;
-  target_end_date?: string; days_remaining?: number;
-};
+// ── Scope options ────────────────────────────────────────────────────────────
 
 const SCOPE_OPTIONS = [
   { value: "yangin_dolabi",   label: "Yangın Tesisatı",           icon: Flame       },
@@ -34,18 +28,35 @@ function getScopeLabel(code: string) {
   return SCOPE_OPTIONS.find(o => o.value === code)?.label ?? code;
 }
 
-// ── Tadilat Başlat Modalı ─────────────────────────────────────────────────────
+function calcCountdown(days?: number): { text: string; color: string } {
+  if (days == null) return { text: "—",                        color: "text-slate-400"  };
+  if (days > 0)     return { text: `${days}g kaldı`,          color: "text-blue-600"   };
+  if (days === 0)   return { text: "Bugün teslim",             color: "text-amber-600"  };
+  return                   { text: `${Math.abs(days)}g gecikti`, color: "text-red-600" };
+}
 
-function TadilatBaslatModal({ projects, onClose, onDone }: {
-  projects: Project[]; onClose: () => void; onDone: () => void;
+// ── Tadilat Başlat Modalı ────────────────────────────────────────────────────
+
+function TadilatBaslatModal({
+  projects,
+  onClose,
+  onDone,
+}: {
+  projects: any[];
+  onClose: () => void;
+  onDone: () => void;
 }) {
   const [step,       setStep]       = useState<1 | 2 | 3>(1);
   const [query,      setQuery]      = useState("");
-  const [selProject, setSelProject] = useState<Project | null>(null);
+  const [selProject, setSelProject] = useState<any>(null);
   const [scopeCodes, setScopeCodes] = useState<ScopeValue[]>([]);
-  const [form,       setForm]       = useState({ title: "", description: "", start_date: new Date().toISOString().split("T")[0], target_end_date: "", responsible_name: "" });
-  const [busy,       setBusy]       = useState(false);
-  const [err,        setErr]        = useState("");
+  const [form,       setForm]       = useState({
+    title: "", description: "",
+    start_date: new Date().toISOString().split("T")[0],
+    target_end_date: "", responsible_name: "",
+  });
+  const [busy, setBusy] = useState(false);
+  const [err,  setErr]  = useState("");
 
   const filtered = projects.filter(p =>
     !query || p.name.toLowerCase().includes(query.toLowerCase()) || (p.project_no ?? "").toLowerCase().includes(query.toLowerCase())
@@ -103,7 +114,6 @@ function TadilatBaslatModal({ projects, onClose, onDone }: {
         </div>
 
         <div className="px-6 py-5 space-y-3 min-h-[280px]">
-
           {/* Adım 1: Mağaza seç */}
           {step === 1 && (
             <div className="space-y-3">
@@ -127,9 +137,7 @@ function TadilatBaslatModal({ projects, onClose, onDone }: {
                 {filtered.slice(0, 30).map(p => (
                   <button key={p.id} type="button"
                     onClick={() => { setSelProject(p); setQuery(""); }}
-                    className={`w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-slate-50 transition-colors ${
-                      selProject?.id === p.id ? "bg-amber-50" : ""
-                    }`}>
+                    className={`w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-slate-50 transition-colors ${selProject?.id === p.id ? "bg-amber-50" : ""}`}>
                     <Store className="h-4 w-4 text-slate-300 shrink-0" />
                     <div>
                       <p className="text-sm font-medium text-slate-900">{p.name}</p>
@@ -142,7 +150,7 @@ function TadilatBaslatModal({ projects, onClose, onDone }: {
             </div>
           )}
 
-          {/* Adım 2: Tadilat kapsamı */}
+          {/* Adım 2: Kapsam */}
           {step === 2 && (
             <div className="space-y-3">
               <div>
@@ -154,11 +162,8 @@ function TadilatBaslatModal({ projects, onClose, onDone }: {
                   const Icon = opt.icon;
                   const sel = scopeCodes.includes(opt.value);
                   return (
-                    <button key={opt.value} type="button"
-                      onClick={() => toggleScope(opt.value)}
-                      className={`flex items-center gap-2 rounded-xl border p-3 text-left transition-colors ${
-                        sel ? "border-amber-500 bg-amber-50" : "border-slate-200 hover:border-slate-300"
-                      }`}>
+                    <button key={opt.value} type="button" onClick={() => toggleScope(opt.value)}
+                      className={`flex items-center gap-2 rounded-xl border p-3 text-left transition-colors ${sel ? "border-amber-500 bg-amber-50" : "border-slate-200 hover:border-slate-300"}`}>
                       <Icon className={`h-4 w-4 shrink-0 ${sel ? "text-amber-600" : "text-slate-400"}`} />
                       <span className={`text-xs font-medium ${sel ? "text-amber-700" : "text-slate-700"}`}>{opt.label}</span>
                     </button>
@@ -173,7 +178,7 @@ function TadilatBaslatModal({ projects, onClose, onDone }: {
             </div>
           )}
 
-          {/* Adım 3: Süreç bilgileri */}
+          {/* Adım 3: Bilgiler */}
           {step === 3 && (
             <div className="space-y-3">
               <p className="text-sm font-semibold text-slate-800">Süreç Bilgileri</p>
@@ -207,8 +212,7 @@ function TadilatBaslatModal({ projects, onClose, onDone }: {
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">Açıklama</label>
                 <textarea value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
-                  placeholder="Tadilat kapsamı veya notlar..."
-                  rows={2}
+                  placeholder="Tadilat kapsamı veya notlar..." rows={2}
                   className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none resize-none" />
               </div>
             </div>
@@ -246,42 +250,24 @@ function TadilatBaslatModal({ projects, onClose, onDone }: {
   );
 }
 
-function calcCountdown(days?: number): { text: string; color: string } {
-  if (days == null) return { text: "—",              color: "text-slate-400"  };
-  if (days > 0)     return { text: `${days}g kaldı`, color: "text-blue-600"   };
-  if (days === 0)   return { text: "Bugün teslim",   color: "text-amber-600"  };
-  return               { text: `${Math.abs(days)}g gecikti`, color: "text-red-600" };
-}
+// ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function TadilatPage() {
-  const [jobs,        setJobs]        = useState<ActiveJob[]>([]);
-  const [projects,    setProjects]    = useState<Project[]>([]);
-  const [loading,     setLoading]     = useState(true);
-  const [query,       setQuery]       = useState("");
-  const [showModal,   setShowModal]   = useState(false);
-
-  const loadAll = async () => {
-    setLoading(true);
-    const [j, p] = await Promise.all([
-      apiGet<ActiveJob[]>("/process/active-jobs").catch(() => [] as ActiveJob[]),
-      apiGet<Project[]>("/projects?limit=5000").catch(() => [] as Project[]),
-    ]);
-    const all = (Array.isArray(j) ? j : []).filter(jb => jb.work_type === "tadilat");
-    const seen = new Set<string>();
-    setJobs(all.filter(jb => { if (seen.has(jb.process_id)) return false; seen.add(jb.process_id); return true; }));
-    setProjects(Array.isArray(p) ? p : []);
-    setLoading(false);
-  };
-
-  useEffect(() => { loadAll(); }, []);
+  const { activeJobs: jobs, projects, loading, error, refetch } = useStoreProcessData("tadilat");
+  const [query,     setQuery]     = useState("");
+  const [showModal, setShowModal] = useState(false);
 
   const filtered = useMemo(() =>
-    jobs.filter(j =>
-      !query || j.project_name.toLowerCase().includes(query.toLowerCase())
-    ), [jobs, query]);
+    jobs.filter(j => !query || j.project_name.toLowerCase().includes(query.toLowerCase())),
+    [jobs, query]
+  );
+
+  const overdueCount   = jobs.filter(j => (j.days_remaining ?? 0) < 0).length;
+  const todayCount     = jobs.filter(j => j.days_remaining === 0).length;
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-100">
@@ -301,10 +287,10 @@ export default function TadilatPage() {
       {/* Summary */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: "Aktif Tadilat",  value: jobs.length,                                           color: "text-blue-600"  },
-          { label: "Süre Aşımı",     value: jobs.filter(j => (j.days_remaining ?? 0) < 0).length, color: "text-red-600"   },
-          { label: "Bugün Teslim",   value: jobs.filter(j => j.days_remaining === 0).length,       color: "text-amber-600" },
-        ].map((s) => (
+          { label: "Aktif Tadilat", value: jobs.length,   color: "text-blue-600"  },
+          { label: "Süre Aşımı",    value: overdueCount,  color: "text-red-600"   },
+          { label: "Bugün Teslim",  value: todayCount,    color: "text-amber-600" },
+        ].map(s => (
           <div key={s.label} className="rounded-2xl border border-slate-200 bg-white p-4 text-center">
             <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
             <p className="text-[10px] text-slate-400 mt-0.5">{s.label}</p>
@@ -313,33 +299,29 @@ export default function TadilatPage() {
       </div>
 
       {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
-        <input value={query} onChange={(e) => setQuery(e.target.value)}
-          placeholder="Mağaza ara..."
-          className="w-full rounded-xl border border-slate-200 pl-9 pr-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none" />
-      </div>
+      <SearchInput
+        value={query}
+        onChange={setQuery}
+        placeholder="Mağaza ara..."
+        className="w-full max-w-xs"
+      />
 
-      {loading ? (
-        <div className="flex items-center justify-center py-16">
-          <div className="h-6 w-6 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 gap-3">
-          <HardHat className="h-10 w-10 text-slate-200" />
-          <p className="text-sm text-slate-400">
-            {jobs.length === 0 ? "Henüz aktif tadilat işi yok." : "Arama sonucu bulunamadı."}
-          </p>
-          {jobs.length === 0 && (
-            <button onClick={() => setShowModal(true)}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-amber-600 px-4 py-2 text-xs font-semibold text-white hover:bg-amber-700">
-              <Plus className="h-3.5 w-3.5" /> Tadilat Başlat
-            </button>
-          )}
-        </div>
-      ) : (
+      {/* List */}
+      <DataState
+        loading={loading}
+        error={error}
+        isEmpty={filtered.length === 0}
+        emptyTitle={jobs.length === 0 ? "Henüz aktif tadilat işi yok." : "Arama sonucu bulunamadı."}
+        emptyIcon={<HardHat className="h-10 w-10 text-slate-200" />}
+        emptyAction={jobs.length === 0 ? (
+          <button onClick={() => setShowModal(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-amber-600 px-4 py-2 text-xs font-semibold text-white hover:bg-amber-700">
+            <Plus className="h-3.5 w-3.5" /> Tadilat Başlat
+          </button>
+        ) : undefined}
+      >
         <div className="space-y-2">
-          {filtered.map((j) => {
+          {filtered.map(j => {
             const cd = calcCountdown(j.days_remaining);
             const isOverdue = (j.days_remaining ?? 0) < 0;
             return (
@@ -373,13 +355,13 @@ export default function TadilatPage() {
             );
           })}
         </div>
-      )}
+      </DataState>
 
       {showModal && (
         <TadilatBaslatModal
           projects={projects}
           onClose={() => setShowModal(false)}
-          onDone={() => { setShowModal(false); loadAll(); }}
+          onDone={() => { setShowModal(false); refetch(); }}
         />
       )}
     </div>

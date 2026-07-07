@@ -2,45 +2,41 @@
 
 import { useState, useEffect } from "react";
 import { apiGet, apiPost } from "@/lib/api";
-import { 
-  CircleDollarSign, 
-  Plus, 
-  TrendingUp, 
-  ArrowUpRight, 
-  ArrowDownRight, 
-  Calendar, 
+import { useFinanceData } from "@/hooks/use-finance-data";
+import { DataState } from "@/components/common/data-state";
+import {
+  CircleDollarSign,
+  Plus,
+  TrendingUp,
+  ArrowUpRight,
+  ArrowDownRight,
   Receipt,
-  FileSpreadsheet,
   Coins,
-  Search,
-  Filter,
-  User,
-  Percent,
-  CheckCircle2,
   AlertTriangle,
   X,
   Paperclip,
-  Package
+  Package,
+  Percent,
+  CheckCircle2,
 } from "lucide-react";
 
 export default function FinancePage() {
-  const [invoices, setInvoices] = useState<any[]>([]);
-  const [expenses, setExpenses] = useState<any[]>([]);
-  const [payments, setPayments] = useState<any[]>([]);
-  const [projects, setProjects] = useState<any[]>([]);
-  const [customers, setCustomers] = useState<any[]>([]);
-  const [selectedProject, setSelectedProject] = useState<string>("all");
-  const [loading, setLoading] = useState(true);
+  const {
+    invoices, expenses, payments, projects, customers,
+    profitabilityData, loading, error,
+    loadProfitability, createInvoice, createExpense, createPayment,
+    totalRevenue, totalExpenses, totalPaid, unpaidInvoices,
+    refetch,
+  } = useFinanceData();
 
-  // Profitability Dashboard State
-  const [profitabilityData, setProfitabilityData] = useState<any>(null);
+  const [selectedProject, setSelectedProject] = useState<string>("all");
 
   // Tab State
   const [activeTab, setActiveTab] = useState<"invoices" | "expenses" | "payments" | "profitability">("invoices");
 
   // Create Invoice Modal State
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
-  const [invoiceForm, setInvoiceForm] = useState({
+  const [invoiceForm, setInvoiceForm] = useState(() => ({
     customer_id: "",
     project_id: "",
     invoice_no: "",
@@ -49,14 +45,14 @@ export default function FinancePage() {
     due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
     tax_rate: 20,
     items: [{ description: "", quantity: 1, unit_price: 0 }]
-  });
+  }));
 
   // Create Expense Modal State
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState<any | null>(null);
   const [stockMovementDetails, setStockMovementDetails] = useState<any | null>(null);
   const [loadingStockMovement, setLoadingStockMovement] = useState<boolean>(false);
-  const [expenseForm, setExpenseForm] = useState({
+  const [expenseForm, setExpenseForm] = useState(() => ({
     project_id: "",
     category: "material", // labour, material, transport, equipment, miscellaneous
     description: "",
@@ -64,11 +60,11 @@ export default function FinancePage() {
     quantity: "",
     expense_date: new Date().toISOString().split("T")[0],
     file: null as File | null
-  });
+  }));
 
   // Create Payment Modal State
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
-  const [paymentForm, setPaymentForm] = useState({
+  const [paymentForm, setPaymentForm] = useState(() => ({
     invoice_id: "",
     direction: "incoming", // incoming / outgoing
     amount: "",
@@ -76,7 +72,7 @@ export default function FinancePage() {
     reference_no: "",
     payment_date: new Date().toISOString().split("T")[0],
     notes: ""
-  });
+  }));
 
   useEffect(() => {
     if (selectedExpense && selectedExpense.stock_movement_id) {
@@ -98,45 +94,6 @@ export default function FinancePage() {
     }
   }, [selectedExpense]);
 
-  useEffect(() => {
-    async function loadData() {
-      setLoading(true);
-      try {
-        const [invs, exps, pays, projs, custs] = await Promise.all([
-          apiGet("/finance/invoices").catch(() => []),
-          apiGet("/finance/expenses").catch(() => []),
-          apiGet("/finance/payments").catch(() => []),
-          apiGet("/projects").catch(() => []),
-          apiGet("/projects/customers").catch(() => [])
-        ]);
-
-        setInvoices(Array.isArray(invs) ? invs : []);
-        setExpenses(Array.isArray(exps) ? exps : []);
-        setPayments(Array.isArray(pays) ? pays : []);
-        setProjects(Array.isArray(projs) ? projs : []);
-        setCustomers(Array.isArray(custs) ? custs : []);
-
-        if (Array.isArray(projs) && projs.length > 0) {
-          loadProfitability(projs[0].id);
-        }
-      } catch (err) {
-        console.error("Finance data fetch error:", err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadData();
-  }, []);
-
-  async function loadProfitability(projId: string) {
-    try {
-      const data = await apiGet(`/finance/dashboard/profitability/${projId}`);
-      setProfitabilityData(data);
-    } catch (err) {
-      console.error("Profitability load error:", err);
-      setProfitabilityData(null);
-    }
-  }
 
   // Invoice calculations
   const invoiceSubtotal = invoiceForm.items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
@@ -169,9 +126,7 @@ export default function FinancePage() {
       await apiPost("/finance/invoices", payload);
       alert("Hakediş Faturası başarıyla oluşturuldu.");
       setIsInvoiceModalOpen(false);
-      // Reload
-      const invs = await apiGet<any[]>("/finance/invoices");
-      setInvoices(Array.isArray(invs) ? invs : []);
+      refetch();
     } catch (err: any) {
       alert(err.response?.data?.detail || "Fatura oluşturulamadı.");
     }
@@ -218,9 +173,7 @@ export default function FinancePage() {
         expense_date: new Date().toISOString().split("T")[0],
         file: null
       });
-      // Reload
-      const exps = await apiGet<any[]>("/finance/expenses");
-      setExpenses(Array.isArray(exps) ? exps : []);
+      refetch();
     } catch (err: any) {
       alert(err.response?.data?.detail || "Gider kaydı eklenemedi.");
     }
@@ -251,21 +204,13 @@ export default function FinancePage() {
         payment_date: new Date().toISOString().split("T")[0],
         notes: ""
       });
-      // Reload
-      const [invs, pays] = await Promise.all([
-        apiGet<any[]>("/finance/invoices"),
-        apiGet<any[]>("/finance/payments")
-      ]);
-      setInvoices(Array.isArray(invs) ? invs : []);
-      setPayments(Array.isArray(pays) ? pays : []);
+      refetch();
     } catch (err: any) {
       alert(err.response?.data?.detail || "Ödeme işlenemedi.");
     }
   }
 
-  // Summary Metrics
-  const totalRevenue = invoices.reduce((sum, inv) => sum + (Number(inv.grand_total) || 0), 0);
-  const totalExpenses = expenses.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
+  // Derived metrics from hook
   const netEarnings = totalRevenue - totalExpenses;
   const marginPct = totalRevenue > 0 ? (netEarnings / totalRevenue) * 100 : 0;
 
@@ -282,23 +227,19 @@ export default function FinancePage() {
     labour: "İşçilik & Taşeron",
     material: "Malzeme Tedariği",
     transport: "Nakliye & Lojistik",
-    equipment: "Makine Kiralama",
+    equipment: "Ekipman Kiralama",
     miscellaneous: "Diğer Giderler"
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full min-h-[500px]">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-slate-500 font-medium">Finansal veriler yükleniyor...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6 max-w-[1600px] mx-auto">
+    <DataState
+      loading={loading}
+      error={error}
+      isEmpty={invoices.length === 0 && expenses.length === 0 && payments.length === 0}
+      emptyTitle="Finansal veri bulunamadı"
+      emptyDescription="Henüz fatura, gider veya ödeme kaydı bulunmuyor."
+    >
+      <div className="space-y-6 max-w-[1600px] mx-auto">
       {/* Header and Quick Stats */}
       <div className="corp-header">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -1280,5 +1221,6 @@ export default function FinancePage() {
         </div>
       )}
     </div>
+    </DataState>
   );
 }

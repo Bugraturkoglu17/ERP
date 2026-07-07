@@ -7,6 +7,24 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+### Sprint 21.7 — Frontend Cleanup Phase 2
+
+#### Changed
+- `/projects` sayfasında DataState kullanımı eklendi, unused importlar temizlendi.
+- `/finance` sayfasında DataState kullanımı eklendi, unused importlar temizlendi.
+- `/bakim`, `/tadilat` ve `/yeni-yapim` sayfaları yeni shared UI/data hook pattern açısından doğrulandı.
+
+#### Internal
+- Projects ve Finance sayfaları hâlâ yüksek satır sayısına sahip.
+- Gerçek thin page decomposition P1 teknik borç olarak işaretlendi.
+- `/yeni-yapim` wizard inline API/refactor ihtiyacı P1 teknik borç olarak not edildi.
+
+#### Tests
+- npm run lint passed
+- npm run build passed
+
+---
+
 ### Sprint 21.6 — Frontend Architecture Cleanup Foundation
 
 #### Added

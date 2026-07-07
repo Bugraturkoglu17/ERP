@@ -34,15 +34,10 @@ crud_invoice = CRUDBase(Invoice)
 crud_expense = CRUDBase(Expense)
 
 
+from app.core.services.user_service import UserService
+
 async def _tenant_admin_emails(db: AsyncSession, tenant_id: UUID) -> list[str]:
-    result = await db.execute(
-        select(User.email).where(
-            User.tenant_id == tenant_id,
-            User.default_role == "admin",
-            User.is_active.is_(True),
-        )
-    )
-    return [email for email in result.scalars().all() if email]
+    return await UserService.get_tenant_admin_emails(db, tenant_id)
 
 
 # ── Finance Dashboard — Karlılık Özeti ────────────────────────────────────────

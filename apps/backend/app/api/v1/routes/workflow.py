@@ -32,6 +32,7 @@ from app.db.schemas import (
     WorkflowTriggerRead,
     WorkflowVersionCreate,
     WorkflowVersionRead,
+    WorkflowRunStats,
 )
 from app.core.workers.tasks import execute_workflow_run_task
 from app.services.workflow_validator import validate_workflow_dsl
@@ -81,6 +82,8 @@ async def create_workflow(
     await db.refresh(definition)
     return definition
 
+from app.db.crud.workflow_definition import crud_workflow_definition
+
 @router.get(
     "",
     response_model=List[WorkflowDefinitionRead],
@@ -90,9 +93,7 @@ async def get_workflows(
     db: Session = Depends(get_db),
     tenant_id: UUID = Depends(get_current_tenant_id),
 ):
-    stmt = select(WorkflowDefinition).where(WorkflowDefinition.tenant_id == tenant_id)
-    res = await db.execute(stmt)
-    return res.scalars().all()
+    return await crud_workflow_definition.get_multi(db, tenant_id=tenant_id)
 
 @router.get(
     "/{id}",
@@ -104,7 +105,7 @@ async def get_workflow(
     db: Session = Depends(get_db),
     tenant_id: UUID = Depends(get_current_tenant_id),
 ):
-    workflow = await db.get(WorkflowDefinition, id)
+    workflow = await crud_workflow_definition.get(db, id)
     if not workflow or workflow.tenant_id != tenant_id:
         raise HTTPException(status_code=404, detail="Workflow not found")
     return workflow
@@ -211,6 +212,8 @@ async def get_workflow_versions(
 # Workflow Runs / Triggers
 # ─────────────────────────────────────────────────────────────────────────────
 
+from app.core.rate_limiter import check_workflow_trigger_rate_limit
+
 @router.post(
     "/{id}/trigger",
     response_model=WorkflowRunRead,
@@ -226,6 +229,8 @@ async def trigger_workflow(
     db: Session = Depends(get_db),
     tenant_id: UUID = Depends(get_current_tenant_id),
 ):
+    await check_workflow_trigger_rate_limit(str(tenant_id))
+
     workflow = await db.get(WorkflowDefinition, id)
     if not workflow or workflow.tenant_id != tenant_id:
         raise HTTPException(status_code=404, detail="Workflow not found")

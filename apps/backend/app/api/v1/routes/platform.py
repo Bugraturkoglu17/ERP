@@ -359,6 +359,8 @@ async def get_tenant_settings(
             email_notifications_enabled=settings.email_notifications_enabled,
             email_digest_mode=settings.email_digest_mode,
             email_opt_out_templates=_parse_opt_out_templates(settings.email_opt_out_templates),
+            workflow_email_alerts_enabled=settings.workflow_email_alerts_enabled,
+            workflow_alert_recipients=_parse_opt_out_templates(settings.workflow_alert_recipients),
             updated_at=settings.updated_at,
         )
 

@@ -39,6 +39,7 @@ def make_run(status: str = "running", started_minutes_ago: int = 5, alert_sent: 
 async def test_failure_notification_created_when_no_alert_sent():
     """A new notification is created when alert_sent_at is None."""
     db = AsyncMock()
+    db.query = MagicMock()
     run = make_run(status="failed", alert_sent=False)
 
     await _create_failure_notification(
@@ -80,6 +81,7 @@ async def test_failure_notification_skipped_when_already_sent():
 async def test_failure_notification_event_type():
     """Stalled notification uses workflow_stalled event_type."""
     db = AsyncMock()
+    db.query = MagicMock()
     run = make_run(status="stalled", alert_sent=False)
 
     await _create_failure_notification(

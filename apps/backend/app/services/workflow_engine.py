@@ -64,8 +64,7 @@ def evaluate_condition(node_def: Dict[str, Any], context_data: Dict[str, Any]) -
         logger.warning(f'Condition evaluation error (field={field}, op={operator}): {e}')
         return False
 
-def utc_now() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+from app.core.utils.helpers import utc_now
 
 
 async def _create_failure_notification(
@@ -80,6 +79,10 @@ async def _create_failure_notification(
     Idempotent in-app notification for failed/stalled workflow runs.
     Guard: if alert_sent_at is already set, skip.
     """
+    from app.db.models import PlatformTenantSettings
+    from app.core.workers.tasks import send_tenant_email_task
+    import json
+
     if run.alert_sent_at is not None:
         logger.debug(f"Alert already sent for run {run.id}, skipping.")
         return
@@ -98,6 +101,25 @@ async def _create_failure_notification(
     run.alert_sent_at = utc_now()
     db.add(run)
     logger.info(f"Workflow failure notification created for run {run.id} (event={event_type})")
+
+    # Check tenant settings for email alerts
+    settings = db.query(PlatformTenantSettings).filter(PlatformTenantSettings.tenant_id == run.tenant_id).first()
+    if settings and settings.workflow_email_alerts_enabled:
+        recipients_str = settings.workflow_alert_recipients
+        if recipients_str:
+            try:
+                recipients = json.loads(recipients_str)
+                if isinstance(recipients, list) and len(recipients) > 0:
+                    send_tenant_email_task.delay({
+                        "tenant_id": str(run.tenant_id),
+                        "template": "workflow_failure_alert",
+                        "to": recipients,
+                        "subject": f"[Alert] Workflow {title}",
+                        "text": f"Workflow execution failed/stalled.\n\nWorkflow Name: {workflow_name}\nRun ID: {run.id}\nDetail: {description}\n\nLink: {link}",
+                        "html": None
+                    })
+            except Exception as e:
+                logger.error(f"Failed to parse workflow_alert_recipients for tenant {run.tenant_id}: {e}")
 
 class WorkflowEngine:
     def __init__(self, db: Session, action_service: WorkflowActionService):

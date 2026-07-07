@@ -154,10 +154,7 @@ def get_scope_stages(scope_code: str, work_type: str = "tadilat") -> list[str]:
     # Tadilat için özel varsayılan, diğerleri için genel varsayılan
     return TADILAT_DEFAULT_STAGES if work_type == "tadilat" else DEFAULT_STAGES
 
-
-def utc_now() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
-
+from app.core.utils.helpers import utc_now
 
 def calc_days_remaining(target: datetime | None) -> int | None:
     if not target:
@@ -196,6 +193,8 @@ async def _get_process_or_404(db: AsyncSession, process_id: UUID, user: User) ->
     return await verify_process_tenant(db, process_id, user)
 
 
+from app.core.services.activity_logger import ActivityLoggerService
+
 async def _log_activity(
     db: AsyncSession,
     project_id: UUID,
@@ -207,19 +206,17 @@ async def _log_activity(
     process_id: UUID | None = None,
     stage_id: UUID | None = None,
 ) -> None:
-    activity = StoreActivity(
-        tenant_id=tenant_id,
+    await ActivityLoggerService.log_activity(
+        db=db,
         project_id=project_id,
-        user_id=user.id,
-        user_name=user.full_name or user.email,
+        tenant_id=tenant_id,
+        user=user,
         activity_type=activity_type,
         title=title,
         description=description,
-        related_process_id=process_id,
-        related_stage_id=stage_id,
-        created_at=utc_now(),
+        process_id=process_id,
+        stage_id=stage_id,
     )
-    db.add(activity)
 
 
 # ── GET /process/projects/{project_id}/process ────────────────────────────────

@@ -39,10 +39,7 @@ from app.services.entitlement_service import EntitlementService
 
 router = APIRouter()
 
-
-def utc_now() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
-
+from app.core.utils.helpers import utc_now
 
 WORK_TYPE_LABELS = {
     "maintenance":   "Bakım",
@@ -183,6 +180,7 @@ async def _log_activity(
     title: str,
     description: Optional[str] = None,
 ) -> None:
+    # TODO: Refactor using ActivityLoggerService if possible, keeping WorkOrderActivity logic.
     """İş emri + mağaza kartı aktivite kaydı oluştur."""
     now = utc_now()
     db.add(WorkOrderActivity(
