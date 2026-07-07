@@ -7,37 +7,76 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
-### Added
-- Sprint 19A — Workflow Backend Engine
-- Sprint 19B — React Flow Visual Designer
+### Sprint 20A — Dynamic Action Config Forms & Condition Engine
 
-### Changed
-- Workflow DSL validation async hale getirildi
-- Workflow API/engine entitlement-aware hale getirildi
-- Impact engine shadowing bug düzeltildi
+#### Added
+- `WorkflowAction.config_schema` (Text) — JSON Schema alanı her action tipi için
+- Alembic migration `841be1b75a02` — `workflow_actions.config_schema` kolonu
+- P0 action seed şemaları: `send_email`, `send_whatsapp`, `create_approval`, `update_work_order`
+- Custom lightweight JSON Schema form renderer (`node-config-panel.tsx`) — `react-jsonschema-form` eklenmedi
+  - Desteklenen tipler: `string`, `number`, `boolean`, `enum/select`, `textarea`, `x-display: password`
+- JSON Mode toggle — advanced raw editor fallback
+- `evaluate_condition()` — 6 operatör: `equals`, `not_equals`, `greater_than`, `less_than`, `contains`, `exists`
+- Condition node `exists` operatörü seçilince `value` field gizlenir
+- `ConditionEdge` custom React Flow component — `true` branch yeşil, `false` branch kırmızı etiket
+- `POST /workflow-runs/{run_id}/retry` endpoint (20A — sonradan 20B'de yeniden tasarlandı)
 
-### Fixed
-- React Flow designer key/drag/config çakışmaları düzeltildi
-- workflow_validator async test uyumsuzluğu düzeltildi
-- app/core/impact.py AttributeError shadowing hatası düzeltildi
+#### Changed
+- `workflow-validation.ts` DSL export/import artık `sourceHandle` (true/false) bilgisini koruyor
+- `WorkflowEngine` adjacency list `sourceHandle`-aware — doğru dalı takip ediyor
+- `WorkflowActionRead` TypeScript type'a `config_schema` alanı eklendi
 
-### Security
-- Workflow tenant isolation doğrulandı
-- workflow module/feature/quota enforcement doğrulandı
-- platform_admin tenant context güvenliği doğrulandı
+#### Tests
+- 89/89 backend test passed (6 yeni condition evaluator testi)
 
-### Tests
-- 77/77 backend test geçti
-  - test_workflow_validator.py: 6/6
-  - test_workflow_api.py geçti
-  - test_workflow_engine.py geçti
-  - test_workflow_entitlements.py geçti
-  - test_tenant_context_switching.py geçti
-  - test_entitlement_enforcement.py geçti
-  - test_mega_sprint.py geçti
-## [Unreleased]
+---
+
+### Sprint 20B — Workflow Monitoring, Stalled Detection & Failure Alerts
+
+#### Added
+- `WorkflowRun` yeni alanlar: `parent_run_id` (retry chain FK), `stalled_at`, `alert_sent_at`
+- Alembic migration `024068998aaf` — self-referential FK, index
+- `_create_failure_notification()` — idempotent `ErpNotification` oluşturma (`alert_sent_at` guard)
+- `workflow_engine.py`: node-level ve outer failure'da in-app bildirim tetikler
+- `detect_stalled_workflow_runs_task` — Celery Beat her 5 dakika; 30dk+ running → `stalled` + idempotent bildirim
+- Celery `beat_schedule` konfigürasyonu (`workers/__init__.py`)
+- Monitoring Dashboard kartları `/workflow` sayfasında: Running / Başarısız / Takıldı / Bugün Tamamlandı / Ort. Süre
+- `/workflow-runs` endpoint'e `status` ve `definition_id` query filter desteği
+- `useWorkflowStats` hook — client-side stats hesaplama
+- `/workflow/[id]/runs` — status filter pills, duration sütunu, stalled satır vurgusu, Retry butonu
+- `/workflow/[id]/runs/[runId]` — stalled warning banner, `parent_run_id` link, node JSON input/output collapsible, failed node kırmızı vurgu
+
+#### Changed
+- **Retry yeniden tasarlandı:** eski run resetleme yerine yeni `WorkflowRun` oluşturur (`parent_run_id` bağlantısı)
+  - Orijinal run değişmez (audit trail korunur)
+  - Yeni run normal quota sayar
+  - `stalled` statüsü de retryable olarak eklendi
+- Workflow run listesi server-side `status`/`definition_id` filter destekliyor
+
+#### Fixed
+- Failed node kırmızı border + ring highlight eklendi
+- Duplicate alert önleme (`alert_sent_at` idempotency guard)
+- `stalled` run artık takıldı olarak bildirilip görüntüleniyor
+- Retry sadece `failed/stalled/cancelled` run için izinli (`completed/running` → 400)
+
+#### Security
+- Retry endpoint `require_quota("workflow_runs", 1)` dependency eklendi
+- `completed` ve `running` run retry edilemiyor (400 döner)
+- Failure alert idempotency — aynı run için birden fazla notification gitmez
+
+#### Tests
+- 101/101 backend test passed (12 yeni monitoring testi: `test_workflow_monitoring.py`)
+- Frontend lint: 0 error, 3 pre-existing warning
+- Frontend production build: ✅
+
+---
+
+## [0.19] — Workflow Studio MVP
+
+### Sprint 19A — Workflow Backend Engine
 
 ### Sprint 18 — Modular Entitlement Platform
+
 #### Added
 - Module Registry, Feature Registry, Quota Registry, Marketplace Registry
 - EntitlementService, TenantUsageMeter, Tenant overrides

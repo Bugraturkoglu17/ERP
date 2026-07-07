@@ -868,6 +868,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Kiracıya ait tüm aktif dökümanları listele */
+        get: operations["list_all_tenant_documents_api_v1_documents_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/platform/tenants": {
         parameters: {
             query?: never;
@@ -2394,6 +2411,31 @@ export interface paths {
         get: operations["get_workflow_run_detail_api_v1_workflow_runs__run_id__get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workflow-runs/{run_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry Workflow Run
+         * @description Retry a failed/stalled/cancelled workflow run.
+         *
+         *     Design decision: creates a NEW WorkflowRun with parent_run_id = original run id.
+         *     - Original run is preserved unchanged (audit trail intact)
+         *     - New run consumes a workflow_runs quota slot (same as a fresh trigger)
+         *     - Retrying completed or running runs is not allowed (400)
+         */
+        post: operations["retry_workflow_run_api_v1_workflow_runs__run_id__retry_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5715,10 +5757,10 @@ export interface components {
             label_tr: string;
             /** Required Feature */
             required_feature: string | null;
+            /** Config Schema */
+            config_schema?: string | null;
             /** Is Active */
             is_active: boolean;
-            /** Config Schema - JSON Schema string for dynamic form rendering */
-            config_schema?: string | null;
         };
         /** WorkflowDefinitionCreate */
         WorkflowDefinitionCreate: {
@@ -5826,6 +5868,8 @@ export interface components {
              * Format: uuid
              */
             version_id: string;
+            /** Parent Run Id */
+            parent_run_id: string | null;
             /** Status */
             status: string;
             /** Trigger Event Ref */
@@ -5836,6 +5880,10 @@ export interface components {
             started_at: string | null;
             /** Ended At */
             ended_at: string | null;
+            /** Stalled At */
+            stalled_at: string | null;
+            /** Alert Sent At */
+            alert_sent_at: string | null;
             /** Error Message */
             error_message: string | null;
             /**
@@ -5879,6 +5927,8 @@ export interface components {
             started_at: string | null;
             /** Ended At */
             ended_at: string | null;
+            /** Max Attempts */
+            max_attempts?: number | null;
         };
         /** WorkflowRunRead */
         WorkflowRunRead: {
@@ -5902,6 +5952,8 @@ export interface components {
              * Format: uuid
              */
             version_id: string;
+            /** Parent Run Id */
+            parent_run_id: string | null;
             /** Status */
             status: string;
             /** Trigger Event Ref */
@@ -5912,6 +5964,10 @@ export interface components {
             started_at: string | null;
             /** Ended At */
             ended_at: string | null;
+            /** Stalled At */
+            stalled_at: string | null;
+            /** Alert Sent At */
+            alert_sent_at: string | null;
             /** Error Message */
             error_message: string | null;
             /**
@@ -8103,6 +8159,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_all_tenant_documents_api_v1_documents_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentRead"][];
                 };
             };
         };
@@ -11487,7 +11563,10 @@ export interface operations {
     };
     get_workflow_runs_api_v1_workflow_runs_get: {
         parameters: {
-            query?: never;
+            query?: {
+                status?: string | null;
+                definition_id?: string | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -11501,6 +11580,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkflowRunRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -11523,6 +11611,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkflowRunDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    retry_workflow_run_api_v1_workflow_runs__run_id__retry_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowRunRead"];
                 };
             };
             /** @description Validation Error */
