@@ -7,6 +7,20 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+### Sprint 22B — Platform Tenant Entitlements & Quotas
+
+#### Added
+- `quota_override_period` database column and Alembic migration `c1b2a9d8e44` to support overriding default quota period per tenant.
+- Tenant entitlement quick controls and entitlement status chips on the platform admin dashboard.
+- Navigation links and route protection based on tenant entitlements.
+- Backend enforcement test coverage: `tests/test_entitlement_enforcement.py`.
+
+#### Changed
+- Improved tenant quota configuration forms and validation layout.
+- Platform module registry alignment and layout spacing.
+
+---
+
 ### Sprint 22A — Workflow Simulation MVP
 
 #### Added
