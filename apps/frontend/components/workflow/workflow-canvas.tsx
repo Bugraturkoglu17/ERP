@@ -11,6 +11,9 @@ import {
   Edge,
   Node,
   Panel,
+  BaseEdge,
+  EdgeLabelRenderer,
+  getBezierPath,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
@@ -20,11 +23,80 @@ import { EndNode } from './nodes/end-node';
 import { ConditionNode } from './nodes/condition-node';
 import { Play, Zap, Flag, Split } from 'lucide-react';
 
+// Custom edge that shows True/False labels for condition branches
+function ConditionEdge({
+  id,
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  sourcePosition,
+  targetPosition,
+  sourceHandleId,
+  style = {},
+  markerEnd,
+}: any) {
+  const [edgePath, labelX, labelY] = getBezierPath({
+    sourceX,
+    sourceY,
+    sourcePosition,
+    targetX,
+    targetY,
+    targetPosition,
+  });
+
+  const isTrue = sourceHandleId === 'true';
+  const isFalse = sourceHandleId === 'false';
+  const hasLabel = isTrue || isFalse;
+
+  return (
+    <>
+      <BaseEdge
+        path={edgePath}
+        markerEnd={markerEnd}
+        style={{
+          ...style,
+          stroke: isTrue ? '#16a34a' : isFalse ? '#dc2626' : '#94a3b8',
+          strokeWidth: 2,
+        }}
+      />
+      {hasLabel && (
+        <EdgeLabelRenderer>
+          <div
+            style={{
+              position: 'absolute',
+              transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
+              pointerEvents: 'all',
+            }}
+            className="nodrag nopan"
+          >
+            <span
+              className={`text-xs font-bold px-1.5 py-0.5 rounded-full border ${
+                isTrue
+                  ? 'bg-green-50 text-green-700 border-green-200'
+                  : 'bg-red-50 text-red-700 border-red-200'
+              }`}
+            >
+              {isTrue ? 'True' : 'False'}
+            </span>
+          </div>
+        </EdgeLabelRenderer>
+      )}
+    </>
+  );
+}
+
+
 const nodeTypes = {
   start: StartNode,
   action: ActionNode,
   end: EndNode,
   condition: ConditionNode,
+};
+
+const edgeTypes = {
+  condition: ConditionEdge,
+  smoothstep: undefined as any, // built-in
 };
 
 let id = 0;
@@ -81,7 +153,14 @@ export function WorkflowCanvas({ nodes, edges, onNodesChange, onEdgesChange, set
 
   const onConnect = useCallback(
     (params: Connection | Edge) => {
-      setEdges((eds: any) => addEdge({ ...params, type: 'smoothstep' }, eds));
+      const handle = (params as any).sourceHandle;
+      const isConditionHandle = handle === 'true' || handle === 'false';
+      setEdges((eds: any) =>
+        addEdge(
+          { ...params, type: isConditionHandle ? 'condition' : 'smoothstep' },
+          eds
+        )
+      );
     },
     [setEdges]
   );
@@ -142,6 +221,7 @@ export function WorkflowCanvas({ nodes, edges, onNodesChange, onEdgesChange, set
           onDragOver={onDragOver}
           onSelectionChange={onSelectionChange}
           nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
           defaultEdgeOptions={{ type: 'smoothstep' }}
           fitView
         >

@@ -290,6 +290,42 @@ async def get_workflow_run_detail(run_id: UUID, db: Session = Depends(get_db), t
     run_dict["nodes"] = nodes
     return run_dict
 
+
+@catalog_router.post(
+    "/workflow-runs/{run_id}/retry",
+    response_model=WorkflowRunRead,
+    dependencies=[Depends(require_module("workflow")), Depends(require_feature("workflow.studio"))],
+)
+async def retry_workflow_run(
+    run_id: UUID,
+    db: Session = Depends(get_db),
+    tenant_id: UUID = Depends(get_current_tenant_id),
+):
+    """
+    Reset a failed WorkflowRun back to 'pending' and re-queue it for execution.
+    Completed nodes remain idempotent-skipped by the engine.
+    """
+    run = await db.get(WorkflowRun, run_id)
+    if not run or run.tenant_id != tenant_id:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    if run.status not in ("failed", "cancelled"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Only failed or cancelled runs can be retried. Current status: {run.status}"
+        )
+
+    # Reset run status — the engine's idempotency layer will skip already-completed nodes
+    run.status = "pending"
+    run.error_message = None
+    run.ended_at = None
+    db.add(run)
+    await db.commit()
+    await db.refresh(run)
+
+    execute_workflow_run_task.delay(str(run.id))
+    return run
+
 @catalog_router.get("/workflow-triggers", response_model=List[WorkflowTriggerRead], dependencies=[Depends(require_module("workflow")), Depends(require_feature("workflow.studio"))])
 async def get_workflow_triggers(db: Session = Depends(get_db)):
     stmt = select(WorkflowTrigger).where(WorkflowTrigger.is_active == True)

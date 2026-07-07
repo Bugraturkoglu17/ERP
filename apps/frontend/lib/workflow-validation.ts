@@ -31,6 +31,7 @@ export function parseBackendDsl(dslJson: string | null): { nodes: Node[], edges:
           id: `edge-${i}-${e.from}-${e.to}`,
           source: e.from,
           target: e.to,
+          sourceHandle: e.sourceHandle ?? null,
           type: 'smoothstep'
         });
       });
@@ -55,7 +56,8 @@ export function exportToBackendDsl(nodes: Node[], edges: Edge[]): string {
     })),
     edges: edges.map(e => ({
       from: e.source,
-      to: e.target
+      to: e.target,
+      ...(e.sourceHandle ? { sourceHandle: e.sourceHandle } : {})
     }))
   };
 

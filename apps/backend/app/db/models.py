@@ -1551,6 +1551,7 @@ class WorkflowAction(SQLModel, table=True):
     required_feature: Optional[str]  = Field(default=None, max_length=255)
     celery_task:      Optional[str]  = Field(default=None, max_length=255)
     endpoint_pattern: Optional[str]  = Field(default=None, max_length=255)
+    config_schema:    Optional[str]  = Field(default=None, sa_type=Text)
     is_active:        bool           = Field(default=True)
 
 

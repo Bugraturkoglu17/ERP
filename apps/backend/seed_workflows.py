@@ -40,32 +40,81 @@ async def seed_data():
             """), t)
 
         # Seed WorkflowActions
+        import json
         actions = [
             {
                 "action_type": "send_email",
                 "module_id": "notifications",
                 "label_tr": "E-posta Gönder",
-                "celery_task": "app.core.workers.tasks.send_email_task"
+                "celery_task": "app.core.workers.tasks.send_email_task",
+                "config_schema": json.dumps({
+                    "type": "object",
+                    "properties": {
+                        "to": {"type": "string", "title": "Alıcı E-posta"},
+                        "subject": {"type": "string", "title": "Konu"},
+                        "body": {"type": "string", "title": "İçerik", "x-display": "textarea"}
+                    },
+                    "required": ["to", "subject", "body"]
+                })
             },
             {
                 "action_type": "send_whatsapp",
                 "module_id": "whatsapp",
                 "label_tr": "WhatsApp Mesajı Gönder",
-                "celery_task": "app.core.workers.tasks.send_whatsapp_task"
+                "celery_task": "app.core.workers.tasks.send_whatsapp_task",
+                "config_schema": json.dumps({
+                    "type": "object",
+                    "properties": {
+                        "phone_number": {"type": "string", "title": "Telefon Numarası"},
+                        "message": {"type": "string", "title": "Mesaj", "x-display": "textarea"}
+                    },
+                    "required": ["phone_number", "message"]
+                })
             },
             {
                 "action_type": "create_approval",
                 "module_id": "approvals",
                 "label_tr": "Onay Talebi Oluştur",
-                "celery_task": "app.core.workers.tasks.create_approval_task"
+                "celery_task": "app.core.workers.tasks.create_approval_task",
+                "config_schema": json.dumps({
+                    "type": "object",
+                    "properties": {
+                        "title": {"type": "string", "title": "Onay Başlığı"},
+                        "approver_role": {
+                            "type": "string",
+                            "title": "Onaylayacak Rol",
+                            "enum": ["admin", "saha_muhendisi", "musteri_kullanici"]
+                        },
+                        "details": {"type": "string", "title": "Açıklama Detayı", "x-display": "textarea"}
+                    },
+                    "required": ["title", "approver_role"]
+                })
+            },
+            {
+                "action_type": "update_work_order",
+                "module_id": "work_orders",
+                "label_tr": "İş Emrini Güncelle",
+                "celery_task": "app.core.workers.tasks.update_work_order_task",
+                "config_schema": json.dumps({
+                    "type": "object",
+                    "properties": {
+                        "status": {
+                            "type": "string",
+                            "title": "İş Emri Durumu",
+                            "enum": ["pending", "in_progress", "completed", "cancelled"]
+                        },
+                        "notes": {"type": "string", "title": "Güncelleme Notları", "x-display": "textarea"}
+                    },
+                    "required": ["status"]
+                })
             }
         ]
         
         for a in actions:
             await db.execute(text("""
-                INSERT INTO workflow_actions (id, action_type, module_id, label_tr, celery_task, is_active)
-                VALUES (gen_random_uuid(), :action_type, :module_id, :label_tr, :celery_task, true)
-                ON CONFLICT (action_type) DO NOTHING
+                INSERT INTO workflow_actions (id, action_type, module_id, label_tr, celery_task, config_schema, is_active)
+                VALUES (gen_random_uuid(), :action_type, :module_id, :label_tr, :celery_task, :config_schema, true)
+                ON CONFLICT (action_type) DO UPDATE SET config_schema = EXCLUDED.config_schema, label_tr = EXCLUDED.label_tr, celery_task = EXCLUDED.celery_task
             """), a)
 
         # Seed WorkflowTemplates

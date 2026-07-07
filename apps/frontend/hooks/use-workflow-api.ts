@@ -128,7 +128,18 @@ export function useWorkflowRun(runId: string | null) {
     if (runId) fetchRun();
   }, [runId, fetchRun]);
 
-  return { run, loading, error, mutate: fetchRun };
+  const retryRun = useCallback(async () => {
+    if (!runId) return null;
+    try {
+      const data = await apiPost(`/workflow-runs/${runId}/retry`, {});
+      await fetchRun();
+      return data;
+    } catch (err: any) {
+      throw new Error(err.message || 'Retry failed');
+    }
+  }, [runId, fetchRun]);
+
+  return { run, loading, error, mutate: fetchRun, retryRun };
 }
 
 export function useWorkflowActions() {

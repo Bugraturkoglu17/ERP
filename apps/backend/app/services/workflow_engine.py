@@ -1,7 +1,8 @@
 import json
 import logging
+import re
 from datetime import datetime, timezone
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from sqlmodel import Session, select
@@ -10,6 +11,58 @@ from app.db.models import WorkflowRun, WorkflowRunNode, WorkflowVersion
 from app.services.workflow_action_service import WorkflowActionService
 
 logger = logging.getLogger(__name__)
+
+
+def _resolve_field(data: Dict[str, Any], field_path: str) -> Any:
+    """
+    Resolve a dot-notation field path from data dict.
+    e.g. 'payload.amount' -> data['payload']['amount']
+    """
+    parts = field_path.split('.')
+    value = data
+    for part in parts:
+        if isinstance(value, dict):
+            value = value.get(part)
+        else:
+            return None
+    return value
+
+
+def evaluate_condition(node_def: Dict[str, Any], context_data: Dict[str, Any]) -> bool:
+    """
+    Evaluate a condition node against context data.
+    Returns True (follow 'true' branch) or False (follow 'false' branch).
+    """
+    config = node_def.get('config', {})
+    field = config.get('field', '')
+    operator = config.get('operator', 'equals')
+    compare_value = config.get('value', '')
+
+    if not field:
+        logger.warning('Condition node has no field configured, defaulting to True')
+        return True
+
+    actual_value = _resolve_field(context_data, field)
+
+    try:
+        if operator == 'equals':
+            return str(actual_value) == str(compare_value)
+        elif operator == 'not_equals':
+            return str(actual_value) != str(compare_value)
+        elif operator == 'greater_than':
+            return float(actual_value or 0) > float(compare_value or 0)
+        elif operator == 'less_than':
+            return float(actual_value or 0) < float(compare_value or 0)
+        elif operator == 'contains':
+            return str(compare_value) in str(actual_value or '')
+        elif operator == 'exists':
+            return actual_value is not None
+        else:
+            logger.warning(f'Unknown operator: {operator}, defaulting to True')
+            return True
+    except (TypeError, ValueError) as e:
+        logger.warning(f'Condition evaluation error (field={field}, op={operator}): {e}')
+        return False
 
 def utc_now() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
@@ -54,11 +107,17 @@ class WorkflowEngine:
             nodes = {n["id"]: n for n in dsl.get("nodes", [])}
             edges = dsl.get("edges", [])
 
-            # Adj list
-            adj: Dict[str, List[str]] = {n: [] for n in nodes}
+            # Build adjacency list that respects sourceHandle for condition branches
+            # adj[node_id] = {"true": [node_ids], "false": [node_ids], "default": [node_ids]}
+            adj: Dict[str, Dict[str, List[str]]] = {n: {"true": [], "false": [], "default": []} for n in nodes}
             for e in edges:
-                if e["from"] in adj:
-                    adj[e["from"]].append(e["to"])
+                src = e.get("from") or e.get("source")
+                tgt = e.get("to") or e.get("target")
+                handle = e.get("sourceHandle") or "default"
+                if src in adj:
+                    adj[src][handle].append(tgt)
+                    if handle not in ("true", "false"):
+                        adj[src]["default"].append(tgt)
 
             # Bul start node
             start_nodes = [nid for nid, n in nodes.items() if n.get("type") == "start"]
@@ -72,7 +131,7 @@ class WorkflowEngine:
             if run.trigger_payload:
                 context_data = json.loads(run.trigger_payload)
 
-            # Simple sequential execution (P0)
+            # Sequential DAG execution
             visited = set()
 
             while current_node_id:
@@ -106,38 +165,36 @@ class WorkflowEngine:
                     self.db.add(node_run)
                     await self.db.commit()
 
+                    condition_result: Optional[bool] = None
                     try:
                         if node_type == "action":
                             action_type = node_def.get("action_type")
                             config = node_def.get("config", {})
-                            # Pass context to config
                             merged_config = {**config, "trigger_context": context_data}
-                            
                             result = await self.action_service.dispatch_action(run.tenant_id, action_type, merged_config)
                             node_run.output_data = json.dumps(result)
-                            # Update context data with action results
                             context_data[current_node_id] = result
-                            
+
                         elif node_type == "condition":
-                            # P0: Assume condition always true or requires basic parsing
-                            # Not implemented full expression evaluator yet
-                            pass
-                            
+                            condition_result = evaluate_condition(node_def, context_data)
+                            node_run.output_data = json.dumps({"result": condition_result})
+                            logger.info(f"Condition node {current_node_id} evaluated to: {condition_result}")
+
                         elif node_type in ["start", "end"]:
-                            pass # No-op
-                            
+                            pass  # No-op
+
                         node_run.status = "completed"
                         node_run.ended_at = utc_now()
                         self.db.add(node_run)
                         await self.db.commit()
-                        
+
                     except Exception as e:
                         logger.error(f"Node execution failed: {str(e)}", exc_info=True)
                         node_run.status = "failed"
                         node_run.error_message = str(e)
                         node_run.ended_at = utc_now()
                         self.db.add(node_run)
-                        
+
                         run.status = "failed"
                         run.error_message = f"Failed at node {current_node_id}: {str(e)}"
                         run.ended_at = utc_now()
@@ -145,15 +202,20 @@ class WorkflowEngine:
                         await self.db.commit()
                         return False
 
-                # Move to next node
-                next_nodes = adj.get(current_node_id, [])
+                # Move to next node — respecting condition branches
+                branches = adj.get(current_node_id, {})
+                if node_type == "condition" and condition_result is not None:
+                    branch_key = "true" if condition_result else "false"
+                    next_nodes = branches.get(branch_key, []) or branches.get("default", [])
+                else:
+                    next_nodes = branches.get("default", [])
+                    if not next_nodes:
+                        # fallback: collect all
+                        next_nodes = branches.get("true", []) + branches.get("false", [])
+
                 if not next_nodes:
                     break
-                elif len(next_nodes) > 1:
-                    # P0: Sadece ilk edge'i takip ediyoruz condition olmadan
-                    current_node_id = next_nodes[0]
-                else:
-                    current_node_id = next_nodes[0]
+                current_node_id = next_nodes[0]
 
             run.status = "completed"
             run.ended_at = utc_now()

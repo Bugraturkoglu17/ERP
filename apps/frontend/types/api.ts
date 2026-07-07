@@ -5717,6 +5717,8 @@ export interface components {
             required_feature: string | null;
             /** Is Active */
             is_active: boolean;
+            /** Config Schema - JSON Schema string for dynamic form rendering */
+            config_schema?: string | null;
         };
         /** WorkflowDefinitionCreate */
         WorkflowDefinitionCreate: {

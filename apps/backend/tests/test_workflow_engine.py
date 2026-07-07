@@ -185,3 +185,71 @@ async def test_workflow_engine_action_failure_fails_run(mock_db, mock_action_ser
     assert result is False
     assert run.status == "failed"
     assert "Feature not enabled" in run.error_message
+
+
+# ---------------------------------------------------------------------------
+# evaluate_condition unit tests
+# ---------------------------------------------------------------------------
+
+from app.services.workflow_engine import evaluate_condition, _resolve_field
+
+
+def test_resolve_field_simple():
+    assert _resolve_field({"amount": 200}, "amount") == 200
+
+
+def test_resolve_field_dot_notation():
+    data = {"payload": {"amount": 500}}
+    assert _resolve_field(data, "payload.amount") == 500
+
+
+def test_resolve_field_missing():
+    assert _resolve_field({}, "missing.key") is None
+
+
+def test_evaluate_condition_equals_true():
+    node = {"config": {"field": "status", "operator": "equals", "value": "approved"}}
+    assert evaluate_condition(node, {"status": "approved"}) is True
+
+
+def test_evaluate_condition_equals_false():
+    node = {"config": {"field": "status", "operator": "equals", "value": "approved"}}
+    assert evaluate_condition(node, {"status": "pending"}) is False
+
+
+def test_evaluate_condition_not_equals():
+    node = {"config": {"field": "status", "operator": "not_equals", "value": "cancelled"}}
+    assert evaluate_condition(node, {"status": "approved"}) is True
+
+
+def test_evaluate_condition_greater_than():
+    node = {"config": {"field": "amount", "operator": "greater_than", "value": "100"}}
+    assert evaluate_condition(node, {"amount": 200}) is True
+    assert evaluate_condition(node, {"amount": 50}) is False
+
+
+def test_evaluate_condition_less_than():
+    node = {"config": {"field": "amount", "operator": "less_than", "value": "100"}}
+    assert evaluate_condition(node, {"amount": 50}) is True
+    assert evaluate_condition(node, {"amount": 200}) is False
+
+
+def test_evaluate_condition_contains():
+    node = {"config": {"field": "name", "operator": "contains", "value": "test"}}
+    assert evaluate_condition(node, {"name": "testing"}) is True
+    assert evaluate_condition(node, {"name": "production"}) is False
+
+
+def test_evaluate_condition_exists_true():
+    node = {"config": {"field": "email", "operator": "exists", "value": ""}}
+    assert evaluate_condition(node, {"email": "user@example.com"}) is True
+
+
+def test_evaluate_condition_exists_false():
+    node = {"config": {"field": "email", "operator": "exists", "value": ""}}
+    assert evaluate_condition(node, {}) is False
+
+
+def test_evaluate_condition_no_field_defaults_true():
+    node = {"config": {"operator": "equals", "value": "x"}}
+    assert evaluate_condition(node, {}) is True

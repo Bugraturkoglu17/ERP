@@ -1306,6 +1306,7 @@ class WorkflowActionRead(BaseModel):
     module_id:        str
     label_tr:         str
     required_feature: str | None
+    config_schema:    str | None = None
     is_active:        bool
     model_config = ConfigDict(from_attributes=True)
 
