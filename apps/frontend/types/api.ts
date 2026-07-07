@@ -1041,6 +1041,143 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/platform/modules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Modules */
+        get: operations["list_modules_api_v1_platform_modules_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/features": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Features */
+        get: operations["list_features_api_v1_platform_features_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/quotas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Quotas */
+        get: operations["list_quotas_api_v1_platform_quotas_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/marketplace/listings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Marketplace Listings */
+        get: operations["list_marketplace_listings_api_v1_platform_marketplace_listings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/tenants/{tenant_id}/marketplace/install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Install Marketplace Listing */
+        post: operations["install_marketplace_listing_api_v1_platform_tenants__tenant_id__marketplace_install_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/tenants/{tenant_id}/entitlements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Tenant Entitlements */
+        get: operations["get_tenant_entitlements_api_v1_platform_tenants__tenant_id__entitlements_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/tenants/{tenant_id}/overrides": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Upsert Tenant Override */
+        put: operations["upsert_tenant_override_api_v1_platform_tenants__tenant_id__overrides_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/tenants/{tenant_id}/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Tenant Usage */
+        get: operations["get_tenant_usage_api_v1_platform_tenants__tenant_id__usage_get"];
+        put?: never;
+        /** Record Tenant Usage */
+        post: operations["record_tenant_usage_api_v1_platform_tenants__tenant_id__usage_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/platform/audit": {
         parameters: {
             query?: never;
@@ -1751,11 +1888,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * Sync Payment Approvals
-         * @description submitted_for_approval=True ama ilişkili StoreApprovalRequest olmayan
-         *     hakkedişler için otomatik approval kaydı oluşturur. Duplicate oluşturmaz.
-         */
+        /** Sync Payment Approvals */
         post: operations["sync_payment_approvals_api_v1_progress_payments_sync_approvals_post"];
         delete?: never;
         options?: never;
@@ -1822,10 +1955,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * List All Invoices
-         * @description Tenant genelinde tüm fatura kayıtlarını döner (isteğe bağlı tür/dönem filtresi).
-         */
+        /** List All Invoices */
         get: operations["list_all_invoices_api_v1_invoice_records_get"];
         put?: never;
         post?: never;
@@ -2164,6 +2294,180 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/workflows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Workflows */
+        get: operations["get_workflows_api_v1_workflows_get"];
+        put?: never;
+        /** Create Workflow */
+        post: operations["create_workflow_api_v1_workflows_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workflows/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Workflow */
+        get: operations["get_workflow_api_v1_workflows__id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Workflow */
+        delete: operations["delete_workflow_api_v1_workflows__id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Workflow */
+        patch: operations["update_workflow_api_v1_workflows__id__patch"];
+        trace?: never;
+    };
+    "/api/v1/workflows/{id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Workflow Versions */
+        get: operations["get_workflow_versions_api_v1_workflows__id__versions_get"];
+        put?: never;
+        /** Create Workflow Version */
+        post: operations["create_workflow_version_api_v1_workflows__id__versions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workflows/{id}/trigger": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Trigger Workflow */
+        post: operations["trigger_workflow_api_v1_workflows__id__trigger_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workflow-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Workflow Runs */
+        get: operations["get_workflow_runs_api_v1_workflow_runs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workflow-runs/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Workflow Run Detail */
+        get: operations["get_workflow_run_detail_api_v1_workflow_runs__run_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workflow-triggers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Workflow Triggers */
+        get: operations["get_workflow_triggers_api_v1_workflow_triggers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workflow-actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Workflow Actions */
+        get: operations["get_workflow_actions_api_v1_workflow_actions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workflow-templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Workflow Templates */
+        get: operations["get_workflow_templates_api_v1_workflow_templates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workflow-templates/{id}/clone": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Clone Workflow Template */
+        post: operations["clone_workflow_template_api_v1_workflow_templates__id__clone_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/health": {
         parameters: {
             query?: never;
@@ -2295,6 +2599,23 @@ export interface paths {
         };
         /** Meta Dashboard Data */
         get: operations["meta_dashboard_api_v1_meta_dashboard_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/meta/modules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Module Registry */
+        get: operations["module_registry_summary_api_v1_meta_modules_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2665,6 +2986,37 @@ export interface components {
             enabled_modules: string[];
             /** Feature Flags */
             feature_flags: string[];
+            /**
+             * Active Modules
+             * @default []
+             */
+            active_modules: string[];
+            /**
+             * Active Features
+             * @default []
+             */
+            active_features: string[];
+            /**
+             * Effective Quotas
+             * @default {}
+             */
+            effective_quotas: {
+                [key: string]: number;
+            };
+            /**
+             * Usage Summary
+             * @default {}
+             */
+            usage_summary: Record<string, never>;
+            /**
+             * Entitlement Source
+             * @default {}
+             */
+            entitlement_source: Record<string, never>;
+            /** Plan */
+            plan?: Record<string, never> | null;
+            /** Subscription */
+            subscription?: Record<string, never> | null;
             /**
              * Context Id
              * Format: uuid
@@ -3250,6 +3602,26 @@ export interface components {
              */
             created_at: string;
         };
+        /** MarketplaceInstallRequest */
+        MarketplaceInstallRequest: {
+            /** Listing Id */
+            listing_id: string;
+        };
+        /** MarketplaceListingRead */
+        MarketplaceListingRead: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Category */
+            category: string;
+            /** Module Ids */
+            module_ids?: string[];
+            /** Feature Ids */
+            feature_ids?: string[];
+            /** Status */
+            status: string;
+        };
         /**
          * Material
          * @description Şirketin kullandığı malzeme / ekipman ana kataloğu.
@@ -3506,11 +3878,14 @@ export interface components {
              * @default 5
              */
             storage_limit_gb: number;
-            /**
-             * Modules
-             * @default []
-             */
-            modules: string[];
+            /** Modules */
+            modules?: string[];
+            /** Features */
+            features?: string[];
+            /** Quotas */
+            quotas?: {
+                [key: string]: number;
+            };
         };
         /** PlatformPlanRead */
         PlatformPlanRead: {
@@ -3529,6 +3904,12 @@ export interface components {
             storage_limit_gb: number;
             /** Modules */
             modules: string[];
+            /** Features */
+            features?: string[];
+            /** Quotas */
+            quotas?: {
+                [key: string]: number;
+            };
             /** Is Active */
             is_active: boolean;
             /**
@@ -3556,6 +3937,8 @@ export interface components {
             status: string;
             /** Ends At */
             ends_at?: string | null;
+            /** Overrides */
+            overrides?: Record<string, never>;
         };
         /** PlatformSubscriptionRead */
         PlatformSubscriptionRead: {
@@ -3576,6 +3959,8 @@ export interface components {
             plan_id: string;
             /** Status */
             status: string;
+            /** Overrides */
+            overrides?: Record<string, never>;
             /**
              * Starts At
              * Format: date-time
@@ -4115,6 +4500,65 @@ export interface components {
             /** City */
             city?: string | null;
         };
+        /** RegistryFeatureRead */
+        RegistryFeatureRead: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Module Id */
+            module_id: string;
+            /** Category */
+            category: string;
+            /** Plan Tier */
+            plan_tier: string;
+            /**
+             * Enabled By Default
+             * @default false
+             */
+            enabled_by_default: boolean;
+        };
+        /** RegistryModuleRead */
+        RegistryModuleRead: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Category */
+            category: string;
+            /** Plan Tier */
+            plan_tier: string;
+            /** Dependencies */
+            dependencies?: string[];
+            /** Navigation */
+            navigation?: string[];
+            /** Permissions */
+            permissions?: string[];
+            /** Events */
+            events?: string[];
+            /** Routes */
+            routes?: string[];
+            /** Entities */
+            entities?: string[];
+            /**
+             * Marketplace Ready
+             * @default false
+             */
+            marketplace_ready: boolean;
+        };
+        /** RegistryQuotaRead */
+        RegistryQuotaRead: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Unit */
+            unit: string;
+            /** Default Limit */
+            default_limit: number;
+            /** Period */
+            period: string;
+        };
         /** ServiceFormCreate */
         ServiceFormCreate: {
             /** Year */
@@ -4632,6 +5076,24 @@ export interface components {
             email_digest_mode: string;
             /** Email Opt Out Templates */
             email_opt_out_templates?: string[];
+            /** Plan */
+            plan?: Record<string, never> | null;
+            /** Subscription */
+            subscription?: Record<string, never> | null;
+            /** Active Modules */
+            active_modules?: string[];
+            /** Active Features */
+            active_features?: string[];
+            /** Feature Flags */
+            feature_flags?: string[];
+            /** Effective Quotas */
+            effective_quotas?: {
+                [key: string]: number;
+            };
+            /** Usage Summary */
+            usage_summary?: Record<string, never>;
+            /** Entitlement Source */
+            entitlement_source?: Record<string, never>;
         };
         /** TenantCreate */
         TenantCreate: {
@@ -4647,6 +5109,41 @@ export interface components {
          * @enum {string}
          */
         TenantEmailMode: "platform" | "tenant_domain";
+        /** TenantEntitlementRead */
+        TenantEntitlementRead: {
+            /** Tenant Id */
+            tenant_id: string;
+            /** Plan Id */
+            plan_id?: string | null;
+            /** Subscription Id */
+            subscription_id?: string | null;
+            /** Modules */
+            modules?: string[];
+            /** Features */
+            features?: string[];
+            /** Quotas */
+            quotas?: {
+                [key: string]: number;
+            };
+            /** Entitlement Source */
+            entitlement_source?: Record<string, never>;
+        };
+        /** TenantOverrideUpsert */
+        TenantOverrideUpsert: {
+            /** Target Type */
+            target_type: string;
+            /** Target Id */
+            target_id: string;
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /** Limit Value */
+            limit_value?: number | null;
+            /** Reason */
+            reason?: string | null;
+        };
         /** TenantProfileUpdate */
         TenantProfileUpdate: {
             /** Tenant Name */
@@ -4855,6 +5352,36 @@ export interface components {
             related_project_id?: string | null;
             /** Unit Cost */
             unit_cost?: number | null;
+        };
+        /** UsageMeterRecordRequest */
+        UsageMeterRecordRequest: {
+            /** Meter Key */
+            meter_key: string;
+            /**
+             * Quantity
+             * @default 1
+             */
+            quantity: number;
+            /**
+             * Source
+             * @default manual
+             */
+            source: string;
+            /** Event Ref */
+            event_ref?: string | null;
+            /** Period Key */
+            period_key?: string | null;
+        };
+        /** UsageSummaryRead */
+        UsageSummaryRead: {
+            /** Tenant Id */
+            tenant_id: string;
+            /** Usage */
+            usage: Record<string, never>;
+            /** Quotas */
+            quotas: {
+                [key: string]: number;
+            };
         };
         /** UserCreate */
         UserCreate: {
@@ -5172,6 +5699,306 @@ export interface components {
              * @default true
              */
             send_whatsapp: boolean | null;
+        };
+        /** WorkflowActionRead */
+        WorkflowActionRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Action Type */
+            action_type: string;
+            /** Module Id */
+            module_id: string;
+            /** Label Tr */
+            label_tr: string;
+            /** Required Feature */
+            required_feature: string | null;
+            /** Is Active */
+            is_active: boolean;
+        };
+        /** WorkflowDefinitionCreate */
+        WorkflowDefinitionCreate: {
+            /** Name */
+            name: string;
+            /** Description */
+            description?: string | null;
+            /** Trigger Type */
+            trigger_type: string;
+            /** Trigger Config */
+            trigger_config?: string | null;
+            /** Module Id */
+            module_id?: string | null;
+            /** Dsl Json */
+            dsl_json: string;
+        };
+        /** WorkflowDefinitionRead */
+        WorkflowDefinitionRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Tenant Id
+             * Format: uuid
+             */
+            tenant_id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string | null;
+            /** Trigger Type */
+            trigger_type: string;
+            /** Trigger Config */
+            trigger_config: string | null;
+            /** Module Id */
+            module_id: string | null;
+            /** Is Active */
+            is_active: boolean;
+            /**
+             * Created By
+             * Format: uuid
+             */
+            created_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Active Version */
+            active_version?: number | null;
+        };
+        /** WorkflowDefinitionUpdate */
+        WorkflowDefinitionUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Trigger Type */
+            trigger_type?: string | null;
+            /** Trigger Config */
+            trigger_config?: string | null;
+            /** Module Id */
+            module_id?: string | null;
+            /** Is Active */
+            is_active?: boolean | null;
+        };
+        /** WorkflowRunCreate */
+        WorkflowRunCreate: {
+            /**
+             * Definition Id
+             * Format: uuid
+             */
+            definition_id: string;
+            /** Trigger Event Ref */
+            trigger_event_ref?: string | null;
+            /** Trigger Payload */
+            trigger_payload?: string | null;
+        };
+        /** WorkflowRunDetail */
+        WorkflowRunDetail: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Tenant Id
+             * Format: uuid
+             */
+            tenant_id: string;
+            /**
+             * Definition Id
+             * Format: uuid
+             */
+            definition_id: string;
+            /**
+             * Version Id
+             * Format: uuid
+             */
+            version_id: string;
+            /** Status */
+            status: string;
+            /** Trigger Event Ref */
+            trigger_event_ref: string | null;
+            /** Trigger Payload */
+            trigger_payload: string | null;
+            /** Started At */
+            started_at: string | null;
+            /** Ended At */
+            ended_at: string | null;
+            /** Error Message */
+            error_message: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Nodes
+             * @default []
+             */
+            nodes: components["schemas"]["WorkflowRunNodeRead"][];
+        };
+        /** WorkflowRunNodeRead */
+        WorkflowRunNodeRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /** Node Id */
+            node_id: string;
+            /** Node Type */
+            node_type: string;
+            /** Status */
+            status: string;
+            /** Attempt Count */
+            attempt_count: number;
+            /** Input Data */
+            input_data: string | null;
+            /** Output Data */
+            output_data: string | null;
+            /** Error Message */
+            error_message: string | null;
+            /** Started At */
+            started_at: string | null;
+            /** Ended At */
+            ended_at: string | null;
+        };
+        /** WorkflowRunRead */
+        WorkflowRunRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Tenant Id
+             * Format: uuid
+             */
+            tenant_id: string;
+            /**
+             * Definition Id
+             * Format: uuid
+             */
+            definition_id: string;
+            /**
+             * Version Id
+             * Format: uuid
+             */
+            version_id: string;
+            /** Status */
+            status: string;
+            /** Trigger Event Ref */
+            trigger_event_ref: string | null;
+            /** Trigger Payload */
+            trigger_payload: string | null;
+            /** Started At */
+            started_at: string | null;
+            /** Ended At */
+            ended_at: string | null;
+            /** Error Message */
+            error_message: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** WorkflowTemplateClone */
+        WorkflowTemplateClone: {
+            /** Name */
+            name?: string | null;
+        };
+        /** WorkflowTemplateRead */
+        WorkflowTemplateRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string | null;
+            /** Category */
+            category: string | null;
+            /** Dsl Json */
+            dsl_json: string;
+            /** Required Modules */
+            required_modules: string | null;
+            /** Required Features */
+            required_features: string | null;
+            /** Is Published */
+            is_published: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** WorkflowTriggerRead */
+        WorkflowTriggerRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Event Name */
+            event_name: string;
+            /** Module Id */
+            module_id: string;
+            /** Label Tr */
+            label_tr: string;
+            /** Payload Schema */
+            payload_schema: string | null;
+            /** Is Active */
+            is_active: boolean;
+        };
+        /** WorkflowVersionCreate */
+        WorkflowVersionCreate: {
+            /** Dsl Json */
+            dsl_json: string;
+        };
+        /** WorkflowVersionRead */
+        WorkflowVersionRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Definition Id
+             * Format: uuid
+             */
+            definition_id: string;
+            /** Version Number */
+            version_number: number;
+            /** Dsl Json */
+            dsl_json: string;
+            /**
+             * Published At
+             * Format: date-time
+             */
+            published_at: string;
+            /**
+             * Published By
+             * Format: uuid
+             */
+            published_by: string;
         };
     };
     responses: never;
@@ -7683,6 +8510,253 @@ export interface operations {
             };
         };
     };
+    list_modules_api_v1_platform_modules_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistryModuleRead"][];
+                };
+            };
+        };
+    };
+    list_features_api_v1_platform_features_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistryFeatureRead"][];
+                };
+            };
+        };
+    };
+    list_quotas_api_v1_platform_quotas_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistryQuotaRead"][];
+                };
+            };
+        };
+    };
+    list_marketplace_listings_api_v1_platform_marketplace_listings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarketplaceListingRead"][];
+                };
+            };
+        };
+    };
+    install_marketplace_listing_api_v1_platform_tenants__tenant_id__marketplace_install_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MarketplaceInstallRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_tenant_entitlements_api_v1_platform_tenants__tenant_id__entitlements_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantEntitlementRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upsert_tenant_override_api_v1_platform_tenants__tenant_id__overrides_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TenantOverrideUpsert"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantEntitlementRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_tenant_usage_api_v1_platform_tenants__tenant_id__usage_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageSummaryRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    record_tenant_usage_api_v1_platform_tenants__tenant_id__usage_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UsageMeterRecordRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageSummaryRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_audit_logs_api_v1_platform_audit_get: {
         parameters: {
             query?: {
@@ -10160,6 +11234,401 @@ export interface operations {
             };
         };
     };
+    get_workflows_api_v1_workflows_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowDefinitionRead"][];
+                };
+            };
+        };
+    };
+    create_workflow_api_v1_workflows_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkflowDefinitionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowDefinitionRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_workflow_api_v1_workflows__id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowDefinitionRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_workflow_api_v1_workflows__id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_workflow_api_v1_workflows__id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkflowDefinitionUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowDefinitionRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_workflow_versions_api_v1_workflows__id__versions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowVersionRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_workflow_version_api_v1_workflows__id__versions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkflowVersionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowVersionRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    trigger_workflow_api_v1_workflows__id__trigger_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkflowRunCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowRunRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_workflow_runs_api_v1_workflow_runs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowRunRead"][];
+                };
+            };
+        };
+    };
+    get_workflow_run_detail_api_v1_workflow_runs__run_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowRunDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_workflow_triggers_api_v1_workflow_triggers_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowTriggerRead"][];
+                };
+            };
+        };
+    };
+    get_workflow_actions_api_v1_workflow_actions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowActionRead"][];
+                };
+            };
+        };
+    };
+    get_workflow_templates_api_v1_workflow_templates_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowTemplateRead"][];
+                };
+            };
+        };
+    };
+    clone_workflow_template_api_v1_workflow_templates__id__clone_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkflowTemplateClone"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowDefinitionRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     health_check_api_v1_health_get: {
         parameters: {
             query?: never;
@@ -10287,6 +11756,8 @@ export interface operations {
                 domain?: string;
                 route?: string;
                 event?: string;
+                feature?: string;
+                module?: string;
             };
             header?: never;
             path?: never;
@@ -10315,6 +11786,26 @@ export interface operations {
         };
     };
     meta_dashboard_api_v1_meta_dashboard_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    module_registry_summary_api_v1_meta_modules_get: {
         parameters: {
             query?: never;
             header?: never;

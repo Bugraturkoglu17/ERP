@@ -7,6 +7,49 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+### Sprint 18 — Modular Entitlement Platform
+#### Added
+- Module Registry, Feature Registry, Quota Registry, Marketplace Registry
+- EntitlementService, TenantUsageMeter, Tenant overrides
+- Marketplace installation altyapısı
+- Navigation Registry v2 entitlement filtering
+- Tenant context entitlement response
+- require_module / require_feature / require_quota
+- Usage metering
+- Error translations
+#### Tests
+- 25 passed (17 entitlement, 8 tenant context switching)
+#### Internal / Agent DX
+- Agent DX registry/impact updates
+
+### Sprint 19A — Workflow Backend Engine
+#### Added
+- 7 new models: WorkflowDefinition, WorkflowVersion, WorkflowRun, WorkflowRunNode, WorkflowTrigger, WorkflowAction, WorkflowTemplate
+- Migration: `fb1e7542ac9e_sprint19_workflow_engine.py`
+- Backend services: `workflow_trigger_service.py`, `workflow_action_service.py`, `workflow_engine.py`, `workflow_validator.py`
+- Celery task: `execute_workflow_run_task`
+- API endpoints: `/api/v1/workflows`, `/api/v1/workflows/{id}/versions`, `/api/v1/workflows/{id}/trigger`, `/api/v1/workflow-runs`, `/api/v1/workflow-runs/{run_id}`, `/api/v1/workflow-triggers`, `/api/v1/workflow-actions`, `/api/v1/workflow-templates`, `/api/v1/workflow-templates/{id}/clone`
+- Registry updates: `modules.json` (workflow updated), `features.json` (workflow.templates added), `quotas.json` (workflow_runs added), `architecture/workflow.json` (added)
+#### Security
+- Tenant isolation, Entitlement enforcement, Idempotency, DAG validation
+#### Tests
+- 16 workflow backend tests passed
+#### Internal / Agent DX
+- Usage metering
+
+### Sprint 19B — Visual Workflow Designer
+#### Added
+- Frontend pages: `/workflow`, `/workflow/new`, `/workflow/templates`, `/workflow/[id]`, `/workflow/[id]/runs`, `/workflow/[id]/runs/[runId]`
+- Components: `workflow-canvas.tsx`, `start-node.tsx`, `action-node.tsx`, `condition-node.tsx`, `end-node.tsx`, `node-config-panel.tsx`
+- API hook: `use-workflow-api.ts`
+- Features: React Flow drag/drop canvas, DSL import/export, Start/Action/Condition/End node support, template gallery, template clone, run history, run detail/node timeline, entitlement-aware navigation
+#### Fixed
+- Fixed Typescript typing issues in `use-workflow-api.ts`
+#### Tests
+- Lint passed (2 legacy warnings)
+- Production build passed
+
+
 ### Added
 - Multi-tenant platform administration backend route group (`/api/v1/platform/*`).
 - Tenant baseline migration (`apps/backend/alembic/versions/20260518_01_tenant_baseline.py`).

@@ -13,6 +13,7 @@ import {
   CreditCard,
   Cpu,
   History,
+  Workflow,
   type LucideIcon,
 } from "lucide-react";
 
@@ -139,6 +140,15 @@ export const NAV_ENTRIES: NavEntry[] = [
   },
 
   // ── Tenant Operasyonları ───────────────────────────────────────────────────
+  {
+    label: "Workflow Studio",
+    href: "/workflow",
+    icon: Workflow,
+    allowedRoles: ["admin"],
+    context: "tenant",
+    moduleKey: "workflow",
+    featureKey: "workflow.studio",
+  },
   {
     label: "Genel Bakış",
     href: "/",
