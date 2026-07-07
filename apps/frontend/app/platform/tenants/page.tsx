@@ -1188,19 +1188,19 @@ function PlatformTenantsPageContent() {
                           <div className="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-100">
                             <p className="text-[10px] uppercase text-slate-400 font-bold">Aktif Modüller</p>
                             <div className="mt-2 flex flex-wrap gap-1">
-                              {tenantEntitlement.modules.slice(0, 10).map((moduleId) => <span key={moduleId} className="rounded-md bg-white px-2 py-0.5 text-[10px] font-bold text-slate-700 ring-1 ring-slate-100">{moduleId}</span>)}
+                              {tenantEntitlement.modules.map((moduleId) => <span key={moduleId} className="rounded-md bg-white px-2 py-0.5 text-[10px] font-bold text-slate-700 ring-1 ring-slate-100">{moduleId}</span>)}
                             </div>
                           </div>
                           <div className="rounded-xl bg-indigo-50 p-3 ring-1 ring-indigo-100">
                             <p className="text-[10px] uppercase text-indigo-400 font-bold">Aktif Özellikler</p>
                             <div className="mt-2 flex flex-wrap gap-1">
-                              {tenantEntitlement.features.slice(0, 10).map((featureId) => <span key={featureId} className="rounded-md bg-white px-2 py-0.5 text-[10px] font-bold text-indigo-700 ring-1 ring-indigo-100">{featureId}</span>)}
+                              {tenantEntitlement.features.map((featureId) => <span key={featureId} className="rounded-md bg-white px-2 py-0.5 text-[10px] font-bold text-indigo-700 ring-1 ring-indigo-100">{featureId}</span>)}
                             </div>
                           </div>
                           <div className="rounded-xl bg-emerald-50 p-3 ring-1 ring-emerald-100">
                             <p className="text-[10px] uppercase text-emerald-500 font-bold">Kullanım / Limit</p>
                             <div className="mt-2 grid grid-cols-2 gap-1 text-[10px]">
-                              {Object.entries(tenantEntitlement.quotas).slice(0, 6).map(([key, limit]) => {
+                              {Object.entries(tenantEntitlement.quotas).map(([key, limit]) => {
                                 const usage = tenantEntitlement.usage?.[key]?.quantity || 0;
                                 return <span key={key} className="rounded-md bg-white px-2 py-0.5 font-bold text-emerald-800 ring-1 ring-emerald-100">{key}: {usage}/{limit || "∞"}</span>;
                               })}
