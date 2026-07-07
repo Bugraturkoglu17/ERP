@@ -26,6 +26,25 @@ function getActiveGroup(groups: NavGroup[], pathname: string): string | null {
   return null;
 }
 
+function extractEntitlements(rawContext: string | null): { modules?: string[]; features?: string[] } | undefined {
+  try {
+    const parsed = rawContext ? JSON.parse(rawContext) : null;
+    const modules = Array.isArray(parsed?.active_modules)
+      ? parsed.active_modules
+      : Array.isArray(parsed?.enabled_modules)
+        ? parsed.enabled_modules
+        : undefined;
+    const features = Array.isArray(parsed?.active_features)
+      ? parsed.active_features
+      : Array.isArray(parsed?.feature_flags)
+        ? parsed.feature_flags
+        : undefined;
+    return modules || features ? { modules, features } : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -50,24 +69,53 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
       const contextToken = window.localStorage.getItem("tenant_context_token");
       setHasContext(Boolean(contextToken));
       const rawContext = window.localStorage.getItem("tenant_context_data") || window.sessionStorage.getItem("tenant_context_v1");
-      try {
-        const parsed = rawContext ? JSON.parse(rawContext) : null;
-        const modules = Array.isArray(parsed?.active_modules)
-          ? parsed.active_modules
-          : Array.isArray(parsed?.enabled_modules)
-            ? parsed.enabled_modules
-            : undefined;
-        const features = Array.isArray(parsed?.active_features)
-          ? parsed.active_features
-          : Array.isArray(parsed?.feature_flags)
-            ? parsed.feature_flags
-            : undefined;
-        setEntitlements(modules || features ? { modules, features } : undefined);
-      } catch {
-        setEntitlements(undefined);
-      }
+      setEntitlements(extractEntitlements(rawContext));
     }
   }, [pathname]);
+
+  useEffect(() => {
+    if (!roles.length) return;
+
+    const refreshEntitlements = async () => {
+      if (typeof window === "undefined") return;
+
+      const contextToken = window.localStorage.getItem("tenant_context_token");
+      setHasContext(Boolean(contextToken));
+
+      if (contextToken) {
+        const rawContext = window.localStorage.getItem("tenant_context_data");
+        setEntitlements(extractEntitlements(rawContext));
+        return;
+      }
+
+      const ctx = await fetchTenantContext(true);
+      const modules = Array.isArray(ctx?.active_modules) ? ctx.active_modules : undefined;
+      const features = Array.isArray(ctx?.active_features) ? ctx.active_features : Array.isArray(ctx?.feature_flags) ? ctx.feature_flags : undefined;
+      setEntitlements(modules || features ? { modules, features } : undefined);
+    };
+
+    const onRefresh = () => {
+      void refreshEntitlements();
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") void refreshEntitlements();
+    };
+
+    void refreshEntitlements();
+    window.addEventListener("focus", onRefresh);
+    window.addEventListener("storage", onRefresh);
+    window.addEventListener("tenant-entitlements-updated", onRefresh);
+    document.addEventListener("visibilitychange", onVisibility);
+    const interval = window.setInterval(onRefresh, 30000);
+
+    return () => {
+      window.removeEventListener("focus", onRefresh);
+      window.removeEventListener("storage", onRefresh);
+      window.removeEventListener("tenant-entitlements-updated", onRefresh);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.clearInterval(interval);
+    };
+  }, [roles]);
 
   useEffect(() => {
     if (!roles.length) return;

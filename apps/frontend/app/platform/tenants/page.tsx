@@ -386,6 +386,36 @@ function PlatformTenantsPageContent() {
     return audit.filter((row) => row.tenant_id === selectedFirmaId);
   }, [audit, selectedFirmaId]);
 
+  const syncActiveTenantContext = (entitlement: TenantEntitlement) => {
+    if (typeof window === "undefined" || !selectedFirmaId) return;
+    const rawContext = window.localStorage.getItem("tenant_context_data");
+    if (!rawContext) {
+      window.dispatchEvent(new Event("tenant-entitlements-updated"));
+      return;
+    }
+    try {
+      const parsed = JSON.parse(rawContext);
+      if (parsed?.tenant_id !== selectedFirmaId) {
+        window.dispatchEvent(new Event("tenant-entitlements-updated"));
+        return;
+      }
+      const updated = {
+        ...parsed,
+        enabled_modules: entitlement.modules,
+        feature_flags: entitlement.features,
+        active_modules: entitlement.modules,
+        active_features: entitlement.features,
+        effective_quotas: entitlement.quotas,
+        entitlement_source: entitlement.entitlement_source || {},
+      };
+      window.localStorage.setItem("tenant_context_data", JSON.stringify(updated));
+      window.sessionStorage.setItem("tenant_context_v1", JSON.stringify(updated));
+    } catch {
+      // Ignore malformed local context; the sidebar will force-refresh on the event.
+    }
+    window.dispatchEvent(new Event("tenant-entitlements-updated"));
+  };
+
   const metrik = useMemo(() => {
     const adminSayisi = firmaYoneticileri.filter((u) => u.is_active).length;
     const limit = aktifPlan?.max_users || 0;
@@ -833,6 +863,7 @@ function PlatformTenantsPageContent() {
         reason: `Platform admin quick ${enabled ? "enable" : "disable"} from tenant screen`,
       });
       setTenantEntitlement({ ...entitlement, usage: tenantEntitlement?.usage || {} });
+      syncActiveTenantContext(entitlement);
       pushToast("ok", `${moduleId} modülü ${enabled ? "açıldı" : "kapatıldı"}.`);
     } catch (err: any) {
       pushToast("err", err?.response?.data?.detail || "Modül yetkisi güncellenemedi.");
@@ -852,6 +883,7 @@ function PlatformTenantsPageContent() {
         reason: `Platform admin quick ${enabled ? "enable" : "disable"} from tenant screen`,
       });
       setTenantEntitlement({ ...entitlement, usage: tenantEntitlement?.usage || {} });
+      syncActiveTenantContext(entitlement);
       pushToast("ok", `${featureId} özelliği ${enabled ? "aktifleştirildi" : "kapatıldı"}.`);
     } catch (err: any) {
       pushToast("err", err?.response?.data?.detail || "Özellik yetkisi güncellenemedi.");
@@ -873,6 +905,7 @@ function PlatformTenantsPageContent() {
         reason: `Platform admin quick quota ${label}${period ? ` (${period})` : ""} from tenant screen`,
       });
       setTenantEntitlement({ ...entitlement, usage: tenantEntitlement?.usage || {} });
+      syncActiveTenantContext(entitlement);
       pushToast("ok", `${quotaId} limiti ${label}.`);
     } catch (err: any) {
       pushToast("err", err?.response?.data?.detail || "Quota limiti güncellenemedi.");
