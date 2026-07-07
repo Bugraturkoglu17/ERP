@@ -200,9 +200,13 @@ def require_role(*role_names: str):
         
         print(f"DEBUG ROLE_CHECK: role_names={role_names}, token_roles={token_roles}, is_platform_only_route={is_platform_only_route}")
         
-        # Exempt notifications from requiring a tenant context for platform_admin
+        # Exempt notifications, meta, and auth from requiring a tenant context for platform_admin
         path = request.url.path
-        is_exempt_from_context = path.startswith("/api/v1/notifications")
+        is_exempt_from_context = (
+            path.startswith("/api/v1/notifications") or
+            path.startswith("/api/v1/meta") or
+            path.startswith("/api/v1/auth")
+        )
         
         if "platform_admin" in token_roles and not is_platform_only_route:
             x_tenant_context = request.headers.get("X-Tenant-Context") or request.headers.get("x-tenant-context")

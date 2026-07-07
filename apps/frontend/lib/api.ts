@@ -72,17 +72,21 @@ api.interceptors.response.use(
       }
     }
     if (error.response?.status === 403 && typeof window !== 'undefined') {
-      const errorType = error.response.data?.type;
+      const errorType = error.response.data?.type || error.response.data?.detail?.type;
+      const pathname = window.location.pathname;
+
       if (errorType === 'CONTEXT_INVALID' || errorType === 'CONTEXT_EXPIRED' || errorType === 'ENTITLEMENT_CONTEXT_MISSING') {
         window.localStorage.removeItem('tenant_context_token');
         window.localStorage.removeItem('tenant_context_data');
         window.sessionStorage.removeItem('tenant_context_v1');
-        window.location.href = '/platform';
+        
+        if (!pathname.startsWith('/platform')) {
+          window.location.href = '/platform';
+        }
         return Promise.reject(error);
       }
       
-      const pathname = window.location.pathname;
-      if (pathname !== '/' && pathname !== '/platform' && pathname !== '/login') {
+      if (pathname !== '/' && !pathname.startsWith('/platform') && pathname !== '/login') {
         hardRedirect('/');
       }
     }
