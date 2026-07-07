@@ -8,7 +8,6 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { PageHeader } from "@/components/common/page-header";
 import { DataState } from "@/components/common/data-state";
 
 function formatDuration(ms: number | null): string {
@@ -50,73 +49,54 @@ export default function WorkflowListPage() {
   const router = useRouter();
   const { workflows, loading, error } = useWorkflows();
   const { stats, loading: statsLoading } = useWorkflowStats();
+  const dashboardStats = stats ?? {
+    running: 0,
+    failed: 0,
+    stalled: 0,
+    completedToday: 0,
+    avgDurationMs: null,
+  };
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
-      {/* Header */}
-      <PageHeader
-        title="Workflow Studio"
-        description="Otomasyon iş akışlarınızı yönetin ve izleyin"
-        actions={
-          <>
-            <Button
-              variant="outline"
-              onClick={() => router.push("/workflow/templates")}
-            >
-              Şablonlar
-            </Button>
-            <Button
-              variant="primary"
-              onClick={() => router.push("/workflow/new")}
-              className="flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              Yeni Workflow
-            </Button>
-          </>
-        }
-      />
-
       {/* Monitoring Dashboard Cards */}
-      {!statsLoading && stats && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          <StatCard
-            label="Çalışıyor"
-            value={stats.running}
-            icon={RefreshCw}
-            colorClass="bg-blue-100 text-blue-700"
-            bgClass="bg-white border-slate-200"
-          />
-          <StatCard
-            label="Başarısız"
-            value={stats.failed}
-            icon={AlertCircle}
-            colorClass="bg-red-100 text-red-700"
-            bgClass={stats.failed > 0 ? "bg-red-50 border-red-200" : "bg-white border-slate-200"}
-          />
-          <StatCard
-            label="Takıldı"
-            value={stats.stalled}
-            icon={Timer}
-            colorClass="bg-amber-100 text-amber-700"
-            bgClass={stats.stalled > 0 ? "bg-amber-50 border-amber-200" : "bg-white border-slate-200"}
-          />
-          <StatCard
-            label="Bugün Tamamlandı"
-            value={stats.completedToday}
-            icon={CheckCircle2}
-            colorClass="bg-green-100 text-green-700"
-            bgClass="bg-white border-slate-200"
-          />
-          <StatCard
-            label="Ort. Süre"
-            value={formatDuration(stats.avgDurationMs)}
-            icon={Clock}
-            colorClass="bg-violet-100 text-violet-700"
-            bgClass="bg-white border-slate-200"
-          />
-        </div>
-      )}
+      <div className={statsLoading ? "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 opacity-60" : "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3"}>
+        <StatCard
+          label="Çalışıyor"
+          value={dashboardStats.running}
+          icon={RefreshCw}
+          colorClass="bg-blue-100 text-blue-700"
+          bgClass="bg-white border-slate-200"
+        />
+        <StatCard
+          label="Başarısız"
+          value={dashboardStats.failed}
+          icon={AlertCircle}
+          colorClass="bg-red-100 text-red-700"
+          bgClass={dashboardStats.failed > 0 ? "bg-red-50 border-red-200" : "bg-white border-slate-200"}
+        />
+        <StatCard
+          label="Takıldı"
+          value={dashboardStats.stalled}
+          icon={Timer}
+          colorClass="bg-amber-100 text-amber-700"
+          bgClass={dashboardStats.stalled > 0 ? "bg-amber-50 border-amber-200" : "bg-white border-slate-200"}
+        />
+        <StatCard
+          label="Bugün Tamamlandı"
+          value={dashboardStats.completedToday}
+          icon={CheckCircle2}
+          colorClass="bg-green-100 text-green-700"
+          bgClass="bg-white border-slate-200"
+        />
+        <StatCard
+          label="Ort. Süre"
+          value={formatDuration(dashboardStats.avgDurationMs)}
+          icon={Clock}
+          colorClass="bg-violet-100 text-violet-700"
+          bgClass="bg-white border-slate-200"
+        />
+      </div>
 
       {/* Data State wrapper */}
       <DataState

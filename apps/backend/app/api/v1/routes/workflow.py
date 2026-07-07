@@ -2,7 +2,7 @@ from typing import List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlmodel import Session
 
 from app.core.database import get_db
@@ -97,6 +97,30 @@ async def get_workflows(
     tenant_id: UUID = Depends(get_current_tenant_id),
 ):
     return await crud_workflow_definition.get_multi(db, tenant_id=tenant_id)
+
+
+@router.get(
+    "/stats",
+    response_model=WorkflowRunStats,
+    dependencies=[Depends(require_module("workflow")), Depends(require_feature("workflow.studio"))],
+)
+async def get_workflow_stats(
+    db: Session = Depends(get_db),
+    tenant_id: UUID = Depends(get_current_tenant_id),
+):
+    total_result = await db.execute(select(func.count()).select_from(WorkflowRun).where(WorkflowRun.tenant_id == tenant_id))
+    completed_result = await db.execute(select(func.count()).select_from(WorkflowRun).where(WorkflowRun.tenant_id == tenant_id, WorkflowRun.status == "completed"))
+    failed_result = await db.execute(select(func.count()).select_from(WorkflowRun).where(WorkflowRun.tenant_id == tenant_id, WorkflowRun.status == "failed"))
+    stalled_result = await db.execute(select(func.count()).select_from(WorkflowRun).where(WorkflowRun.tenant_id == tenant_id, WorkflowRun.status == "stalled"))
+    running_result = await db.execute(select(func.count()).select_from(WorkflowRun).where(WorkflowRun.tenant_id == tenant_id, WorkflowRun.status == "running"))
+
+    return WorkflowRunStats(
+        total_runs=total_result.scalar_one() or 0,
+        total_completed=completed_result.scalar_one() or 0,
+        total_failed=failed_result.scalar_one() or 0,
+        total_stalled=stalled_result.scalar_one() or 0,
+        total_running=running_result.scalar_one() or 0,
+    )
 
 @router.get(
     "/{id}",
