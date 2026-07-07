@@ -128,6 +128,64 @@ def execute_workflow_run_task(self, run_id_str: str) -> dict:
     return asyncio.run(_run())
 
 
+@celery_app.task(name="tasks.detect_stalled_workflow_runs", bind=True)
+def detect_stalled_workflow_runs_task(self) -> dict:
+    """
+    Periyodik Celery Beat görevi: 30+ dakika boyunca 'running' kalan
+    workflow run'larını 'stalled' olarak işaretler ve idempotent bildirim gönderir.
+    """
+    async def _run() -> dict:
+        from app.core.database import async_engine
+        from app.db.models import WorkflowRun, ErpNotification
+        from app.services.workflow_engine import _create_failure_notification
+        from datetime import timedelta
+        from sqlalchemy import select
+        from uuid import UUID
+
+        STALL_THRESHOLD_MINUTES = 30
+
+        try:
+            async with AsyncSessionLocal() as session:
+                cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(minutes=STALL_THRESHOLD_MINUTES)
+                stmt = (
+                    select(WorkflowRun)
+                    .where(
+                        WorkflowRun.status == "running",
+                        WorkflowRun.started_at <= cutoff,
+                    )
+                )
+                result = await session.execute(stmt)
+                stalled_runs = result.scalars().all()
+
+                count = 0
+                for run in stalled_runs:
+                    run.status = "stalled"
+                    run.stalled_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                    session.add(run)
+
+                    # Idempotent notification
+                    await _create_failure_notification(
+                        db=session,
+                        run=run,
+                        workflow_name=str(run.definition_id),
+                        event_type="workflow_stalled",
+                        title="🕛 İş Akışı Takıldı",
+                        description=f"{STALL_THRESHOLD_MINUTES} dakikadır ilerleme yok",
+                    )
+                    count += 1
+
+                await session.commit()
+                logger.info(f"Stalled workflow detection: {count} runs marked stalled.")
+                return {"stalled_count": count}
+        except Exception as e:
+            logger.error(f"Stalled detection task failed: {e}", exc_info=True)
+            return {"error": str(e)}
+        finally:
+            await async_engine.dispose()
+
+    return asyncio.run(_run())
+
+
 @celery_app.task(
     name="tasks.send_tenant_email",
     bind=True,

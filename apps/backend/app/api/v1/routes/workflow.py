@@ -270,10 +270,22 @@ async def trigger_workflow(
 catalog_router = APIRouter(tags=["Workflow Catalogs"])
 
 @catalog_router.get("/workflow-runs", response_model=List[WorkflowRunRead], dependencies=[Depends(require_module("workflow")), Depends(require_feature("workflow.studio"))])
-async def get_workflow_runs(db: Session = Depends(get_db), tenant_id: UUID = Depends(get_current_tenant_id)):
-    stmt = select(WorkflowRun).where(WorkflowRun.tenant_id == tenant_id).order_by(WorkflowRun.created_at.desc()).limit(100)
+async def get_workflow_runs(
+    db: Session = Depends(get_db),
+    tenant_id: UUID = Depends(get_current_tenant_id),
+    status: str | None = None,
+    definition_id: UUID | None = None,
+):
+    from typing import Optional as Opt
+    stmt = select(WorkflowRun).where(WorkflowRun.tenant_id == tenant_id)
+    if status:
+        stmt = stmt.where(WorkflowRun.status == status)
+    if definition_id:
+        stmt = stmt.where(WorkflowRun.definition_id == definition_id)
+    stmt = stmt.order_by(WorkflowRun.created_at.desc()).limit(200)
     res = await db.execute(stmt)
     return res.scalars().all()
+
 
 @catalog_router.get("/workflow-runs/{run_id}", response_model=WorkflowRunDetail, dependencies=[Depends(require_module("workflow")), Depends(require_feature("workflow.studio"))])
 async def get_workflow_run_detail(run_id: UUID, db: Session = Depends(get_db), tenant_id: UUID = Depends(get_current_tenant_id)):
@@ -294,7 +306,11 @@ async def get_workflow_run_detail(run_id: UUID, db: Session = Depends(get_db), t
 @catalog_router.post(
     "/workflow-runs/{run_id}/retry",
     response_model=WorkflowRunRead,
-    dependencies=[Depends(require_module("workflow")), Depends(require_feature("workflow.studio"))],
+    dependencies=[
+        Depends(require_module("workflow")),
+        Depends(require_feature("workflow.studio")),
+        Depends(require_quota("workflow_runs", 1)),
+    ],
 )
 async def retry_workflow_run(
     run_id: UUID,
@@ -302,29 +318,40 @@ async def retry_workflow_run(
     tenant_id: UUID = Depends(get_current_tenant_id),
 ):
     """
-    Reset a failed WorkflowRun back to 'pending' and re-queue it for execution.
-    Completed nodes remain idempotent-skipped by the engine.
+    Retry a failed/stalled/cancelled workflow run.
+
+    Design decision: creates a NEW WorkflowRun with parent_run_id = original run id.
+    - Original run is preserved unchanged (audit trail intact)
+    - New run consumes a workflow_runs quota slot (same as a fresh trigger)
+    - Retrying completed or running runs is not allowed (400)
     """
-    run = await db.get(WorkflowRun, run_id)
-    if not run or run.tenant_id != tenant_id:
+    original_run = await db.get(WorkflowRun, run_id)
+    if not original_run or original_run.tenant_id != tenant_id:
         raise HTTPException(status_code=404, detail="Run not found")
 
-    if run.status not in ("failed", "cancelled"):
+    if original_run.status not in ("failed", "stalled", "cancelled"):
         raise HTTPException(
             status_code=400,
-            detail=f"Only failed or cancelled runs can be retried. Current status: {run.status}"
+            detail=f"Only failed, stalled or cancelled runs can be retried. Current status: {original_run.status}"
         )
 
-    # Reset run status — the engine's idempotency layer will skip already-completed nodes
-    run.status = "pending"
-    run.error_message = None
-    run.ended_at = None
-    db.add(run)
+    # Create a fresh run linked to the original via parent_run_id
+    new_run = WorkflowRun(
+        tenant_id=tenant_id,
+        definition_id=original_run.definition_id,
+        version_id=original_run.version_id,
+        parent_run_id=original_run.id,
+        status="pending",
+        trigger_event_ref=None,  # retry runs don't carry original event ref (avoids unique constraint)
+        trigger_payload=original_run.trigger_payload,
+    )
+    db.add(new_run)
     await db.commit()
-    await db.refresh(run)
+    await db.refresh(new_run)
 
-    execute_workflow_run_task.delay(str(run.id))
-    return run
+    execute_workflow_run_task.delay(str(new_run.id))
+    return new_run
+
 
 @catalog_router.get("/workflow-triggers", response_model=List[WorkflowTriggerRead], dependencies=[Depends(require_module("workflow")), Depends(require_feature("workflow.studio"))])
 async def get_workflow_triggers(db: Session = Depends(get_db)):

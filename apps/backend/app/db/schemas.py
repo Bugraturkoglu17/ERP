@@ -1260,11 +1260,14 @@ class WorkflowRunRead(BaseModel):
     tenant_id:         UUID
     definition_id:     UUID
     version_id:        UUID
+    parent_run_id:     UUID | None
     status:            str
     trigger_event_ref: str | None
     trigger_payload:   str | None
     started_at:        datetime | None
     ended_at:          datetime | None
+    stalled_at:        datetime | None
+    alert_sent_at:     datetime | None
     error_message:     str | None
     created_at:        datetime
     model_config = ConfigDict(from_attributes=True)
@@ -1282,6 +1285,7 @@ class WorkflowRunNodeRead(BaseModel):
     error_message:  str | None
     started_at:     datetime | None
     ended_at:       datetime | None
+    max_attempts:   int | None = None
     model_config = ConfigDict(from_attributes=True)
 
 

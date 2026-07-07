@@ -32,3 +32,15 @@ celery_app.conf.update(
     worker_prefetch_multiplier = 1,
     broker_connection_retry_on_startup = True,
 )
+
+# ─── Celery Beat Schedule ──────────────────────────────────────────────────────
+celery_app.conf.beat_schedule = {
+    "detect-stalled-workflows": {
+        "task": "tasks.detect_stalled_workflow_runs",
+        "schedule": 300.0,   # her 5 dakika
+    },
+    "check-low-stock-hourly": {
+        "task": "tasks.check_low_stock",
+        "schedule": 3600.0,  # her 1 saat
+    },
+}

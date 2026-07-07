@@ -3,11 +3,11 @@ import logging
 import re
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from sqlmodel import Session, select
 
-from app.db.models import WorkflowRun, WorkflowRunNode, WorkflowVersion
+from app.db.models import ErpNotification, WorkflowRun, WorkflowRunNode, WorkflowVersion
 from app.services.workflow_action_service import WorkflowActionService
 
 logger = logging.getLogger(__name__)
@@ -66,6 +66,38 @@ def evaluate_condition(node_def: Dict[str, Any], context_data: Dict[str, Any]) -
 
 def utc_now() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+async def _create_failure_notification(
+    db: Session,
+    run: WorkflowRun,
+    workflow_name: str,
+    event_type: str,
+    title: str,
+    description: str,
+) -> None:
+    """
+    Idempotent in-app notification for failed/stalled workflow runs.
+    Guard: if alert_sent_at is already set, skip.
+    """
+    if run.alert_sent_at is not None:
+        logger.debug(f"Alert already sent for run {run.id}, skipping.")
+        return
+
+    link = f"/workflow/{run.definition_id}/runs/{run.id}"
+    notification = ErpNotification(
+        id=uuid4(),
+        tenant_id=run.tenant_id,
+        event_type=event_type,
+        title=title,
+        description=f"{description} | Run: {str(run.id)[:8]} | {link}",
+        is_read=False,
+        created_at=utc_now(),
+    )
+    db.add(notification)
+    run.alert_sent_at = utc_now()
+    db.add(run)
+    logger.info(f"Workflow failure notification created for run {run.id} (event={event_type})")
 
 class WorkflowEngine:
     def __init__(self, db: Session, action_service: WorkflowActionService):
@@ -199,6 +231,15 @@ class WorkflowEngine:
                         run.error_message = f"Failed at node {current_node_id}: {str(e)}"
                         run.ended_at = utc_now()
                         self.db.add(run)
+
+                        await _create_failure_notification(
+                            db=self.db,
+                            run=run,
+                            workflow_name=str(run.definition_id),
+                            event_type="workflow_failed",
+                            title="⚠️ İş Akışı Başarısız",
+                            description=f"Node '{current_node_id}' başarısız: {str(e)[:200]}",
+                        )
                         await self.db.commit()
                         return False
 
@@ -229,5 +270,14 @@ class WorkflowEngine:
             run.error_message = str(e)
             run.ended_at = utc_now()
             self.db.add(run)
+
+            await _create_failure_notification(
+                db=self.db,
+                run=run,
+                workflow_name=str(run.definition_id),
+                event_type="workflow_failed",
+                title="⚠️ İş Akışı Başarısız",
+                description=f"Beklenmedik hata: {str(e)[:200]}",
+            )
             await self.db.commit()
             return False
