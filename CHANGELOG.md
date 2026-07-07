@@ -7,6 +7,30 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+### Sprint 21.6 — Frontend Architecture Cleanup Foundation
+
+#### Added
+- Custom UI component library under components/ui
+- Shared common components under components/common
+- Zustand store foundation
+- Shared hooks foundation
+- Inventory module components
+- UI smoke tests
+
+#### Changed
+- Workflow pages refactored to shared UI patterns
+- Platform dashboard refactored to shared UI patterns
+- Inventory page split into reusable module components
+- Loading/error/empty states standardized
+
+#### Tests
+- UI button smoke test
+- usePagination test
+- npm run lint passed
+- npm run build passed
+
+---
+
 ### Sprint 20A — Dynamic Action Config Forms & Condition Engine
 
 #### Added

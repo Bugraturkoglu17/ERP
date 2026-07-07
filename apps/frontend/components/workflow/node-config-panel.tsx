@@ -16,6 +16,7 @@ type SchemaProperty = {
   type: string;
   title?: string;
   enum?: string[];
+  format?: string;
   'x-display'?: string;
 };
 
@@ -96,7 +97,7 @@ function SchemaForm({
           );
         }
 
-        if (prop['x-display'] === 'textarea') {
+        if (prop.format === 'textarea' || prop['x-display'] === 'textarea') {
           return (
             <div key={key}>
               {labelEl}

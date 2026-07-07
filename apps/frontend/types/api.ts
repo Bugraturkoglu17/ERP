@@ -5118,6 +5118,13 @@ export interface components {
             email_digest_mode: string;
             /** Email Opt Out Templates */
             email_opt_out_templates?: string[];
+            /**
+             * Workflow Email Alerts Enabled
+             * @default false
+             */
+            workflow_email_alerts_enabled: boolean;
+            /** Workflow Alert Recipients */
+            workflow_alert_recipients?: string[] | null;
             /** Plan */
             plan?: Record<string, never> | null;
             /** Subscription */
@@ -5249,6 +5256,10 @@ export interface components {
             email_digest_mode?: string | null;
             /** Email Opt Out Templates */
             email_opt_out_templates?: string[] | null;
+            /** Workflow Email Alerts Enabled */
+            workflow_email_alerts_enabled?: boolean | null;
+            /** Workflow Alert Recipients */
+            workflow_alert_recipients?: string[] | null;
             /**
              * Tenant Id
              * Format: uuid
@@ -5293,6 +5304,10 @@ export interface components {
             email_digest_mode?: string | null;
             /** Email Opt Out Templates */
             email_opt_out_templates?: string[] | null;
+            /** Workflow Email Alerts Enabled */
+            workflow_email_alerts_enabled?: boolean | null;
+            /** Workflow Alert Recipients */
+            workflow_alert_recipients?: string[] | null;
         };
         /** TenantUpdate */
         TenantUpdate: {

@@ -115,37 +115,25 @@ export function useWorkflowStats() {
     stalled: number;
     completedToday: number;
     avgDurationMs: number | null;
+    totalRuns: number;
+    mostFailingWorkflowId: string | null;
+    mostFailingWorkflowName: string | null;
   } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const data: any[] = await apiGet('/workflow-runs') as any[];
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        let running = 0, failed = 0, stalled = 0, completedToday = 0;
-        const durations: number[] = [];
-
-        for (const r of data) {
-          if (r.status === 'running') running++;
-          else if (r.status === 'failed') failed++;
-          else if (r.status === 'stalled') stalled++;
-          else if (r.status === 'completed' && r.ended_at && new Date(r.ended_at) >= today) {
-            completedToday++;
-          }
-          if (r.status === 'completed' && r.started_at && r.ended_at) {
-            durations.push(new Date(r.ended_at).getTime() - new Date(r.started_at).getTime());
-          }
-        }
-
+        const data: any = await apiGet('/workflows/stats');
         setStats({
-          running,
-          failed,
-          stalled,
-          completedToday,
-          avgDurationMs: durations.length > 0 ? durations.reduce((a, b) => a + b, 0) / durations.length : null,
+          running: data.total_running || 0,
+          failed: data.total_failed || 0,
+          stalled: data.total_stalled || 0,
+          completedToday: data.completed_today || 0,
+          avgDurationMs: data.avg_duration_ms || null,
+          totalRuns: data.total_runs || 0,
+          mostFailingWorkflowId: data.most_failing_workflow_id || null,
+          mostFailingWorkflowName: data.most_failing_workflow_name || null,
         });
       } catch {
         setStats(null);

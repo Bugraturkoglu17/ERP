@@ -1,15 +1,19 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useWorkflow } from "@/hooks/use-workflow-api";
 import { apiPatch, apiPost } from "@/lib/api";
 import { WorkflowDesignerWrap } from "@/components/workflow/workflow-canvas";
 import { NodeConfigPanel } from "@/components/workflow/node-config-panel";
 import { parseBackendDsl, exportToBackendDsl, validateWorkflow } from "@/lib/workflow-validation";
-import { ArrowLeft, Save, UploadCloud, Play, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Save, UploadCloud, Play, AlertCircle, CheckCircle2, History } from "lucide-react";
 import Link from "next/link";
 import { Node, Edge, useNodesState, useEdgesState } from "@xyflow/react";
+import { VersionHistoryPanel } from "@/components/workflow/version-history-panel";
+import { Button } from "@/components/ui/button";
+import { Alert } from "@/components/ui/alert";
+import { DataState } from "@/components/common/data-state";
 
 export default function WorkflowDesignerPage() {
   const { id } = useParams() as { id: string };
@@ -23,6 +27,7 @@ export default function WorkflowDesignerPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isTriggering, setIsTriggering] = useState(false);
+  const [isVersionHistoryOpen, setIsVersionHistoryOpen] = useState(false);
   
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -53,7 +58,7 @@ export default function WorkflowDesignerPage() {
       }
       return n;
     }));
-  }, []);
+  }, [setNodes]);
 
   const handleSave = async () => {
     try {
@@ -130,117 +135,129 @@ export default function WorkflowDesignerPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full text-slate-500">
-        <Loader2 className="w-8 h-8 animate-spin" />
-        <span className="ml-3 text-sm font-medium">Loading Designer...</span>
-      </div>
-    );
-  }
-
-  if (error || !workflow) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full text-red-500 p-6">
-        <AlertCircle className="w-8 h-8 mb-2" />
-        <span className="text-sm font-medium">Failed to load workflow: {error}</span>
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col h-full bg-slate-50">
-      {/* Top Navbar */}
-      <div className="h-14 bg-white border-b border-slate-200 px-4 flex items-center justify-between shrink-0 shadow-sm z-10">
-        <div className="flex items-center gap-3">
-          <Link 
-            href="/workflow"
-            className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-          <div className="h-6 w-px bg-slate-200 mx-1" />
-          <div>
-            <h2 className="text-sm font-bold text-slate-800">{workflow.name}</h2>
-            <p className="text-[11px] text-slate-500 leading-none mt-0.5">
-              Active Version: {workflow.active_version_id ? workflow.active_version_id.split("-")[0] : "None"} • 
-              Trigger: {workflow.trigger_type}
-            </p>
-          </div>
-        </div>
+      <DataState loading={loading} error={error} isEmpty={!workflow}>
+        {workflow && (
+          <>
+            {/* Top Navbar */}
+            <div className="h-14 bg-white border-b border-slate-200 px-4 flex items-center justify-between shrink-0 shadow-sm z-10">
+              <div className="flex items-center gap-3">
+                <Link 
+                  href="/workflow"
+                  className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </Link>
+                <div className="h-6 w-px bg-slate-200 mx-1" />
+                <div>
+                  <h2 className="text-sm font-bold text-slate-800">{workflow.name}</h2>
+                  <p className="text-[11px] text-slate-500 leading-none mt-0.5">
+                    Active Version: {workflow.active_version_id ? workflow.active_version_id.split("-")[0] : "None"} • 
+                    Trigger: {workflow.trigger_type}
+                  </p>
+                </div>
+              </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleSave}
-            disabled={isSaving}
-            className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors shadow-sm disabled:opacity-50"
-          >
-            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            Save Draft
-          </button>
-          
-          <button
-            onClick={handlePublish}
-            disabled={isPublishing}
-            className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50"
-          >
-            {isPublishing ? <Loader2 className="w-4 h-4 animate-spin" /> : <UploadCloud className="w-4 h-4" />}
-            Publish Version
-          </button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSave}
+                  loading={isSaving}
+                  className="flex items-center gap-2"
+                >
+                  <Save className="w-4 h-4" />
+                  Save Draft
+                </Button>
+                
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handlePublish}
+                  loading={isPublishing}
+                  className="flex items-center gap-2"
+                >
+                  <UploadCloud className="w-4 h-4" />
+                  Publish Version
+                </Button>
 
-          <div className="h-6 w-px bg-slate-200 mx-2" />
+                <div className="h-6 w-px bg-slate-200 mx-2" />
 
-          <button
-            onClick={handleManualTrigger}
-            disabled={isTriggering || !workflow.active_version_id}
-            title={!workflow.active_version_id ? "Publish a version first" : "Trigger manually"}
-            className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors shadow-sm disabled:opacity-50 disabled:grayscale"
-          >
-            {isTriggering ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-            Trigger
-          </button>
-        </div>
-      </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleManualTrigger}
+                  loading={isTriggering}
+                  disabled={!workflow.active_version_id}
+                  title={!workflow.active_version_id ? "Publish a version first" : "Trigger manually"}
+                  className="text-green-700 bg-green-50 border-green-200 hover:bg-green-100 flex items-center gap-2"
+                >
+                  <Play className="w-4 h-4" />
+                  Trigger
+                </Button>
 
-      {/* Notifications */}
-      <div className="absolute top-16 left-1/2 -translate-x-1/2 z-20 flex flex-col gap-2 w-full max-w-lg">
-        {validationErrors.length > 0 && (
-          <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg shadow-lg text-sm flex flex-col gap-1">
-            <div className="font-bold flex items-center gap-1"><AlertCircle className="w-4 h-4" /> Validation Errors:</div>
-            <ul className="list-disc pl-5">
-              {validationErrors.map((err, i) => <li key={i}>{err}</li>)}
-            </ul>
-          </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setIsVersionHistoryOpen(true)}
+                  className="flex items-center gap-2"
+                >
+                  <History className="w-4 h-4" />
+                  History
+                </Button>
+              </div>
+            </div>
+
+            {/* Notifications */}
+            <div className="absolute top-16 left-1/2 -translate-x-1/2 z-20 flex flex-col gap-2 w-full max-w-lg">
+              {validationErrors.length > 0 && (
+                <Alert variant="danger" title="Validation Errors" icon={<AlertCircle className="w-5 h-5" />}>
+                  <ul className="list-disc pl-5">
+                    {validationErrors.map((err, i) => <li key={i}>{err}</li>)}
+                  </ul>
+                </Alert>
+              )}
+              {successMessage && (
+                <Alert variant="success" icon={<CheckCircle2 className="w-5 h-5" />}>
+                  {successMessage}
+                </Alert>
+              )}
+            </div>
+
+            {/* Canvas Area */}
+            <div className="flex-1 relative">
+              <WorkflowDesignerWrap
+                nodes={nodes}
+                edges={edges}
+                onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+                setNodes={setNodes}
+                setEdges={setEdges}
+                onNodeSelect={handleNodeSelect}
+              />
+              
+              {/* Node Configuration Sidebar */}
+              {selectedNode && (
+                <NodeConfigPanel
+                  selectedNode={selectedNode}
+                  onUpdateNode={handleUpdateNode}
+                  onClose={() => setSelectedNode(null)}
+                />
+              )}
+              
+              {/* Version History Sidebar */}
+              {isVersionHistoryOpen && (
+                <VersionHistoryPanel
+                  workflowId={id}
+                  activeVersionId={workflow.active_version_id}
+                  onClose={() => setIsVersionHistoryOpen(false)}
+                />
+              )}
+            </div>
+          </>
         )}
-        {successMessage && (
-          <div className="p-3 bg-green-50 border border-green-200 text-green-800 rounded-lg shadow-lg text-sm flex items-center gap-2 font-medium">
-            <CheckCircle2 className="w-5 h-5 text-green-600" />
-            {successMessage}
-          </div>
-        )}
-      </div>
-
-      {/* Canvas Area */}
-      <div className="flex-1 relative">
-        <WorkflowDesignerWrap
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          setNodes={setNodes}
-          setEdges={setEdges}
-          onNodeSelect={handleNodeSelect}
-        />
-        
-        {/* Node Configuration Sidebar */}
-        {selectedNode && (
-          <NodeConfigPanel
-            selectedNode={selectedNode}
-            onUpdateNode={handleUpdateNode}
-            onClose={() => setSelectedNode(null)}
-          />
-        )}
-      </div>
+      </DataState>
     </div>
   );
 }

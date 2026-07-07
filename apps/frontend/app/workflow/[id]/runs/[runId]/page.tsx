@@ -31,11 +31,14 @@ function formatDuration(startedAt: string | null, endedAt: string | null): strin
 }
 
 function JsonCollapse({ label, json }: { label: string; json: string | null }) {
-  const [open, setOpen] = useState(false);
-  if (!json) return null;
-
   let parsed: any;
-  try { parsed = JSON.parse(json); } catch { parsed = json; }
+  try { parsed = json ? JSON.parse(json) : null; } catch { parsed = json; }
+
+  const strJson = parsed ? JSON.stringify(parsed, null, 2) : "";
+  const isSmall = strJson.split("\n").length <= 10;
+  
+  const [open, setOpen] = useState(isSmall);
+  if (!json) return null;
 
   return (
     <div className="mt-2">
