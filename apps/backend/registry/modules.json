@@ -118,15 +118,15 @@
   },
   {
     "id": "workflow",
-    "name": "Workflow Foundation",
+    "name": "Workflow Studio",
     "category": "automation",
     "plan_tier": "enterprise",
-    "dependencies": ["approvals", "notifications"],
-    "navigation": [],
-    "permissions": ["workflow:read", "workflow:configure"],
-    "events": [],
-    "routes": [],
-    "entities": [],
+    "dependencies": ["approvals", "notifications", "whatsapp"],
+    "navigation": ["/platform/workflows"],
+    "permissions": ["workflow:read", "workflow:configure", "workflow:execute"],
+    "events": ["workflow_run_started", "workflow_run_completed", "workflow_run_failed"],
+    "routes": ["/api/v1/workflows", "/api/v1/workflow-runs", "/api/v1/workflow-triggers", "/api/v1/workflow-actions", "/api/v1/workflow-templates"],
+    "entities": ["WorkflowDefinition", "WorkflowVersion", "WorkflowRun", "WorkflowRunNode", "WorkflowTrigger", "WorkflowAction", "WorkflowTemplate"],
     "marketplace_ready": true
   },
   {

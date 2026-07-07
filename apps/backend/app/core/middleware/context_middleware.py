@@ -25,51 +25,54 @@ class TenantContextMiddleware(BaseHTTPMiddleware):
                 actor_user_id = payload.get("sub")
                 context_id = payload.get("context_id")
                 
-                if not context_id:
-                    return JSONResponse(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        content={"detail": "Bağlam içinde oturum kimliği bulunamadı.", "type": "CONTEXT_INVALID"}
-                    )
-                
-                # Stateful check: query database to verify the session status
-                from datetime import datetime, timezone
-                async with AsyncSessionLocal() as db:
-                    session_stmt = select(PlatformContextSession).where(PlatformContextSession.id == UUID(context_id))
-                    session_res = await db.execute(session_stmt)
-                    session_obj = session_res.scalar_one_or_none()
-                    
-                    if not session_obj:
-                        return JSONResponse(
-                            status_code=status.HTTP_403_FORBIDDEN,
-                            content={"detail": "Aktif destek oturumu bulunamadı.", "type": "CONTEXT_INVALID"}
-                        )
-                    if session_obj.status != "active":
-                        return JSONResponse(
-                            status_code=status.HTTP_403_FORBIDDEN,
-                            content={
-                                "detail": f"Destek oturumu sonlandırılmış. Durum: {session_obj.status.upper()}",
-                                "type": "CONTEXT_INVALID"
-                            }
-                        )
-                    if session_obj.expires_at < datetime.now(timezone.utc).replace(tzinfo=None):
-                        session_obj.status = "expired"
-                        session_obj.ended_at = datetime.now(timezone.utc).replace(tzinfo=None)
-                        db.add(session_obj)
-                        await db.commit()
-                        return JSONResponse(
-                            status_code=status.HTTP_403_FORBIDDEN,
-                            content={"detail": "Destek oturumu süresi dolmuş.", "type": "CONTEXT_EXPIRED"}
-                        )
-
                 # Check path: platform paths, auth paths, health/ready are exempt
                 path = request.url.path
                 is_tenant_path = not (
                     path.startswith("/api/v1/platform") or 
                     path.startswith("/api/v1/auth") or 
+                    path.startswith("/api/v1/meta") or
+                    path.startswith("/api/v1/notifications") or
                     path.startswith("/health") or 
                     path.startswith("/ready") or
                     path.startswith("/static")
                 )
+                
+                if is_tenant_path:
+                    if not context_id:
+                        return JSONResponse(
+                            status_code=status.HTTP_403_FORBIDDEN,
+                            content={"detail": "Bağlam içinde oturum kimliği bulunamadı.", "type": "CONTEXT_INVALID"}
+                        )
+                        
+                    # Stateful check: query database to verify the session status
+                    from datetime import datetime, timezone
+                    async with AsyncSessionLocal() as db:
+                        session_stmt = select(PlatformContextSession).where(PlatformContextSession.id == UUID(context_id))
+                        session_res = await db.execute(session_stmt)
+                        session_obj = session_res.scalar_one_or_none()
+                        
+                        if not session_obj:
+                            return JSONResponse(
+                                status_code=status.HTTP_403_FORBIDDEN,
+                                content={"detail": "Aktif destek oturumu bulunamadı.", "type": "CONTEXT_INVALID"}
+                            )
+                        if session_obj.status != "active":
+                            return JSONResponse(
+                                status_code=status.HTTP_403_FORBIDDEN,
+                                content={
+                                    "detail": f"Destek oturumu sonlandırılmış. Durum: {session_obj.status.upper()}",
+                                    "type": "CONTEXT_INVALID"
+                                }
+                            )
+                        if session_obj.expires_at < datetime.now(timezone.utc).replace(tzinfo=None):
+                            session_obj.status = "expired"
+                            session_obj.ended_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                            db.add(session_obj)
+                            await db.commit()
+                            return JSONResponse(
+                                status_code=status.HTTP_403_FORBIDDEN,
+                                content={"detail": "Destek oturumu süresi dolmuş.", "type": "CONTEXT_EXPIRED"}
+                            )
                 
                 if is_tenant_path:
                     # 1. Read-Only Protection

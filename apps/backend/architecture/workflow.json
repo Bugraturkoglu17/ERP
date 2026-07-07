@@ -1,0 +1,47 @@
+{
+  "module": "workflow",
+  "name": "Workflow Studio",
+  "description": "Idempotent DAG execution engine for automation rules and workflows.",
+  "entities": [
+    "WorkflowDefinition",
+    "WorkflowVersion",
+    "WorkflowRun",
+    "WorkflowRunNode",
+    "WorkflowTrigger",
+    "WorkflowAction",
+    "WorkflowTemplate"
+  ],
+  "routes": [
+    "/api/v1/workflows",
+    "/api/v1/workflow-runs",
+    "/api/v1/workflow-triggers",
+    "/api/v1/workflow-actions",
+    "/api/v1/workflow-templates"
+  ],
+  "dependencies": [
+    "approvals",
+    "notifications",
+    "whatsapp"
+  ],
+  "permissions": [
+    "workflow:read",
+    "workflow:configure",
+    "workflow:execute"
+  ],
+  "events": [
+    "workflow_run_started",
+    "workflow_run_completed",
+    "workflow_run_failed"
+  ],
+  "tasks": [
+    "app.core.workers.tasks.execute_workflow_run_task"
+  ],
+  "security_policy": {
+    "tenant_isolation": "strict",
+    "rbac_enforced": true,
+    "entitlement_gates": [
+      "require_module('workflow')",
+      "require_feature('workflow.studio')"
+    ]
+  }
+}

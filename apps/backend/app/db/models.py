@@ -1447,3 +1447,125 @@ class ErpNotification(SQLModel, table=True):
     read_at:           Optional[datetime] = Field(default=None)
     created_at:        datetime       = Field(default_factory=utc_now, nullable=False, index=True)
 
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  WORKFLOW STUDIO / AUTOMATION PACK
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class WorkflowDefinition(SQLModel, table=True):
+    """
+    Tenant'a ait iş akışı tanımı (DSL blueprint).
+    """
+    __tablename__ = "workflow_definitions"
+
+    id:             UUID           = Field(default_factory=uuid4, primary_key=True)
+    tenant_id:      UUID           = Field(foreign_key="tenants.id", nullable=False, index=True)
+    name:           str            = Field(max_length=255)
+    description:    Optional[str]  = Field(default=None, max_length=1000)
+    trigger_type:   str            = Field(max_length=50)  # "event" | "schedule" | "manual"
+    trigger_config: Optional[str]  = Field(default=None)   # JSON string
+    module_id:      Optional[str]  = Field(default=None, max_length=100)
+    is_active:      bool           = Field(default=True)
+    created_by:     UUID           = Field(foreign_key="users.id")
+    created_at:     datetime       = Field(default_factory=utc_now, nullable=False)
+    updated_at:     datetime       = Field(default_factory=utc_now, sa_column_kwargs={"onupdate": utc_now})
+
+
+class WorkflowVersion(SQLModel, table=True):
+    """
+    WorkflowDefinition'ın immutable versiyonu.
+    """
+    __tablename__ = "workflow_versions"
+
+    id:             UUID           = Field(default_factory=uuid4, primary_key=True)
+    definition_id:  UUID           = Field(foreign_key="workflow_definitions.id", index=True)
+    version_number: int            = Field(index=True)
+    dsl_json:       str            = Field(sa_type=Text)  # JSON String: node list + edge list
+    published_at:   datetime       = Field(default_factory=utc_now, nullable=False)
+    published_by:   UUID           = Field(foreign_key="users.id")
+
+
+class WorkflowRun(SQLModel, table=True):
+    """
+    Bir workflow'un tek bir yürütme instance'ı.
+    """
+    __tablename__ = "workflow_runs"
+    __table_args__ = (UniqueConstraint("tenant_id", "trigger_event_ref", name="uq_workflow_run_event"),)
+
+    id:                UUID           = Field(default_factory=uuid4, primary_key=True)
+    tenant_id:         UUID           = Field(foreign_key="tenants.id", nullable=False, index=True)
+    definition_id:     UUID           = Field(foreign_key="workflow_definitions.id", index=True)
+    version_id:        UUID           = Field(foreign_key="workflow_versions.id", index=True)
+    status:            str            = Field(default="pending", max_length=30, index=True)
+    trigger_event_ref: Optional[str]  = Field(default=None, max_length=255)
+    trigger_payload:   Optional[str]  = Field(default=None, sa_type=Text)
+    started_at:        Optional[datetime] = Field(default=None)
+    ended_at:          Optional[datetime] = Field(default=None)
+    error_message:     Optional[str]  = Field(default=None, sa_type=Text)
+    created_at:        datetime       = Field(default_factory=utc_now, nullable=False)
+
+
+class WorkflowRunNode(SQLModel, table=True):
+    """
+    WorkflowRun içindeki tek bir node'un yürütme kaydı.
+    """
+    __tablename__ = "workflow_run_nodes"
+
+    id:             UUID           = Field(default_factory=uuid4, primary_key=True)
+    run_id:         UUID           = Field(foreign_key="workflow_runs.id", index=True)
+    node_id:        str            = Field(max_length=100)
+    node_type:      str            = Field(max_length=50)
+    status:         str            = Field(default="pending", max_length=30, index=True)
+    attempt_count:  int            = Field(default=0)
+    input_data:     Optional[str]  = Field(default=None, sa_type=Text)
+    output_data:    Optional[str]  = Field(default=None, sa_type=Text)
+    error_message:  Optional[str]  = Field(default=None, sa_type=Text)
+    started_at:     Optional[datetime] = Field(default=None)
+    ended_at:       Optional[datetime] = Field(default=None)
+
+
+class WorkflowTrigger(SQLModel, table=True):
+    """
+    Event Registry ile senkron tutulan trigger katalog kaydı.
+    """
+    __tablename__ = "workflow_triggers"
+
+    id:             UUID           = Field(default_factory=uuid4, primary_key=True)
+    event_name:     str            = Field(max_length=255, unique=True, index=True)
+    module_id:      str            = Field(max_length=100)
+    label_tr:       str            = Field(max_length=255)
+    payload_schema: Optional[str]  = Field(default=None, sa_type=Text)
+    is_active:      bool           = Field(default=True)
+
+
+class WorkflowAction(SQLModel, table=True):
+    """
+    Workflow'un tetikleyebileceği action katalog kaydı.
+    """
+    __tablename__ = "workflow_actions"
+
+    id:               UUID           = Field(default_factory=uuid4, primary_key=True)
+    action_type:      str            = Field(max_length=255, unique=True, index=True)
+    module_id:        str            = Field(max_length=100)
+    label_tr:         str            = Field(max_length=255)
+    required_feature: Optional[str]  = Field(default=None, max_length=255)
+    celery_task:      Optional[str]  = Field(default=None, max_length=255)
+    endpoint_pattern: Optional[str]  = Field(default=None, max_length=255)
+    is_active:        bool           = Field(default=True)
+
+
+class WorkflowTemplate(SQLModel, table=True):
+    """
+    Platform Admin'in tenant'lara sunduğu hazır şablon workflow'lar.
+    """
+    __tablename__ = "workflow_templates"
+
+    id:                UUID           = Field(default_factory=uuid4, primary_key=True)
+    name:              str            = Field(max_length=255)
+    description:       Optional[str]  = Field(default=None, max_length=1000)
+    category:          Optional[str]  = Field(default=None, max_length=100)
+    dsl_json:          str            = Field(sa_type=Text)
+    required_modules:  Optional[str]  = Field(default=None)  # JSON string
+    required_features: Optional[str]  = Field(default=None)  # JSON string
+    is_published:      bool           = Field(default=False, index=True)
+    created_at:        datetime       = Field(default_factory=utc_now, nullable=False)

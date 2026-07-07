@@ -77,6 +77,57 @@ def check_low_stock(self) -> dict:
     return result
 
 
+@celery_app.task(name="tasks.execute_workflow_run_task", bind=True, max_retries=3, default_retry_delay=30)
+def execute_workflow_run_task(self, run_id_str: str) -> dict:
+    """
+    Workflow execution task.
+    """
+    async def _run() -> dict:
+        from app.core.database import async_engine
+        from app.services.workflow_engine import WorkflowEngine
+        from app.services.workflow_action_service import WorkflowActionService
+        from app.services.entitlement_service import EntitlementService
+        from app.db.models import WorkflowRun, TenantUsageMeter
+
+        try:
+            async with AsyncSessionLocal() as session:
+                run_id = UUID(run_id_str)
+                run = await session.get(WorkflowRun, run_id)
+                if not run:
+                    logger.error(f"WorkflowRun {run_id_str} not found in task.")
+                    return {"status": "failed", "error": "Not found"}
+
+                if run.status != "pending":
+                    logger.info(f"WorkflowRun {run_id_str} is already {run.status}. Skipping execution.")
+                    return {"status": "skipped", "run_status": run.status}
+
+                entitlement_svc = EntitlementService(session)
+                action_svc = WorkflowActionService(session, entitlement_svc)
+                engine = WorkflowEngine(session, action_svc)
+
+                success = await engine.execute_run(run_id)
+
+                if success:
+                    meter = TenantUsageMeter(session)
+                    await meter.record_usage(
+                        tenant_id=run.tenant_id,
+                        quota_code="workflow_runs",
+                        increment_by=1,
+                        event_ref=str(run.id)
+                    )
+                    await session.commit()
+                    return {"status": "completed"}
+                else:
+                    return {"status": "failed", "error": "Engine failed"}
+        except Exception as e:
+            logger.error(f"Failed to execute workflow run {run_id_str}: {str(e)}", exc_info=True)
+            raise self.retry(exc=e)
+        finally:
+            await async_engine.dispose()
+
+    return asyncio.run(_run())
+
+
 @celery_app.task(
     name="tasks.send_tenant_email",
     bind=True,

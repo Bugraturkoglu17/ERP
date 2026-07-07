@@ -47,7 +47,7 @@ async def list_notifications(
     days: int = Query(30, ge=1, le=90),
     limit: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin", "saha_muhendisi", "operasyon", "yonetici")),
+    user: User = Depends(require_role("platform_admin", "admin", "saha_muhendisi", "operasyon", "yonetici")),
 ):
     """Son {days} gunun ERP bildirimleri."""
     since = utc_now() - timedelta(days=days)
@@ -69,7 +69,7 @@ async def list_notifications(
 @router.get("/unread-count")
 async def unread_count(
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin", "saha_muhendisi", "operasyon", "yonetici")),
+    user: User = Depends(require_role("platform_admin", "admin", "saha_muhendisi", "operasyon", "yonetici")),
 ):
     """Okunmamis bildirim sayisi."""
     filters = [ErpNotification.is_read == False]
@@ -87,7 +87,7 @@ async def unread_count(
 async def mark_read(
     notification_id: UUID,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin", "saha_muhendisi", "operasyon", "yonetici")),
+    user: User = Depends(require_role("platform_admin", "admin", "saha_muhendisi", "operasyon", "yonetici")),
 ):
     """Bildirimi okundu isaretl."""
     notif = await db.get(ErpNotification, notification_id)

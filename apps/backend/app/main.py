@@ -36,6 +36,9 @@ os.makedirs(uploads_dir, exist_ok=True)
 app.mount("/static/uploads", StaticFiles(directory=uploads_dir), name="uploads")
 
 
+app.add_middleware(StructuredLoggingMiddleware)
+app.add_middleware(TenantContextMiddleware)
+
 # ── CORS ───────────────────────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
@@ -44,8 +47,6 @@ app.add_middleware(
     allow_methods    = ["*"],
     allow_headers    = ["*"],
 )
-app.add_middleware(StructuredLoggingMiddleware)
-app.add_middleware(TenantContextMiddleware)
 
 
 # ── Exception Handler ─────────────────────────────────────────────────────────

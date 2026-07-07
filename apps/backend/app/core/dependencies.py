@@ -195,19 +195,41 @@ def require_role(*role_names: str):
         user = await _get_user_by_sub(db, payload["sub"])
         # Token içindeki rollerle kontrol et
         token_roles: list[str] = payload.get("roles", [])
-        if "platform_admin" in token_roles:
+        
+        is_platform_only_route = role_names == ("platform_admin",)
+        
+        print(f"DEBUG ROLE_CHECK: role_names={role_names}, token_roles={token_roles}, is_platform_only_route={is_platform_only_route}")
+        
+        # Exempt notifications from requiring a tenant context for platform_admin
+        path = request.url.path
+        is_exempt_from_context = path.startswith("/api/v1/notifications")
+        
+        if "platform_admin" in token_roles and not is_platform_only_route:
             x_tenant_context = request.headers.get("X-Tenant-Context") or request.headers.get("x-tenant-context")
-            if not x_tenant_context:
+            
+            if not x_tenant_context and not is_exempt_from_context:
                 raise entitlement_http_error(
                     status.HTTP_403_FORBIDDEN,
                     "ENTITLEMENT_CONTEXT_MISSING",
                     "Bu işlemi gerçekleştirmek için aktif bir firma bağlamı başlatmalısınız.",
                 )
-            from app.services.context_service import decode_context_token
-            context_payload = decode_context_token(x_tenant_context)
-            tenant_id = context_payload.get("tenant_id")
-            if tenant_id:
-                user.tenant_id = uuid.UUID(str(tenant_id))
+                
+            if x_tenant_context:
+                from app.services.context_service import decode_context_token
+                try:
+                    context_payload = decode_context_token(x_tenant_context)
+                    tenant_id = context_payload.get("tenant_id")
+                    if tenant_id:
+                        user.tenant_id = uuid.UUID(str(tenant_id))
+                except Exception:
+                    raise entitlement_http_error(
+                        status.HTTP_403_FORBIDDEN,
+                        "CONTEXT_INVALID",
+                        "Firma bağlamı süresi dolmuş veya geçersiz.",
+                    )
+            
+            return user
+        elif "platform_admin" in token_roles and is_platform_only_route:
             return user
         if not any(r in token_roles for r in role_names):
             raise HTTPException(

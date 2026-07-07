@@ -1196,3 +1196,132 @@ class ApprovalRequestRead(BaseModel):
 class ApprovalRequestUpdate(BaseModel):
     status: str
     note:   str | None = None
+
+
+# ── Phase 7: Workflow Studio / Automation Pack ─────────────────────────────────
+
+class WorkflowDefinitionCreate(BaseModel):
+    name:           str
+    description:    str | None = None
+    trigger_type:   str
+    trigger_config: str | None = None
+    module_id:      str | None = None
+    dsl_json:       str  # required to create the first version
+
+
+class WorkflowDefinitionUpdate(BaseModel):
+    name:           str | None = None
+    description:    str | None = None
+    trigger_type:   str | None = None
+    trigger_config: str | None = None
+    module_id:      str | None = None
+    is_active:      bool | None = None
+
+
+class WorkflowDefinitionRead(BaseModel):
+    id:             UUID
+    tenant_id:      UUID
+    name:           str
+    description:    str | None
+    trigger_type:   str
+    trigger_config: str | None
+    module_id:      str | None
+    is_active:      bool
+    created_by:     UUID
+    created_at:     datetime
+    updated_at:     datetime
+    # enriched
+    active_version: int | None = None
+    model_config = ConfigDict(from_attributes=True)
+
+
+class WorkflowVersionCreate(BaseModel):
+    dsl_json: str
+
+
+class WorkflowVersionRead(BaseModel):
+    id:             UUID
+    definition_id:  UUID
+    version_number: int
+    dsl_json:       str
+    published_at:   datetime
+    published_by:   UUID
+    model_config = ConfigDict(from_attributes=True)
+
+
+class WorkflowRunCreate(BaseModel):
+    definition_id:     UUID
+    trigger_event_ref: str | None = None
+    trigger_payload:   str | None = None
+
+
+class WorkflowRunRead(BaseModel):
+    id:                UUID
+    tenant_id:         UUID
+    definition_id:     UUID
+    version_id:        UUID
+    status:            str
+    trigger_event_ref: str | None
+    trigger_payload:   str | None
+    started_at:        datetime | None
+    ended_at:          datetime | None
+    error_message:     str | None
+    created_at:        datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class WorkflowRunNodeRead(BaseModel):
+    id:             UUID
+    run_id:         UUID
+    node_id:        str
+    node_type:      str
+    status:         str
+    attempt_count:  int
+    input_data:     str | None
+    output_data:    str | None
+    error_message:  str | None
+    started_at:     datetime | None
+    ended_at:       datetime | None
+    model_config = ConfigDict(from_attributes=True)
+
+
+class WorkflowRunDetail(WorkflowRunRead):
+    nodes: list[WorkflowRunNodeRead] = []
+    model_config = ConfigDict(from_attributes=True)
+
+
+class WorkflowTriggerRead(BaseModel):
+    id:             UUID
+    event_name:     str
+    module_id:      str
+    label_tr:       str
+    payload_schema: str | None
+    is_active:      bool
+    model_config = ConfigDict(from_attributes=True)
+
+
+class WorkflowActionRead(BaseModel):
+    id:               UUID
+    action_type:      str
+    module_id:        str
+    label_tr:         str
+    required_feature: str | None
+    is_active:        bool
+    model_config = ConfigDict(from_attributes=True)
+
+
+class WorkflowTemplateRead(BaseModel):
+    id:                UUID
+    name:              str
+    description:       str | None
+    category:          str | None
+    dsl_json:          str
+    required_modules:  str | None
+    required_features: str | None
+    is_published:      bool
+    created_at:        datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class WorkflowTemplateClone(BaseModel):
+    name: str | None = None  # if not provided, uses template's name
