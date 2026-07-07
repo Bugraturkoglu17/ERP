@@ -799,6 +799,7 @@ async def upsert_tenant_override(
         )
     override.enabled = payload.enabled
     override.limit_value = payload.limit_value
+    override.period = payload.period if payload.target_type == "quota" else None
     override.reason = payload.reason
     db.add(override)
     await _log_action(

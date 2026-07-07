@@ -112,6 +112,7 @@ type TenantEntitlement = {
   modules: string[];
   features: string[];
   quotas: Record<string, number>;
+  quota_periods?: Record<string, string>;
   usage?: Record<string, { quantity?: number; limit?: number; period_key?: string }>;
   entitlement_source?: {
     plan?: Record<string, unknown> | null;
@@ -350,7 +351,7 @@ function PlatformTenantsPageContent() {
       for (const quota of QUOTA_REGISTRY_V2) {
         next[quota.id] = {
           limit: prev[quota.id]?.limit ?? String(tenantEntitlement.quotas[quota.id] ?? quota.defaultLimit),
-          period: prev[quota.id]?.period ?? "monthly",
+          period: prev[quota.id]?.period ?? tenantEntitlement.quota_periods?.[quota.id] ?? "monthly",
         };
       }
       return next;
@@ -868,6 +869,7 @@ function PlatformTenantsPageContent() {
         target_id: quotaId,
         enabled: true,
         limit_value: limitValue,
+        period,
         reason: `Platform admin quick quota ${label}${period ? ` (${period})` : ""} from tenant screen`,
       });
       setTenantEntitlement({ ...entitlement, usage: tenantEntitlement?.usage || {} });
@@ -1342,7 +1344,7 @@ function PlatformTenantsPageContent() {
                                 const limit = tenantEntitlement.quotas[quota.id] ?? quota.defaultLimit;
                                 const usage = tenantEntitlement.usage?.[quota.id]?.quantity || 0;
                                 const isFrozen = limit === 0;
-                                const draft = quotaDrafts[quota.id] || { limit: String(limit), period: "monthly" };
+                                const draft = quotaDrafts[quota.id] || { limit: String(limit), period: tenantEntitlement.quota_periods?.[quota.id] || "monthly" };
                                 return (
                                   <div key={quota.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                                     <div className="flex items-start justify-between gap-2">

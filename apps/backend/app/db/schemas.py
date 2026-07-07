@@ -268,6 +268,7 @@ class TenantEntitlementRead(BaseModel):
     modules: list[str] = Field(default_factory=list)
     features: list[str] = Field(default_factory=list)
     quotas: dict[str, int] = Field(default_factory=dict)
+    quota_periods: dict[str, str] = Field(default_factory=dict)
     entitlement_source: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -276,6 +277,7 @@ class TenantOverrideUpsert(BaseModel):
     target_id: str
     enabled: bool = True
     limit_value: int | None = None
+    period: str | None = None
     reason: str | None = None
 
 

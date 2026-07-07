@@ -317,6 +317,55 @@ async def test_tenant_override_removes_module():
     assert "work_orders" in result["modules"]
 
 
+@pytest.mark.asyncio
+async def test_quota_override_sets_period():
+    tenant_id = uuid.uuid4()
+    override = TenantEntitlementOverride(
+        id=uuid.uuid4(),
+        tenant_id=tenant_id,
+        target_type="quota",
+        target_id="workflow_runs",
+        enabled=True,
+        limit_value=25,
+        period="weekly",
+    )
+
+    db = AsyncMock()
+    mock_sub = MagicMock(); mock_sub.scalars.return_value.first.return_value = None
+    mock_market = MagicMock(); mock_market.scalars.return_value.all.return_value = []
+    mock_override = MagicMock(); mock_override.scalars.return_value.all.return_value = [override]
+    db.execute.side_effect = [mock_sub, mock_market, mock_override]
+
+    result = await EntitlementService.resolve_entitlements(db, tenant_id)
+
+    assert result["quotas"]["workflow_runs"] == 25
+    assert result["quota_periods"]["workflow_runs"] == "weekly"
+    assert result["entitlement_source"]["tenant_override"][0]["period"] == "weekly"
+
+
+@pytest.mark.asyncio
+async def test_record_usage_uses_quota_override_period():
+    tenant_id = uuid.uuid4()
+    db = AsyncMock()
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = None
+    db.execute.return_value = mock_result
+
+    with patch.object(
+        EntitlementService,
+        "resolve_entitlements",
+        new=AsyncMock(return_value={
+            "modules": [],
+            "features": [],
+            "quotas": {"workflow_runs": 10},
+            "quota_periods": {"workflow_runs": "weekly"},
+        }),
+    ):
+        row = await EntitlementService.record_usage(db, tenant_id, "workflow_runs", 1, source="test")
+
+    assert row.period_key == current_period_key("weekly")
+
+
 # ---------------------------------------------------------------------------
 # require_module dependency tests
 # ---------------------------------------------------------------------------

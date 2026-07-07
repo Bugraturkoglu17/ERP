@@ -58,6 +58,9 @@ def current_period_key(period: str = "monthly") -> str:
     now = datetime.now(timezone.utc)
     if period == "daily":
         return now.strftime("%Y-%m-%d")
+    if period == "weekly":
+        year, week, _ = now.isocalendar()
+        return f"{year}-W{week:02d}"
     if period == "yearly":
         return now.strftime("%Y")
     if period == "lifetime":
@@ -96,6 +99,7 @@ class EntitlementService:
         modules: set[str] = {m["id"] for m in EntitlementService.modules_registry() if m.get("plan_tier") == "core"}
         features: set[str] = {f["id"] for f in EntitlementService.features_registry() if f.get("enabled_by_default")}
         quotas: dict[str, int] = {q["id"]: int(q.get("default_limit", 0)) for q in EntitlementService.quotas_registry()}
+        quota_periods: dict[str, str] = {q["id"]: str(q.get("period", "monthly")) for q in EntitlementService.quotas_registry()}
         source: dict[str, Any] = {
             "plan": None,
             "subscription_override": {},
@@ -136,6 +140,7 @@ class EntitlementService:
                 "target_id": override.target_id,
                 "enabled": override.enabled,
                 "limit_value": override.limit_value,
+                "period": override.period,
             })
             if override.target_type == "module":
                 (modules.add if override.enabled else modules.discard)(override.target_id)
@@ -143,6 +148,8 @@ class EntitlementService:
                 (features.add if override.enabled else features.discard)(override.target_id)
             elif override.target_type == "quota" and override.limit_value is not None:
                 quotas[override.target_id] = override.limit_value
+                if override.period:
+                    quota_periods[override.target_id] = override.period
 
         return {
             "tenant_id": str(tenant_id),
@@ -151,11 +158,16 @@ class EntitlementService:
             "modules": sorted(modules),
             "features": sorted(features),
             "quotas": quotas,
+            "quota_periods": quota_periods,
             "entitlement_source": source,
         }
 
     @staticmethod
-    def quota_period(quota_key: str) -> str:
+    def quota_period(quota_key: str, entitlements: dict[str, Any] | None = None) -> str:
+        if entitlements:
+            override_period = entitlements.get("quota_periods", {}).get(quota_key)
+            if override_period:
+                return str(override_period)
         for quota in EntitlementService.quotas_registry():
             if quota.get("id") == quota_key:
                 return str(quota.get("period", "monthly"))
@@ -177,7 +189,7 @@ class EntitlementService:
         limit = entitlements.get("quotas", {}).get(quota_key)
         if limit is None or int(limit) <= 0:
             return True
-        period = current_period_key(EntitlementService.quota_period(quota_key))
+        period = current_period_key(EntitlementService.quota_period(quota_key, entitlements))
         stmt = select(TenantUsageMeter).where(
             TenantUsageMeter.tenant_id == tenant_id,
             TenantUsageMeter.meter_key == quota_key,
@@ -196,7 +208,8 @@ class EntitlementService:
         event_ref: str | None = None,
         period_key: str | None = None,
     ) -> TenantUsageMeter:
-        period = period_key or current_period_key(EntitlementService.quota_period(meter_key))
+        entitlements = await EntitlementService.resolve_entitlements(db, tenant_id)
+        period = period_key or current_period_key(EntitlementService.quota_period(meter_key, entitlements))
         stmt = select(TenantUsageMeter).where(
             TenantUsageMeter.tenant_id == tenant_id,
             TenantUsageMeter.meter_key == meter_key,

@@ -879,6 +879,7 @@ class TenantEntitlementOverride(SQLModel, table=True):
     target_id: str = Field(max_length=120, index=True)
     enabled: bool = Field(default=True, index=True)
     limit_value: Optional[int] = Field(default=None)
+    period: Optional[str] = Field(default=None, max_length=20)
     reason: Optional[str] = Field(default=None, max_length=500)
     created_by: Optional[UUID] = Field(foreign_key="users.id", default=None)
     created_at: datetime = Field(default_factory=utc_now, nullable=False)
