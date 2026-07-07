@@ -311,7 +311,7 @@ export default function ProjectsPage() {
           <div>
             <h2 className="text-2xl font-bold tracking-tight">Proje & Şantiye Portföyü</h2>
             <p className="text-slate-300 mt-1.5 text-xs max-w-xl">
-              Sismik Mekanik bünyesindeki sismik koruma, havalandırma (HVAC) ve yangın tesisatı şantiyelerini, ekiplerini ve hakediş durumlarını yönetin.
+              Golabs bünyesindeki sismik koruma, havalandırma (HVAC) ve yangın tesisatı şantiyelerini, ekiplerini ve hakediş durumlarını yönetin.
             </p>
           </div>
           <button 

@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────────────────────────
-#  Sismik Mekanik ERP — Environment & Settings Yönetimi
+#  Golabs ERP — Environment & Settings Yönetimi
 # ─────────────────────────────────────────────────────────────────────────────
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     ALGORITHM:                        str          = "HS256"
 
     # ── Database ────────────────────────────────────────────────────────────
-    DATABASE_URL: PostgresDsn = "postgresql+psycopg2://sismik_admin:change_me@localhost:5432/sismik_erp"
+    DATABASE_URL: PostgresDsn = "postgresql+psycopg2://golabs_admin:change_me@localhost:5432/golabs_erp"
 
     # ── Redis / Celery ──────────────────────────────────────────────────────
     REDIS_URL: str = "redis://:change_me_redis@localhost:6379/0"
@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     # ── CORS ────────────────────────────────────────────────────────────────
     CORS_ORIGINS: list[str] = [
         "http://localhost:3000",
-        "https://sismikmekanik.com.tr",
+        "https://golabs.com",
         "https://mekanik-erp.vercel.app",
     ]
     CORS_ORIGIN_REGEX: str = r"https://.*\.vercel\.app"
@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     # ── Object Storage (OCI S3-compatible) ───────────────────────────────────
     AWS_ACCESS_KEY_ID:     str          = ""
     AWS_SECRET_ACCESS_KEY: str          = ""
-    OCI_BUCKET_NAME:       str          = "sismik-documents"
+    OCI_BUCKET_NAME:       str          = "golabs-documents"
     OCI_NAMESPACE:         str          = ""
     OCI_REGION:            str          = "eu-frankfurt-1"
     OCI_ENDPOINT:          Optional[AnyHttpUrl] = None

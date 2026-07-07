@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const workspaceDir = "c:\\Users\\murat\\sismik-web";
+const workspaceDir = "c:\\Users\\murat\\golabs-web";
 const localesDir = path.join(workspaceDir, "apps", "frontend", "locales");
 const appDir = path.join(workspaceDir, "apps", "frontend", "app");
 const componentsDir = path.join(workspaceDir, "apps", "frontend", "components");

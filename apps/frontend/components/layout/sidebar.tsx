@@ -143,7 +143,7 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
               S
             </div>
             <div>
-              <p className="text-sm font-bold text-slate-900 leading-none">{isPlatform ? "Golabs ERP" : "Sismik ERP"}</p>
+              <p className="text-sm font-bold text-slate-900 leading-none">{isPlatform ? "Golabs ERP" : "Golabs ERP"}</p>
               <p className="text-[10px] text-slate-400 mt-0.5">{isPlatform ? "Platform Yönetimi" : "Mağaza Takip"}</p>
             </div>
           </div>

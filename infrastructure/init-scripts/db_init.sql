@@ -1,5 +1,5 @@
 -- ====================================================================
---  Sismik Mekanik ERP — PostgreSQL Initialisation Scripts
+--  Golabs ERP — PostgreSQL Initialisation Scripts
 --  Bu dosya docker-entrypoint-initdb.d tarafından ilk kurulumda
 --  otomatik olarak çalıştırılır.
 -- ====================================================================

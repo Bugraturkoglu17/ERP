@@ -1,6 +1,6 @@
 # ──────────────────────────────────────────────────────────────────────────────
 #  Alembic Migration Environment
-#  Sismik Mekanik ERP
+#  Golabs ERP
 #
 #  Bu dosya, veritabanı migration sürecini başlatır ve yapılandırır.
 #  Alembic, bu env.py'ı okuyarak SQLModel modellerinden migration oluşturur.

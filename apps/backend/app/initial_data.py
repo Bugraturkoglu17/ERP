@@ -1,7 +1,7 @@
 """
 backend/app/initial_data.py
 ───────────────────────────
-Sismik Mekanik ERP — İlk Veri (Seed) Script
+Golabs ERP — İlk Veri (Seed) Script
 """
 
 from __future__ import annotations
@@ -44,10 +44,10 @@ SEED_ADMIN_PASSWORD   = "Admin@2026!"
 SEED_USERS_PASSWORD   = "User@2026!"
 RUN_ENV               = "development"
 
-ZINCIR_MARKET_ADMIN   = "admin@sismikmekanik.local"
-ENGINEER_HVAC_EMAIL   = "hvac@sismikmekanik.local"
-ENGINEER_FIRE_EMAIL   = "fire@sismikmekanik.local"
-WAREHOUSE_MGR_EMAIL   = "depo@sismikmekanik.local"
+ZINCIR_MARKET_ADMIN   = "admin@golabs.local"
+ENGINEER_HVAC_EMAIL   = "hvac@golabs.local"
+ENGINEER_FIRE_EMAIL   = "fire@golabs.local"
+WAREHOUSE_MGR_EMAIL   = "depo@golabs.local"
 
 
 def utc_now() -> datetime:

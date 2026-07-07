@@ -2,7 +2,7 @@ import json
 import os
 
 # Define file paths
-workspace_dir = r"c:\Users\murat\sismik-web"
+workspace_dir = r"c:\Users\murat\golabs-web"
 locales_dir = os.path.join(workspace_dir, "apps", "frontend", "locales")
 app_dir = os.path.join(workspace_dir, "apps", "frontend", "app")
 components_dir = os.path.join(workspace_dir, "apps", "frontend", "components")

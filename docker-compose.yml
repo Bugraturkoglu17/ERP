@@ -3,31 +3,31 @@ version: '3.8'
 services:
   db:
     image: postgres:15-alpine
-    container_name: sismik-erp-db
+    container_name: golabs-erp-db
     restart: always
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-sismik_erp}
+      POSTGRES_DB: ${POSTGRES_DB:-golabs_erp}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
-      - sismik-network
+      - golabs-network
 
   redis:
     image: redis:7-alpine
-    container_name: sismik-erp-redis
+    container_name: golabs-erp-redis
     restart: always
     networks:
-      - sismik-network
+      - golabs-network
 
   backend:
     build: 
       context: ./apps/backend
-    container_name: sismik-erp-backend
+    container_name: golabs-erp-backend
     restart: always
     environment:
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-sismik_erp}
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-golabs_erp}
       - REDIS_URL=redis://redis:6379/0
       - ENV=development
       - AUTO_MIGRATE=false
@@ -49,7 +49,7 @@ services:
       - db
       - redis
     networks:
-      - sismik-network
+      - golabs-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/ready"]
       interval: 10s
@@ -59,11 +59,11 @@ services:
   worker:
     build:
       context: ./apps/backend
-    container_name: sismik-erp-worker
+    container_name: golabs-erp-worker
     restart: always
     command: celery -A app.core.workers.tasks worker --loglevel=info
     environment:
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-sismik_erp}
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-golabs_erp}
       - REDIS_URL=redis://redis:6379/0
       - AUTO_MIGRATE=false
       - EMAIL_PROVIDER=${EMAIL_PROVIDER:-resend}
@@ -80,7 +80,7 @@ services:
       - db
       - redis
     networks:
-      - sismik-network
+      - golabs-network
     healthcheck:
       test: ["CMD-SHELL", "celery -A app.core.workers.tasks inspect ping --destination celery@$$HOSTNAME | grep -q OK"]
       interval: 30s
@@ -89,7 +89,7 @@ services:
       start_period: 30s
 
 networks:
-  sismik-network:
+  golabs-network:
     driver: bridge
 
 volumes:

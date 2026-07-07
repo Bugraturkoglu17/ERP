@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────────────────────────
-#  Sismik Mekanik ERP — Object Storage Service
+#  Golabs ERP — Object Storage Service
 #  Implements S3-compatible interface for OCI Object Storage
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -43,7 +43,7 @@ def sanitize_filename(name: str) -> str:
 
 class StorageService:
     """
-    Sismik Mekanik ERP'nin döküman ve çizimlerini OCI Object Storage'da yönetir.
+    Golabs ERP'nin döküman ve çizimlerini OCI Object Storage'da yönetir.
     Boto3 (S3 API) kullanılarak implement edilmiştir.
     Eğer bulut kimlik bilgileri eksikse, otomatik olarak yerel dosya sistemine (Local Storage Fallback) geçer.
     """

@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────────────────────────
-#  Sismik Mekanik ERP — FastAPI Main Entry Point
+#  Golabs ERP — FastAPI Main Entry Point
 # ─────────────────────────────────────────────────────────────────────────────
 
 from __future__ import annotations

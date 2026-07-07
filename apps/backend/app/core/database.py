@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────────────────────────
-#  Sismik Mekanik ERP — Database Engine & Session Yönetimi
+#  Golabs ERP — Database Engine & Session Yönetimi
 # ─────────────────────────────────────────────────────────────────────────────
 
 from __future__ import annotations

@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────────────────────────
-#  Sismik Mekanik ERP — Celery Application
+#  Golabs ERP — Celery Application
 # ─────────────────────────────────────────────────────────────────────────────
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 CELERY_WORKER_POOL: str = os.getenv("CELERY_WORKER_POOL", "prefork")
 
 celery_app = Celery(
-    "sismik_erp",
+    "golabs_erp",
     broker=REDIS_URL,
     backend=REDIS_URL,
     include=[

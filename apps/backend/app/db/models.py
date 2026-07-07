@@ -1,5 +1,5 @@
 """
-Sismik Mekanik ERP — SQLModel Veritabanı Modelleri
+Golabs ERP — SQLModel Veritabanı Modelleri
 Teknoloji: SQLModel (SQLAlchemy 2.0 + Pydantic v2)
 """
 

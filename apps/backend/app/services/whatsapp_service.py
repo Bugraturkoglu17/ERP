@@ -107,7 +107,7 @@ class WhatsAppService:
         self.access_token        = _get_env("WHATSAPP_ACCESS_TOKEN")
         self.phone_number_id     = _get_env("WHATSAPP_PHONE_NUMBER_ID")
         self.template_name       = _get_env("WHATSAPP_TEMPLATE_NAME", "work_order_notification")
-        self.verify_token        = _get_env("WHATSAPP_WEBHOOK_VERIFY_TOKEN", "sismik_verify")
+        self.verify_token        = _get_env("WHATSAPP_WEBHOOK_VERIFY_TOKEN", "golabs_verify")
         self.frontend_url        = _get_env("FRONTEND_URL", "http://localhost:3000")
         self.mock_mode           = not self.access_token or not self.phone_number_id
 

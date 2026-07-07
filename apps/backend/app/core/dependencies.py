@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────────────────────────
-#  Sismik Mekanik ERP — FastAPI Dependencies (DB, Auth, RBAC)
+#  Golabs ERP — FastAPI Dependencies (DB, Auth, RBAC)
 # ─────────────────────────────────────────────────────────────────────────────
 
 from __future__ import annotations

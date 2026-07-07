@@ -1,6 +1,6 @@
-# Sismik Mekanik ERP
+# Golabs ERP
 
-Sismik Mekanik ERP is a modular construction ERP platform for managing multi-branch field operations across **projects, documents/drawings, inventory, finance, and role-based access**.
+Golabs ERP is a modular construction ERP platform for managing multi-branch field operations across **projects, documents/drawings, inventory, finance, and role-based access**.
 
 The product direction is built around a practical hierarchy for chain-store projects:
 
@@ -213,4 +213,4 @@ GET /api/v1/openapi.json
 
 ## License
 
-Internal / Proprietary (Sismik Mekanik).
+Internal / Proprietary (Golabs).
