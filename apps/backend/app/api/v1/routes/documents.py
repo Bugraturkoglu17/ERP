@@ -25,7 +25,7 @@ from app.db.schemas import (
     DocumentVersionCreate,
     DocumentDownloadResponse,
 )
-from app.services.entitlement_service import EntitlementService
+from app.core.services.entitlement_service import EntitlementService
 
 router = APIRouter()
 

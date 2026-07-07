@@ -25,7 +25,7 @@ from app.core.dependencies import get_current_user, is_platform_admin
 from app.core.security import create_access_token, create_refresh_token, get_user_permissions, get_user_roles, hash_password, verify_password
 from app.db.models import PlatformPlan, PlatformSubscription, PlatformTenantSettings, Role, Tenant, TenantEmailMode, User, UserRole, UserSecurityPolicy
 from app.db.schemas import CompletePasswordResetRequest, MessageResponse, TenantContextRead, TenantProfileUpdate, TenantSettingsUpsert, Token, TokenRefresh, UserRead
-from app.services.entitlement_service import EntitlementService
+from app.core.services.entitlement_service import EntitlementService
 
 router = APIRouter()
 

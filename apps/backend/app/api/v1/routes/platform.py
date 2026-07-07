@@ -56,7 +56,7 @@ from app.db.schemas import (
     TenantUpdate,
     UserRead,
 )
-from app.services.entitlement_service import EntitlementService
+from app.core.services.entitlement_service import EntitlementService
 
 router = APIRouter()
 
@@ -1050,7 +1050,7 @@ async def start_context(
     db.add(session)
     await db.flush() # gets session.id
     
-    from app.services.context_service import create_context_token
+    from app.core.services.context_service import create_context_token
     token = create_context_token(
         actor_user_id=str(user.id),
         tenant_id=str(tenant.id),
@@ -1103,7 +1103,7 @@ async def end_context(
     _ensure_platform_admin(user)
     
     if x_tenant_context:
-        from app.services.context_service import decode_context_token
+        from app.core.services.context_service import decode_context_token
         try:
             payload = decode_context_token(x_tenant_context)
             context_id = payload.get("context_id")
@@ -1133,7 +1133,7 @@ async def renew_context(
     if not x_tenant_context:
         raise HTTPException(status_code=400, detail="X-Tenant-Context başlığı eksik.")
         
-    from app.services.context_service import decode_context_token
+    from app.core.services.context_service import decode_context_token
     try:
         payload = decode_context_token(x_tenant_context)
         context_id = payload.get("context_id")
@@ -1163,7 +1163,7 @@ async def renew_context(
         await db.commit()
         
         # Issue new token
-        from app.services.context_service import create_context_token
+        from app.core.services.context_service import create_context_token
         new_token = create_context_token(
             actor_user_id=str(user.id),
             tenant_id=str(session.tenant_id),
@@ -1340,7 +1340,7 @@ async def current_context(
     if not x_tenant_context:
         return {"active": False}
         
-    from app.services.context_service import decode_context_token
+    from app.core.services.context_service import decode_context_token
     try:
         payload = decode_context_token(x_tenant_context)
         from app.db.models import Tenant

@@ -90,7 +90,7 @@ async def get_current_tenant_id(
     # Check if there is an active tenant context header
     x_tenant_context = request.headers.get("X-Tenant-Context") or request.headers.get("x-tenant-context")
     if x_tenant_context and is_platform_admin(user):
-        from app.services.context_service import decode_context_token
+        from app.core.services.context_service import decode_context_token
         context_payload = decode_context_token(x_tenant_context)
         if context_payload.get("sub") != str(user.id):
             raise HTTPException(status_code=403, detail="Geçersiz bağlam aktörü.")
@@ -219,7 +219,7 @@ def require_role(*role_names: str):
                 )
                 
             if x_tenant_context:
-                from app.services.context_service import decode_context_token
+                from app.core.services.context_service import decode_context_token
                 try:
                     context_payload = decode_context_token(x_tenant_context)
                     tenant_id = context_payload.get("tenant_id")
@@ -290,7 +290,7 @@ def require_module(module_id: str):
                 "ENTITLEMENT_CONTEXT_MISSING",
                 "Tenant bağlamı bulunamadı.",
             )
-        from app.services.entitlement_service import EntitlementService
+        from app.core.services.entitlement_service import EntitlementService
         if not await EntitlementService.is_module_enabled(db, tenant_id, module_id):
             raise entitlement_http_error(status.HTTP_403_FORBIDDEN, "MODULE_NOT_ENABLED", f"{module_id} modülü bu tenant için etkin değil.")
         user.tenant_id = tenant_id
@@ -319,7 +319,7 @@ def require_feature(feature_id: str):
                 "ENTITLEMENT_CONTEXT_MISSING",
                 "Tenant bağlamı bulunamadı.",
             )
-        from app.services.entitlement_service import EntitlementService
+        from app.core.services.entitlement_service import EntitlementService
         if not await EntitlementService.is_feature_enabled(db, tenant_id, feature_id):
             raise entitlement_http_error(status.HTTP_403_FORBIDDEN, "FEATURE_NOT_ENABLED", f"{feature_id} özelliği bu tenant için etkin değil.")
         user.tenant_id = tenant_id
@@ -349,7 +349,7 @@ def require_quota(quota_key: str, increment: int = 1):
                 "Tenant bağlamı bulunamadı.",
             )
         from app.db.models import TenantUsageMeter
-        from app.services.entitlement_service import EntitlementService, current_period_key
+        from app.core.services.entitlement_service import EntitlementService, current_period_key
         entitlements = await EntitlementService.resolve_entitlements(db, tenant_id)
         limit = entitlements.get("quotas", {}).get(quota_key)
         if limit is None or int(limit) <= 0:

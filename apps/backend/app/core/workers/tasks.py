@@ -84,9 +84,9 @@ def execute_workflow_run_task(self, run_id_str: str) -> dict:
     """
     async def _run() -> dict:
         from app.core.database import async_engine
-        from app.services.workflow_engine import WorkflowEngine
-        from app.services.workflow_action_service import WorkflowActionService
-        from app.services.entitlement_service import EntitlementService
+        from app.core.services.workflow_engine import WorkflowEngine
+        from app.core.services.workflow_action_service import WorkflowActionService
+        from app.core.services.entitlement_service import EntitlementService
         from app.db.models import WorkflowRun, TenantUsageMeter
 
         try:
@@ -137,7 +137,7 @@ def detect_stalled_workflow_runs_task(self) -> dict:
     async def _run() -> dict:
         from app.core.database import async_engine
         from app.db.models import WorkflowRun, ErpNotification
-        from app.services.workflow_engine import _create_failure_notification
+        from app.core.services.workflow_engine import _create_failure_notification
         from datetime import timedelta
         from sqlalchemy import select
         from uuid import UUID
@@ -306,7 +306,7 @@ def send_whatsapp_message_task(self, audit_id: str) -> dict:
                         wa_msg.sent_at = datetime.now(timezone.utc).replace(tzinfo=None)
 
                     if audit.tenant_id:
-                        from app.services.entitlement_service import EntitlementService
+                        from app.core.services.entitlement_service import EntitlementService
                         await EntitlementService.record_usage(
                             session,
                             tenant_id=audit.tenant_id,

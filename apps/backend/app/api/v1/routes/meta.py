@@ -10,7 +10,7 @@ from app.core.database import get_db
 from app.core.dependencies import require_role
 from app.core.workers import celery_app
 from fastapi.routing import APIRoute
-from app.services.entitlement_service import EntitlementService
+from app.core.services.entitlement_service import EntitlementService
 
 router = APIRouter(tags=["meta"])
 

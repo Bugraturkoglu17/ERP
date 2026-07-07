@@ -33,9 +33,9 @@ from app.db.models import (
     Tenant, NotificationTemplateConfig, ErpNotification
 )
 from app.core.workers.tasks import send_whatsapp_message_task
-from app.services.whatsapp_service import WorkOrderNotification, whatsapp_service
+from app.core.services.whatsapp_service import WorkOrderNotification, whatsapp_service
 from app.core.notification_service import resolve_template_components, resolve_key_path
-from app.services.entitlement_service import EntitlementService
+from app.core.services.entitlement_service import EntitlementService
 
 router = APIRouter()
 

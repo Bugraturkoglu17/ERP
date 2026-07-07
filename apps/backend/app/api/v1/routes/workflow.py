@@ -35,7 +35,7 @@ from app.db.schemas import (
     WorkflowRunStats,
 )
 from app.core.workers.tasks import execute_workflow_run_task
-from app.services.workflow_validator import validate_workflow_dsl
+from app.core.services.workflow_validator import validate_workflow_dsl
 
 router = APIRouter(prefix="/workflows", tags=["Workflows"])
 
@@ -392,7 +392,7 @@ async def clone_workflow_template(
     if template.required_modules:
         modules = template.required_modules.split(",")
         # The endpoint requires 'workflow' module already, but we need to check dynamically if others are needed
-        from app.services.entitlement_service import EntitlementService
+        from app.core.services.entitlement_service import EntitlementService
         entitlements = await EntitlementService.resolve_entitlements(db, tenant_id)
         for mod in modules:
             if mod.strip() not in entitlements["modules"]:

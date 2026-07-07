@@ -111,7 +111,7 @@ async def test_trigger_workflow_idempotency(mock_celery_task):
 
 
 @pytest.mark.asyncio
-@patch("app.services.entitlement_service.EntitlementService")
+@patch("app.core.services.entitlement_service.EntitlementService")
 async def test_clone_workflow_template_success(mock_entitlement_service):
     tenant = _make_tenant()
     user = _make_user(tenant.id)
@@ -144,7 +144,7 @@ async def test_clone_workflow_template_success(mock_entitlement_service):
 
 
 @pytest.mark.asyncio
-@patch("app.services.entitlement_service.EntitlementService")
+@patch("app.core.services.entitlement_service.EntitlementService")
 async def test_clone_workflow_template_missing_module(mock_entitlement_service):
     tenant = _make_tenant()
     user = _make_user(tenant.id)

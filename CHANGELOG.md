@@ -7,6 +7,25 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+### Sprint 21.8 — Backend Cleanup Phase 2
+
+#### Added
+- Backend seed foundation under `apps/backend/app/seeds` with base seeder, role seeder, workflow seeder, module registry validation seeder, and async runner.
+- Smoke coverage for service import compatibility, seed runner orchestration, and workflow rate limiter dependency wiring.
+
+#### Changed
+- Legacy service implementations moved from `app/services` to `app/core/services`.
+- Application code now imports service implementations from `app.core.services` directly.
+- `app/services` modules now remain as compatibility re-export shims.
+
+#### Tests
+- `py -m compileall app/core/services app/services app/seeds tests/test_service_seed_foundation.py` passed.
+- `py -m compileall app` reached changed modules, then failed on pre-existing `app/initial_data.py` syntax placeholder.
+- `py -m pytest tests/test_service_seed_foundation.py` passed.
+- `py -m pytest` passed: 111 passed.
+
+---
+
 ### Sprint 21.7 — Frontend Cleanup Phase 2
 
 #### Changed

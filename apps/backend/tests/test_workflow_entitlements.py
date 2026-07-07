@@ -9,9 +9,9 @@ from app.db.models import WorkflowRun
 # Tests
 # ---------------------------------------------------------------------------
 
-@patch("app.services.workflow_engine.WorkflowEngine")
-@patch("app.services.workflow_action_service.WorkflowActionService")
-@patch("app.services.entitlement_service.EntitlementService")
+@patch("app.core.services.workflow_engine.WorkflowEngine")
+@patch("app.core.services.workflow_action_service.WorkflowActionService")
+@patch("app.core.services.entitlement_service.EntitlementService")
 @patch("app.db.models.TenantUsageMeter")
 @patch("app.core.workers.tasks.AsyncSessionLocal")
 def test_execute_workflow_run_task_meters_usage(
