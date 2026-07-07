@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.storage import storage, sanitize_filename
 from app.core.exceptions import NotFoundError, ConflictError
-from app.db.models import Document, User
+from app.db.models import Document, User, Project
 from app.core.dependencies import get_current_user, require_module
 from app.core.permissions import verify_project_tenant, verify_document_tenant
 from app.core.upload_validator import validate_uploaded_file
@@ -229,10 +229,6 @@ async def upload_document_version(
         raise HTTPException(status_code=500, detail=f"Bulut depolama hatası: {e}")
 
     # ── 3 · Versiyonlama mantığı ────────────────────────────────────────────────
-    # Eskisini arşive al
-    old_doc.archived = True
-    
-    # Yeni versiyon kaydı
     # If old_doc was already a version, use its parent_id; otherwise it's the parent.
     parent_id = old_doc.parent_id if old_doc.parent_id else old_doc.id
     
@@ -334,3 +330,25 @@ async def list_document_versions(
     versions = list(result.scalars())
     await populate_uploader_details(versions, db)
     return versions
+
+
+@router.get(
+    "",
+    response_model=list[DocumentRead],
+    summary="Kiracıya ait tüm aktif dökümanları listele",
+)
+async def list_all_tenant_documents(
+    db:           AsyncSession = Depends(get_db),
+    current_user: User         = Depends(get_current_user),
+    _module_user: User         = Depends(require_module("documents")),
+) -> list[Document]:
+    current_user.tenant_id = _module_user.tenant_id
+    query = select(Document).join(Project).where(
+        Project.tenant_id == current_user.tenant_id,
+        Document.archived == False
+    ).order_by(Document.created_at.desc())
+    
+    result = await db.execute(query)
+    docs = list(result.scalars())
+    await populate_uploader_details(docs, db)
+    return docs

@@ -1,12 +1,13 @@
 import json
 from typing import Dict, List, Any
 
-from sqlmodel import Session, select
+from sqlmodel import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException
 
 from app.db.models import WorkflowAction
 
-def validate_workflow_dsl(dsl_str: str, db: Session) -> None:
+async def validate_workflow_dsl(dsl_str: str, db: AsyncSession) -> None:
     """
     Validates a Workflow DSL string.
     Raises HTTPException 400 with a detailed message if validation fails.
@@ -39,7 +40,8 @@ def validate_workflow_dsl(dsl_str: str, db: Session) -> None:
 
     # Pre-fetch actions
     stmt = select(WorkflowAction).where(WorkflowAction.is_active == True)
-    active_actions = {a.action_type for a in db.exec(stmt).all()}
+    res = await db.execute(stmt)
+    active_actions = {a.action_type for a in res.scalars().all()}
 
     for node in nodes:
         node_id = node.get("id")

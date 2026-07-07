@@ -9,15 +9,15 @@ import { NodeConfigPanel } from "@/components/workflow/node-config-panel";
 import { parseBackendDsl, exportToBackendDsl, validateWorkflow } from "@/lib/workflow-validation";
 import { ArrowLeft, Save, UploadCloud, Play, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
-import { Node, Edge } from "@xyflow/react";
+import { Node, Edge, useNodesState, useEdgesState } from "@xyflow/react";
 
 export default function WorkflowDesignerPage() {
   const { id } = useParams() as { id: string };
   const router = useRouter();
   const { workflow, loading, error, mutate } = useWorkflow(id);
 
-  const [nodes, setNodes] = useState<Node[]>([]);
-  const [edges, setEdges] = useState<Edge[]>([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   
   const [isSaving, setIsSaving] = useState(false);
@@ -34,14 +34,13 @@ export default function WorkflowDesignerPage() {
       setNodes(parsed.nodes);
       setEdges(parsed.edges);
     }
-  }, [workflow]);
+  }, [workflow, setNodes, setEdges]);
 
-  const handleCanvasChange = useCallback((newNodes: Node[], newEdges: Edge[]) => {
-    setNodes(newNodes);
-    setEdges(newEdges);
+  // Clear errors on change
+  useEffect(() => {
     setValidationErrors([]);
     setSuccessMessage(null);
-  }, []);
+  }, [nodes, edges]);
 
   const handleNodeSelect = useCallback((node: Node | null) => {
     setSelectedNode(node);
@@ -224,9 +223,12 @@ export default function WorkflowDesignerPage() {
       {/* Canvas Area */}
       <div className="flex-1 relative">
         <WorkflowDesignerWrap
-          initialNodes={nodes}
-          initialEdges={edges}
-          onCanvasChange={handleCanvasChange}
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          setNodes={setNodes}
+          setEdges={setEdges}
           onNodeSelect={handleNodeSelect}
         />
         

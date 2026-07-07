@@ -7,6 +7,36 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+### Added
+- Sprint 19A — Workflow Backend Engine
+- Sprint 19B — React Flow Visual Designer
+
+### Changed
+- Workflow DSL validation async hale getirildi
+- Workflow API/engine entitlement-aware hale getirildi
+- Impact engine shadowing bug düzeltildi
+
+### Fixed
+- React Flow designer key/drag/config çakışmaları düzeltildi
+- workflow_validator async test uyumsuzluğu düzeltildi
+- app/core/impact.py AttributeError shadowing hatası düzeltildi
+
+### Security
+- Workflow tenant isolation doğrulandı
+- workflow module/feature/quota enforcement doğrulandı
+- platform_admin tenant context güvenliği doğrulandı
+
+### Tests
+- 77/77 backend test geçti
+  - test_workflow_validator.py: 6/6
+  - test_workflow_api.py geçti
+  - test_workflow_engine.py geçti
+  - test_workflow_entitlements.py geçti
+  - test_tenant_context_switching.py geçti
+  - test_entitlement_enforcement.py geçti
+  - test_mega_sprint.py geçti
+## [Unreleased]
+
 ### Sprint 18 — Modular Entitlement Platform
 #### Added
 - Module Registry, Feature Registry, Quota Registry, Marketplace Registry

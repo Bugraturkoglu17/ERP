@@ -58,17 +58,17 @@ def perform_impact_analysis(entity: str = None, domain: str = None, route: str =
             storage_impact.update(m.get("storage_prefixes", []))
             dependencies_impact.update(m.get("dependencies", []))
 
-    for module in modules_registry:
-        module_id = module.get("id")
+    for mod in modules_registry:
+        module_id = mod.get("id")
         if (domain and domain.lower() == module_id.lower()) or (module and module.lower() == module_id.lower()):
             module_impact.add(module_id)
-            dependencies_impact.update(module.get("dependencies", []))
-        if entity and entity in module.get("entities", []):
-            module_impact.add(module.get("id"))
-        if route and any(route in r for r in module.get("routes", [])):
-            module_impact.add(module.get("id"))
-        if event and event in module.get("events", []):
-            module_impact.add(module.get("id"))
+            dependencies_impact.update(mod.get("dependencies", []))
+        if entity and entity in mod.get("entities", []):
+            module_impact.add(mod.get("id"))
+        if route and any(route in r for r in mod.get("routes", [])):
+            module_impact.add(mod.get("id"))
+        if event and event in mod.get("events", []):
+            module_impact.add(mod.get("id"))
 
     for feature_item in features_registry:
         if feature_item.get("module_id") in module_impact:

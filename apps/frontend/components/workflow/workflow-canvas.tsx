@@ -66,27 +66,24 @@ function DnDSidebar() {
 }
 
 interface WorkflowCanvasProps {
-  initialNodes: Node[];
-  initialEdges: Edge[];
-  onCanvasChange: (nodes: Node[], edges: Edge[]) => void;
+  nodes: Node[];
+  edges: Edge[];
+  onNodesChange: any;
+  onEdgesChange: any;
+  setNodes: any;
+  setEdges: any;
   onNodeSelect: (node: Node | null) => void;
 }
 
-export function WorkflowCanvas({ initialNodes, initialEdges, onCanvasChange, onNodeSelect }: WorkflowCanvasProps) {
+export function WorkflowCanvas({ nodes, edges, onNodesChange, onEdgesChange, setNodes, setEdges, onNodeSelect }: WorkflowCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
 
   const onConnect = useCallback(
     (params: Connection | Edge) => {
-      setEdges((eds) => {
-        const newEdges = addEdge({ ...params, type: 'smoothstep' }, eds);
-        onCanvasChange(nodes, newEdges);
-        return newEdges;
-      });
+      setEdges((eds: any) => addEdge({ ...params, type: 'smoothstep' }, eds));
     },
-    [nodes, setEdges, onCanvasChange]
+    [setEdges]
   );
 
   const onDragOver = useCallback((event: React.DragEvent) => {
@@ -117,13 +114,9 @@ export function WorkflowCanvas({ initialNodes, initialEdges, onCanvasChange, onN
         data: { name: `New ${type.charAt(0).toUpperCase() + type.slice(1)}`, config: {} },
       };
 
-      setNodes((nds) => {
-        const newNodes = nds.concat(newNode);
-        onCanvasChange(newNodes, edges);
-        return newNodes;
-      });
+      setNodes((nds: any) => nds.concat(newNode));
     },
-    [reactFlowInstance, edges, setNodes, onCanvasChange]
+    [reactFlowInstance, setNodes]
   );
 
   const onSelectionChange = useCallback(({ nodes }: { nodes: Node[] }) => {
@@ -134,28 +127,6 @@ export function WorkflowCanvas({ initialNodes, initialEdges, onCanvasChange, onN
     }
   }, [onNodeSelect]);
 
-  // Handle node changes and propagate
-  const handleNodesChange = useCallback((changes: any) => {
-    onNodesChange(changes);
-    // Use timeout to allow state to settle, since onNodesChange doesn't give us the updated nodes directly
-    setTimeout(() => {
-      setNodes((nds) => {
-        onCanvasChange(nds, edges);
-        return nds;
-      });
-    }, 0);
-  }, [onNodesChange, edges, onCanvasChange, setNodes]);
-
-  const handleEdgesChange = useCallback((changes: any) => {
-    onEdgesChange(changes);
-    setTimeout(() => {
-      setEdges((eds) => {
-        onCanvasChange(nodes, eds);
-        return eds;
-      });
-    }, 0);
-  }, [onEdgesChange, nodes, onCanvasChange, setEdges]);
-
   return (
     <div className="flex h-full w-full bg-slate-50">
       <DnDSidebar />
@@ -163,8 +134,8 @@ export function WorkflowCanvas({ initialNodes, initialEdges, onCanvasChange, onN
         <ReactFlow
           nodes={nodes}
           edges={edges}
-          onNodesChange={handleNodesChange}
-          onEdgesChange={handleEdgesChange}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           onInit={setReactFlowInstance}
           onDrop={onDrop}

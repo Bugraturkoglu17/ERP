@@ -940,11 +940,11 @@ function PlatformTenantsPageContent() {
               <div className="space-y-2">
                 <div className="relative">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-                  <input className="w-full rounded-xl border border-slate-200 pl-8.5 pr-3 py-2 text-xs font-medium focus:border-slate-400 focus:outline-none" placeholder="Firma adı veya kod ara" value={searchFirma} onChange={(e) => setSearchFirma(e.target.value)} />
+                  <input className="w-full rounded-xl border border-slate-200 pl-9 pr-3 py-2 text-xs font-medium focus:border-slate-400 focus:outline-none" placeholder="Firma adı veya kod ara" value={searchFirma} onChange={(e) => setSearchFirma(e.target.value)} />
                 </div>
                 <div className="relative">
                   <Filter className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-                  <select className="w-full rounded-xl border border-slate-200 pl-8.5 pr-3 py-2 text-xs font-bold text-slate-700 focus:border-slate-400 focus:outline-none appearance-none" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                  <select className="w-full rounded-xl border border-slate-200 pl-9 pr-3 py-2 text-xs font-bold text-slate-700 focus:border-slate-400 focus:outline-none appearance-none" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                     <option value="all">Tüm Durumlar</option>
                     <option value="trial">Deneme</option>
                     <option value="active">Aktif</option>
@@ -1505,7 +1505,7 @@ function PlatformTenantsPageContent() {
                               <p className="text-[10px] text-slate-400">Örn: {`{"modules":["inventory"],"features":["ai.assistant"],"quotas":{"ai_tokens":100000}}`}</p>
                             </div>
 
-                            <button disabled={busy} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-650 px-3 py-2.5 text-xs font-bold text-white hover:bg-indigo-700 pt-2"><Save className="h-4 w-4" /> Yeni Planı Ata</button>
+                            <button disabled={busy} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-3 py-2.5 text-xs font-bold text-white hover:bg-indigo-700 pt-2"><Save className="h-4 w-4" /> Yeni Planı Ata</button>
                           </div>
                         </form>
 

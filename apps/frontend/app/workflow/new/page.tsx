@@ -45,10 +45,12 @@ export default function NewWorkflowPage() {
         edges: []
       };
 
+      const triggerObj = triggers.find(t => t.event_name === selectedTrigger);
       const res: any = await apiPost("/workflows", {
         name,
         description,
         trigger_type: selectedTrigger,
+        module_id: triggerObj?.module_id || "workflow",
         is_active: false,
         dsl_json: JSON.stringify(initialDsl)
       });
@@ -131,10 +133,10 @@ export default function NewWorkflowPage() {
               {triggers.length > 0 ? (
                 triggers.map((trigger) => (
                   <label
-                    key={trigger.trigger_type}
+                    key={trigger.event_name}
                     className={clsx(
                       "relative flex flex-col p-4 cursor-pointer border rounded-xl transition-all",
-                      selectedTrigger === trigger.trigger_type
+                      selectedTrigger === trigger.event_name
                         ? "bg-blue-50 border-blue-500 ring-1 ring-blue-500"
                         : "bg-white border-slate-200 hover:border-blue-300 hover:bg-slate-50"
                     )}
@@ -142,32 +144,32 @@ export default function NewWorkflowPage() {
                     <input
                       type="radio"
                       name="trigger_type"
-                      value={trigger.trigger_type}
-                      checked={selectedTrigger === trigger.trigger_type}
-                      onChange={() => setSelectedTrigger(trigger.trigger_type)}
+                      value={trigger.event_name}
+                      checked={selectedTrigger === trigger.event_name}
+                      onChange={() => setSelectedTrigger(trigger.event_name)}
                       className="sr-only"
                     />
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
                         <div className={clsx(
                           "w-8 h-8 rounded-lg flex items-center justify-center border",
-                          selectedTrigger === trigger.trigger_type ? "bg-white border-blue-200 text-blue-600" : "bg-slate-100 border-slate-200 text-slate-500"
+                          selectedTrigger === trigger.event_name ? "bg-white border-blue-200 text-blue-600" : "bg-slate-100 border-slate-200 text-slate-500"
                         )}>
                           <Zap className="w-4 h-4" />
                         </div>
                         <div>
                           <span className={clsx(
                             "block text-sm font-bold",
-                            selectedTrigger === trigger.trigger_type ? "text-blue-900" : "text-slate-800"
+                            selectedTrigger === trigger.event_name ? "text-blue-900" : "text-slate-800"
                           )}>
-                            {trigger.name}
+                            {trigger.label_tr}
                           </span>
                           <span className="block text-xs text-slate-500 mt-0.5">
-                            {trigger.description || "Tetikleyici açıklaması yok."}
+                            Modül: {trigger.module_id || "Genel"}
                           </span>
                         </div>
                       </div>
-                      {selectedTrigger === trigger.trigger_type && (
+                      {selectedTrigger === trigger.event_name && (
                         <Check className="w-5 h-5 text-blue-600" />
                       )}
                     </div>

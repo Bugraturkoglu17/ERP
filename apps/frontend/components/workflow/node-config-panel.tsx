@@ -85,7 +85,7 @@ export function NodeConfigPanel({ selectedNode, onUpdateNode, onClose }: NodeCon
                 <option value="">Select Action...</option>
                 {actions.map((act) => (
                   <option key={act.action_type} value={act.action_type}>
-                    {act.name}
+                    {act.label_tr}
                   </option>
                 ))}
               </select>

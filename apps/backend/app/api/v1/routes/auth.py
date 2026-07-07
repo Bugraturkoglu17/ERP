@@ -4,9 +4,16 @@
 
 from __future__ import annotations
 
+# ─────────────────────────────────────────────────────────────────────────────
+#  V1 Auth Router — Login / Refresh / Me
+# ─────────────────────────────────────────────────────────────────────────────
+
+from __future__ import annotations
+
 import json
 from datetime import datetime, timezone
 from typing import Any
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm

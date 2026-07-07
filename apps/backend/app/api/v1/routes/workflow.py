@@ -54,7 +54,7 @@ async def create_workflow(
     user: User = Depends(get_current_user),
 ):
     # Validate DSL
-    validate_workflow_dsl(workflow_in.dsl_json, db)
+    await validate_workflow_dsl(workflow_in.dsl_json, db)
 
     # Create Definition
     definition = WorkflowDefinition(
@@ -167,7 +167,7 @@ async def create_workflow_version(
     user: User = Depends(get_current_user),
 ):
     # Validate DSL
-    validate_workflow_dsl(version_in.dsl_json, db)
+    await validate_workflow_dsl(version_in.dsl_json, db)
 
     workflow = await db.get(WorkflowDefinition, id)
     if not workflow or workflow.tenant_id != tenant_id:
