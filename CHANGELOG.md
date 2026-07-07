@@ -7,6 +7,26 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+### Sprint 22A — Workflow Simulation MVP
+
+#### Added
+- `POST /api/v1/workflows/{id}/simulate` endpoint for workflow DSL dry-run execution.
+- `WorkflowSimulator` service for ordered trace generation without DB writes, Celery dispatch, quota usage, notifications, approvals, work order updates, email, or WhatsApp side effects.
+- Workflow designer simulation panel with payload JSON input, dry-run execution button, trace output, branch decision badges, and action simulation labels.
+- Backend simulation tests for linear execution, condition true/false branches, invalid DSL, no dispatch/no mutation, and tenant isolation.
+
+#### Changed
+- Workflow simulation reuses existing DSL validation and `evaluate_condition()` logic rather than introducing a parallel workflow engine.
+- Frontend OpenAPI types regenerated for the simulation endpoint.
+
+#### Tests
+- `py -m pytest tests/test_workflow_simulation.py` passed: 6 passed.
+- `py -m pytest` passed: 117 passed.
+- `npm run lint --prefix apps/frontend` passed.
+- `npm run build --prefix apps/frontend` passed: 42 routes generated.
+
+---
+
 ### Sprint 21.8 — Backend Cleanup Phase 2
 
 #### Added

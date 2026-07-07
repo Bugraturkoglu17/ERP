@@ -1259,6 +1259,31 @@ class WorkflowRunCreate(BaseModel):
     trigger_payload:   str | None = None
 
 
+class WorkflowSimulationRequest(BaseModel):
+    dsl_json: str | None = None
+    payload: dict[str, Any] = Field(default_factory=dict)
+    version_id: UUID | None = None
+
+
+class WorkflowSimulationTraceNode(BaseModel):
+    node_id: str
+    node_type: str
+    status: str
+    input: dict[str, Any]
+    output: dict[str, Any]
+    branch_decision: bool | None = None
+    simulated: bool = True
+    error: str | None = None
+
+
+class WorkflowSimulationResponse(BaseModel):
+    status: str
+    workflow_id: UUID
+    version_id: UUID | None = None
+    trace: list[WorkflowSimulationTraceNode]
+    errors: list[str] = []
+
+
 class WorkflowRunRead(BaseModel):
     id:                UUID
     tenant_id:         UUID

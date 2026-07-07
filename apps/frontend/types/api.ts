@@ -2383,6 +2383,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/workflows/{id}/simulate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Simulate Workflow */
+        post: operations["simulate_workflow_api_v1_workflows__id__simulate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/workflow-runs": {
         parameters: {
             query?: never;
@@ -5990,6 +6007,56 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** WorkflowSimulationRequest */
+        WorkflowSimulationRequest: {
+            /** Dsl Json */
+            dsl_json?: string | null;
+            /** Payload */
+            payload?: Record<string, never>;
+            /** Version Id */
+            version_id?: string | null;
+        };
+        /** WorkflowSimulationResponse */
+        WorkflowSimulationResponse: {
+            /** Status */
+            status: string;
+            /**
+             * Workflow Id
+             * Format: uuid
+             */
+            workflow_id: string;
+            /** Version Id */
+            version_id?: string | null;
+            /** Trace */
+            trace: components["schemas"]["WorkflowSimulationTraceNode"][];
+            /**
+             * Errors
+             * @default []
+             */
+            errors: string[];
+        };
+        /** WorkflowSimulationTraceNode */
+        WorkflowSimulationTraceNode: {
+            /** Node Id */
+            node_id: string;
+            /** Node Type */
+            node_type: string;
+            /** Status */
+            status: string;
+            /** Input */
+            input: Record<string, never>;
+            /** Output */
+            output: Record<string, never>;
+            /** Branch Decision */
+            branch_decision?: boolean | null;
+            /**
+             * Simulated
+             * @default true
+             */
+            simulated: boolean;
+            /** Error */
+            error?: string | null;
         };
         /** WorkflowTemplateClone */
         WorkflowTemplateClone: {
@@ -11563,6 +11630,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkflowRunRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    simulate_workflow_api_v1_workflows__id__simulate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkflowSimulationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowSimulationResponse"];
                 };
             };
             /** @description Validation Error */

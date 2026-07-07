@@ -33,8 +33,11 @@ from app.db.schemas import (
     WorkflowVersionCreate,
     WorkflowVersionRead,
     WorkflowRunStats,
+    WorkflowSimulationRequest,
+    WorkflowSimulationResponse,
 )
 from app.core.workers.tasks import execute_workflow_run_task
+from app.core.services.workflow_simulator import WorkflowSimulator
 from app.core.services.workflow_validator import validate_workflow_dsl
 
 router = APIRouter(prefix="/workflows", tags=["Workflows"])
@@ -268,6 +271,50 @@ async def trigger_workflow(
     execute_workflow_run_task.delay(str(run.id))
 
     return run
+
+
+@router.post(
+    "/{id}/simulate",
+    response_model=WorkflowSimulationResponse,
+    dependencies=[Depends(require_module("workflow")), Depends(require_feature("workflow.studio"))],
+)
+async def simulate_workflow(
+    id: UUID,
+    simulation_in: WorkflowSimulationRequest,
+    db: Session = Depends(get_db),
+    tenant_id: UUID = Depends(get_current_tenant_id),
+):
+    workflow = await db.get(WorkflowDefinition, id)
+    if not workflow or workflow.tenant_id != tenant_id:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+
+    version_id: UUID | None = None
+    dsl_json = simulation_in.dsl_json
+
+    if not dsl_json:
+        if simulation_in.version_id:
+            version = await db.get(WorkflowVersion, simulation_in.version_id)
+            if not version or version.definition_id != workflow.id:
+                raise HTTPException(status_code=404, detail="Workflow version not found")
+        else:
+            stmt = select(WorkflowVersion).where(WorkflowVersion.definition_id == id).order_by(WorkflowVersion.version_number.desc())
+            res = await db.execute(stmt)
+            version = res.scalars().first()
+
+        if not version:
+            raise HTTPException(status_code=400, detail="No version found for this workflow")
+        version_id = version.id
+        dsl_json = version.dsl_json
+
+    await validate_workflow_dsl(dsl_json, db)
+    result = WorkflowSimulator().simulate(dsl_json, simulation_in.payload)
+    return {
+        "status": result["status"],
+        "workflow_id": workflow.id,
+        "version_id": version_id or simulation_in.version_id,
+        "trace": result["trace"],
+        "errors": result["errors"],
+    }
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Catalog Routes
