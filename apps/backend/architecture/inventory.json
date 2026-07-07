@@ -1,0 +1,33 @@
+{
+  "domain": "inventory",
+  "description": "Depo, malzeme, stok hareketleri, transferler ve kritik stok uyarıları yönetimi.",
+  "entities": [
+    "Warehouse",
+    "Material",
+    "Stock",
+    "InventoryTransaction",
+    "LowStockAlert"
+  ],
+  "routes": [
+    "app.api.v1.routes.inventory"
+  ],
+  "roles": [
+    "admin",
+    "project_manager",
+    "warehouse_manager"
+  ],
+  "tenant_helper": "get_current_tenant_id",
+  "notifications": [
+    "stock_low"
+  ],
+  "events": [
+    "stock_low",
+    "stock_transfer_created"
+  ],
+  "storage_prefixes": [],
+  "indexes": [],
+  "public_endpoints": [],
+  "dependencies": [
+    "projects"
+  ]
+}

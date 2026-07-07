@@ -133,10 +133,16 @@ async def architecture_registry() -> Dict[str, Any]:
                 with open(os.path.join(architecture_dir, filename), "r", encoding="utf-8") as f:
                     try:
                         data = json.load(f)
+                        domain_name = data.get("domain") or data.get("module")
+                        if not domain_name:
+                            continue
                         domains.append({
-                            "name": data.get("domain", ""),
+                            "name": domain_name,
                             "description": data.get("description", ""),
-                            "tenant_protection": bool(data.get("tenant_helper") and data.get("tenant_helper") != "None"),
+                            "tenant_protection": bool(
+                                (data.get("tenant_helper") and data.get("tenant_helper") != "None")
+                                or data.get("security_policy", {}).get("tenant_isolation") == "strict"
+                            ),
                             "public_endpoints_count": len(data.get("public_endpoints", []))
                         })
                         

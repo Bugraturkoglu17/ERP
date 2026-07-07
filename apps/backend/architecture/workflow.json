@@ -1,6 +1,5 @@
 {
-  "module": "workflow",
-  "name": "Workflow Studio",
+  "domain": "workflow",
   "description": "Idempotent DAG execution engine for automation rules and workflows.",
   "entities": [
     "WorkflowDefinition",
@@ -12,11 +11,16 @@
     "WorkflowTemplate"
   ],
   "routes": [
-    "/api/v1/workflows",
-    "/api/v1/workflow-runs",
-    "/api/v1/workflow-triggers",
-    "/api/v1/workflow-actions",
-    "/api/v1/workflow-templates"
+    "app.api.v1.routes.workflow"
+  ],
+  "roles": [
+    "admin",
+    "platform_admin"
+  ],
+  "tenant_helper": "get_current_tenant_id",
+  "notifications": [
+    "workflow_failed",
+    "workflow_stalled"
   ],
   "dependencies": [
     "approvals",
@@ -36,6 +40,9 @@
   "tasks": [
     "app.core.workers.tasks.execute_workflow_run_task"
   ],
+  "storage_prefixes": [],
+  "indexes": [],
+  "public_endpoints": [],
   "security_policy": {
     "tenant_isolation": "strict",
     "rbac_enforced": true,

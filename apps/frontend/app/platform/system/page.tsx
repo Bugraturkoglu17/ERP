@@ -32,6 +32,14 @@ interface MetaData {
     retry_policy: string;
     idempotency_key: string;
   }>;
+  modules: Array<{
+    id: string;
+    name: string;
+    category: string;
+    plan_tier: string;
+    marketplace_ready: boolean;
+    dependencies?: string[];
+  }>;
 }
 
 export default function SystemModulesPage() {
@@ -123,6 +131,44 @@ export default function SystemModulesPage() {
                   )}
                 </td>
                 <td className="px-4 py-3 text-center">{d.public_endpoints_count}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Module Registry Table */}
+      <div className="bg-white rounded border shadow-sm overflow-hidden">
+        <div className="bg-gray-50 px-4 py-3 border-b">
+          <h2 className="font-semibold">Module Registry</h2>
+        </div>
+        <table className="min-w-full text-sm text-left">
+          <thead className="text-xs text-gray-700 uppercase bg-gray-50 border-b">
+            <tr>
+              <th className="px-4 py-3">Module</th>
+              <th className="px-4 py-3">Category</th>
+              <th className="px-4 py-3">Plan Tier</th>
+              <th className="px-4 py-3">Dependencies</th>
+              <th className="px-4 py-3 text-center">Marketplace</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.modules.map((m) => (
+              <tr key={m.id} className="border-b hover:bg-gray-50">
+                <td className="px-4 py-3">
+                  <div className="font-medium text-gray-900">{m.name}</div>
+                  <div className="text-xs text-gray-400">{m.id}</div>
+                </td>
+                <td className="px-4 py-3 text-gray-500">{m.category}</td>
+                <td className="px-4 py-3 text-gray-500">{m.plan_tier}</td>
+                <td className="px-4 py-3 text-gray-500">{m.dependencies?.join(", ") || "-"}</td>
+                <td className="px-4 py-3 text-center">
+                  {m.marketplace_ready ? (
+                    <span className="text-green-600">✓ Yes</span>
+                  ) : (
+                    <span className="text-gray-400">No</span>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>

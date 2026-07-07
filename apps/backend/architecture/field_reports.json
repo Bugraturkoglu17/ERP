@@ -1,0 +1,32 @@
+{
+  "domain": "field_reports",
+  "description": "Saha raporları, rapor kalemleri, onay akışı ve saha gözlem kayıtları.",
+  "entities": [
+    "FieldReport",
+    "FieldReportItem"
+  ],
+  "routes": [
+    "app.api.v1.routes.field_reports"
+  ],
+  "roles": [
+    "admin",
+    "project_manager",
+    "field_engineer"
+  ],
+  "tenant_helper": "get_current_tenant_id",
+  "notifications": [
+    "field_report_submitted",
+    "field_report_approved"
+  ],
+  "events": [
+    "field_report_submitted",
+    "field_report_approved"
+  ],
+  "storage_prefixes": [],
+  "indexes": [],
+  "public_endpoints": [],
+  "dependencies": [
+    "projects",
+    "approvals"
+  ]
+}

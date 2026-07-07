@@ -1,0 +1,32 @@
+{
+  "domain": "users",
+  "description": "Kullanıcı, rol, izin ve tenant bazlı RBAC yönetimi.",
+  "entities": [
+    "User",
+    "Role",
+    "Permission",
+    "UserRole",
+    "RolePermission"
+  ],
+  "routes": [
+    "app.api.v1.routes.auth"
+  ],
+  "roles": [
+    "admin",
+    "platform_admin"
+  ],
+  "tenant_helper": "get_current_tenant_id",
+  "notifications": [
+    "tenant_admin_provisioned",
+    "tenant_admin_password_reset"
+  ],
+  "events": [
+    "auth.users.create"
+  ],
+  "storage_prefixes": [],
+  "indexes": [],
+  "public_endpoints": [],
+  "dependencies": [
+    "platform"
+  ]
+}
