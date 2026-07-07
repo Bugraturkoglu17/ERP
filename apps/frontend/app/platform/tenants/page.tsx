@@ -793,6 +793,64 @@ function PlatformTenantsPageContent() {
     }
   };
 
+  const toggleTenantModule = async (moduleId: string, enabled: boolean) => {
+    if (!selectedFirmaId) return;
+    setBusy(true);
+    try {
+      const entitlement = await apiPut<TenantEntitlement>(`/platform/tenants/${selectedFirmaId}/overrides`, {
+        target_type: "module",
+        target_id: moduleId,
+        enabled,
+        reason: `Platform admin quick ${enabled ? "enable" : "disable"} from tenant screen`,
+      });
+      setTenantEntitlement({ ...entitlement, usage: tenantEntitlement?.usage || {} });
+      pushToast("ok", `${moduleId} modülü ${enabled ? "açıldı" : "kapatıldı"}.`);
+    } catch (err: any) {
+      pushToast("err", err?.response?.data?.detail || "Modül yetkisi güncellenemedi.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const toggleTenantFeature = async (featureId: string, enabled: boolean) => {
+    if (!selectedFirmaId) return;
+    setBusy(true);
+    try {
+      const entitlement = await apiPut<TenantEntitlement>(`/platform/tenants/${selectedFirmaId}/overrides`, {
+        target_type: "feature",
+        target_id: featureId,
+        enabled,
+        reason: `Platform admin quick ${enabled ? "enable" : "disable"} from tenant screen`,
+      });
+      setTenantEntitlement({ ...entitlement, usage: tenantEntitlement?.usage || {} });
+      pushToast("ok", `${featureId} özelliği ${enabled ? "aktifleştirildi" : "kapatıldı"}.`);
+    } catch (err: any) {
+      pushToast("err", err?.response?.data?.detail || "Özellik yetkisi güncellenemedi.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const updateTenantQuota = async (quotaId: string, limitValue: number, label: string) => {
+    if (!selectedFirmaId) return;
+    setBusy(true);
+    try {
+      const entitlement = await apiPut<TenantEntitlement>(`/platform/tenants/${selectedFirmaId}/overrides`, {
+        target_type: "quota",
+        target_id: quotaId,
+        enabled: true,
+        limit_value: limitValue,
+        reason: `Platform admin quick quota ${label} from tenant screen`,
+      });
+      setTenantEntitlement({ ...entitlement, usage: tenantEntitlement?.usage || {} });
+      pushToast("ok", `${quotaId} limiti ${label}.`);
+    } catch (err: any) {
+      pushToast("err", err?.response?.data?.detail || "Quota limiti güncellenemedi.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const exportAuditCsv = () => {
     const rows = filteredAudit.map((a) => ({
       zaman: new Date(a.created_at).toISOString(),
@@ -858,7 +916,7 @@ function PlatformTenantsPageContent() {
 
       setContextModalOpen(false);
       pushToast("ok", `${res.tenant_name} bağlamına geçiş yapıldı.`);
-      window.location.href = "/";
+      router.replace("/");
     } catch (err: any) {
       pushToast("err", err?.response?.data?.detail || "Bağlam başlatılamadı.");
     } finally {
@@ -1151,6 +1209,123 @@ function PlatformTenantsPageContent() {
                           <div className="rounded-xl bg-amber-50 p-3 ring-1 ring-amber-100 lg:col-span-3">
                             <p className="text-[10px] uppercase text-amber-600 font-bold">Override / Marketplace Kaynağı</p>
                             <p className="mt-1 text-[10px] text-amber-800">Tenant override: {tenantEntitlement.entitlement_source?.tenant_override?.length || 0} · Marketplace install: {tenantEntitlement.entitlement_source?.marketplace_install?.length || 0}</p>
+                          </div>
+                          <div className="rounded-xl bg-white p-3 ring-1 ring-slate-150 lg:col-span-3">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div>
+                                <p className="text-[10px] uppercase text-slate-500 font-bold">Hızlı Modül Yetkileri</p>
+                                <p className="mt-0.5 text-[10px] text-slate-400">Planı değiştirmeden tenant override ile modül aç/kapat.</p>
+                              </div>
+                              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">
+                                {tenantEntitlement.modules.length}/{MODULE_REGISTRY_V2.length} aktif
+                              </span>
+                            </div>
+                            <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                              {MODULE_REGISTRY_V2.map((mod) => {
+                                const isEnabled = tenantEntitlement.modules.includes(mod.id);
+                                return (
+                                  <button
+                                    key={mod.id}
+                                    type="button"
+                                    disabled={busy}
+                                    onClick={() => toggleTenantModule(mod.id, !isEnabled)}
+                                    className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left transition-all ${isEnabled ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-slate-200 bg-slate-50 text-slate-500 hover:bg-white"}`}
+                                    title={mod.description}
+                                  >
+                                    <span className="min-w-0">
+                                      <span className="block truncate text-[11px] font-black">{mod.label}</span>
+                                      <span className="block truncate text-[10px] font-semibold opacity-70">{mod.id} · {mod.planTier}</span>
+                                    </span>
+                                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black ${isEnabled ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-500"}`}>
+                                      {isEnabled ? "Açık" : "Kapalı"}
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                          <div className="rounded-xl bg-white p-3 ring-1 ring-indigo-100 lg:col-span-3">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div>
+                                <p className="text-[10px] uppercase text-indigo-500 font-bold">Hızlı Özellik Yetkileri</p>
+                                <p className="mt-0.5 text-[10px] text-slate-400">Feature flag seviyesinde aç/kapat.</p>
+                              </div>
+                              <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-600">
+                                {tenantEntitlement.features.length}/{FEATURE_REGISTRY_V2.length} aktif
+                              </span>
+                            </div>
+                            <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                              {FEATURE_REGISTRY_V2.map((feature) => {
+                                const isEnabled = tenantEntitlement.features.includes(feature.id);
+                                return (
+                                  <button
+                                    key={feature.id}
+                                    type="button"
+                                    disabled={busy}
+                                    onClick={() => toggleTenantFeature(feature.id, !isEnabled)}
+                                    className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left transition-all ${isEnabled ? "border-indigo-200 bg-indigo-50 text-indigo-800" : "border-slate-200 bg-slate-50 text-slate-500 hover:bg-white"}`}
+                                    title={feature.description}
+                                  >
+                                    <span className="min-w-0">
+                                      <span className="block truncate text-[11px] font-black">{feature.label}</span>
+                                      <span className="block truncate text-[10px] font-semibold opacity-70">{feature.id} · {feature.planTier}</span>
+                                    </span>
+                                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black ${isEnabled ? "bg-indigo-600 text-white" : "bg-slate-200 text-slate-500"}`}>
+                                      {isEnabled ? "Aktif" : "Kapalı"}
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                          <div className="rounded-xl bg-white p-3 ring-1 ring-emerald-100 lg:col-span-3">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div>
+                                <p className="text-[10px] uppercase text-emerald-600 font-bold">Hızlı Kullanım Limitleri</p>
+                                <p className="mt-0.5 text-[10px] text-slate-400">Quota değerlerini dondur veya varsayılan limite çek.</p>
+                              </div>
+                              <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                                {Object.keys(tenantEntitlement.quotas).length} quota
+                              </span>
+                            </div>
+                            <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                              {QUOTA_REGISTRY_V2.map((quota) => {
+                                const limit = tenantEntitlement.quotas[quota.id] ?? quota.defaultLimit;
+                                const usage = tenantEntitlement.usage?.[quota.id]?.quantity || 0;
+                                const isFrozen = limit === 0;
+                                return (
+                                  <div key={quota.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                    <div className="flex items-start justify-between gap-2">
+                                      <div>
+                                        <p className="text-[11px] font-black text-slate-800">{quota.label}</p>
+                                        <p className="text-[10px] font-semibold text-slate-400">{quota.id}: {usage}/{limit || 0}</p>
+                                      </div>
+                                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${isFrozen ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"}`}>
+                                        {isFrozen ? "Donuk" : "Aktif"}
+                                      </span>
+                                    </div>
+                                    <div className="mt-3 grid grid-cols-2 gap-2">
+                                      <button
+                                        type="button"
+                                        disabled={busy}
+                                        onClick={() => updateTenantQuota(quota.id, 0, "donduruldu")}
+                                        className="rounded-lg border border-rose-200 bg-rose-50 px-2 py-1.5 text-[10px] font-black text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+                                      >
+                                        Dondur
+                                      </button>
+                                      <button
+                                        type="button"
+                                        disabled={busy}
+                                        onClick={() => updateTenantQuota(quota.id, quota.defaultLimit, "varsayılan limite çekildi")}
+                                        className="rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-[10px] font-black text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+                                      >
+                                        Aktifleştir
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
                         </div>
                       )}

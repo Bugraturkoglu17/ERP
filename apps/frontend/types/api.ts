@@ -2329,6 +2329,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/workflows/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Workflow Stats */
+        get: operations["get_workflow_stats_api_v1_workflows_stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/workflows/{id}": {
         parameters: {
             query?: never;
@@ -6007,6 +6024,53 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** WorkflowRunStats */
+        WorkflowRunStats: {
+            /**
+             * Total Runs
+             * @default 0
+             */
+            total_runs: number;
+            /**
+             * Total Completed
+             * @default 0
+             */
+            total_completed: number;
+            /**
+             * Total Failed
+             * @default 0
+             */
+            total_failed: number;
+            /**
+             * Total Stalled
+             * @default 0
+             */
+            total_stalled: number;
+            /**
+             * Total Running
+             * @default 0
+             */
+            total_running: number;
+            /**
+             * Completed Today
+             * @default 0
+             */
+            completed_today: number;
+            /**
+             * Failed Today
+             * @default 0
+             */
+            failed_today: number;
+            /**
+             * Avg Duration Ms
+             * @default 0
+             */
+            avg_duration_ms: number;
+            /** Most Failing Workflow Id */
+            most_failing_workflow_id?: string | null;
+            /** Most Failing Workflow Name */
+            most_failing_workflow_name?: string | null;
         };
         /** WorkflowSimulationRequest */
         WorkflowSimulationRequest: {
@@ -11443,6 +11507,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_workflow_stats_api_v1_workflows_stats_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowRunStats"];
                 };
             };
         };
