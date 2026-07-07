@@ -14,6 +14,8 @@ import {
   Cpu,
   History,
   Workflow,
+  Package,
+  ShoppingCart,
   type LucideIcon,
 } from "lucide-react";
 
@@ -250,6 +252,30 @@ export const NAV_ENTRIES: NavEntry[] = [
     allowedRoles: ["admin", "saha_muhendisi"],
     context: "tenant",
     moduleKey: "finance",
+  },
+  {
+    label: "Depo / Stok",
+    href: "/inventory",
+    icon: Package,
+    allowedRoles: ["admin", "saha_muhendisi"],
+    context: "tenant",
+    moduleKey: "inventory",
+  },
+  {
+    label: "Satınalma",
+    href: "/procurement",
+    icon: ShoppingCart,
+    allowedRoles: ["admin", "saha_muhendisi"],
+    context: "tenant",
+    moduleKey: "procurement",
+  },
+  {
+    label: "Saha Raporları",
+    href: "/field-reports",
+    icon: FileText,
+    allowedRoles: ["admin", "saha_muhendisi"],
+    context: "tenant",
+    moduleKey: "field_reports",
   },
   {
     label: "Kullanıcılar",
