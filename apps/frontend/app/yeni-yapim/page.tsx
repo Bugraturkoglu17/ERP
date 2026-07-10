@@ -1,30 +1,31 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  AlertTriangle, Building2, ChevronRight, FolderOpen, Loader2,
-  MoreVertical, Plus, Search, Store, X,
+  AlertTriangle, Building2, CheckCircle2, ChevronRight,
+  FolderOpen, Loader2, MoreVertical, Plus, Search, Store, X,
 } from "lucide-react";
-import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api";
+import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 type Project = {
   id: string; name: string; project_no?: string; status: string;
-  description?: string; region_id?: string; customer_id?: string; branch_id?: string;
+  description?: string;
 };
+
 type StoreProcess = {
   id: string; project_id: string; work_type: string; title: string;
-  description?: string; status: string; start_date?: string;
-  target_end_date?: string; progress_percent: number; responsible_name?: string;
+  description?: string; status: string; progress_percent: number;
+  responsible_name?: string; start_date?: string; target_end_date?: string;
   stages: { id: string; name: string; status: string; order_index: number }[];
 };
+
 type ActiveJob = {
   project_id: string; project_name: string; project_no?: string;
   work_type: string; process_title: string; current_stage?: string;
-  target_end_date?: string; days_remaining?: number; process_id?: string;
+  target_end_date?: string; days_remaining?: number; process_id: string;
 };
 
 const SCOPE_TYPES = [
@@ -39,18 +40,18 @@ const SCOPE_TYPES = [
 
 function parseDesc(desc?: string): Record<string, string> {
   if (!desc) return {};
-  try { return JSON.parse(desc) as Record<string, string>; } catch { return {}; }
+  try { return JSON.parse(desc); } catch { return {}; }
 }
 
-function parseStoreType(desc?: string): string {
+function parseStoreType(desc?: string) {
   return parseDesc(desc).store_type ?? "";
 }
 
-function fmtCountdown(days?: number): { text: string; color: string } {
-  if (days == null) return { text: "—", color: "text-slate-400" };
-  if (days > 0)     return { text: `${days}g kaldı`, color: "text-blue-600" };
-  if (days === 0)   return { text: "Bugün teslim", color: "text-amber-600" };
-  return               { text: `${Math.abs(days)}g gecikti`, color: "text-red-600" };
+function fmtCountdown(days?: number) {
+  if (days == null) return { text: "—",                         color: "text-slate-400" };
+  if (days > 0)     return { text: `${days}g kaldı`,            color: "text-blue-600"  };
+  if (days === 0)   return { text: "Bugün teslim",              color: "text-amber-600" };
+  return               { text: `${Math.abs(days)}g gecikti`, color: "text-red-600"   };
 }
 
 function apiErrMsg(ex: unknown): string {
@@ -59,37 +60,17 @@ function apiErrMsg(ex: unknown): string {
   if (typeof detail === "string") return detail;
   if (Array.isArray(detail)) return detail.map((d: unknown) => (d as { msg?: string }).msg ?? String(d)).join("; ");
   const status = e?.response?.status;
-  if (status === 404) return "Mağaza bulunamadı.";
   if (status === 422) return "Gönderilen veriler geçersiz.";
-  if (status === 401) return "Oturum süresi dolmuş.";
-  return "Sunucu tarafında hata oluştu. Lütfen tekrar deneyin.";
+  return "Sunucu tarafında hata oluştu.";
 }
-
-const STATUS_LABEL: Record<string, string> = {
-  in_progress: "Devam Ediyor",
-  pending:     "Bekliyor",
-  completed:   "Tamamlandı",
-  cancelled:   "İptal Edildi",
-  deleted:     "Silindi",
-};
-const STATUS_COLOR: Record<string, string> = {
-  in_progress: "bg-emerald-50 text-emerald-700",
-  pending:     "bg-amber-50 text-amber-700",
-  completed:   "bg-blue-50 text-blue-700",
-  cancelled:   "bg-slate-100 text-slate-500",
-};
 
 // ── Action Menu ────────────────────────────────────────────────────────────────
 
-function ActionMenu({
-  projectId, process, onRefresh,
-}: {
-  projectId: string;
-  process: StoreProcess;
-  onRefresh: () => void;
+function ActionMenu({ projectId, process, onRefresh }: {
+  projectId: string; process: StoreProcess; onRefresh: () => void;
 }) {
-  const [open,   setOpen]   = useState(false);
-  const [busy,   setBusy]   = useState(false);
+  const [open,    setOpen]    = useState(false);
+  const [busy,    setBusy]    = useState(false);
   const [confirm, setConfirm] = useState<"cancel" | "delete" | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -103,19 +84,15 @@ function ActionMenu({
 
   const doCancel = async () => {
     setBusy(true);
-    try {
-      await apiPatch(`/process/projects/${projectId}/process/${process.id}/cancel`, {});
-      onRefresh();
-    } catch { /* ignore */ }
+    try { await apiPatch(`/process/projects/${projectId}/process/${process.id}/cancel`, {}); onRefresh(); }
+    catch { /* ignore */ }
     setBusy(false); setConfirm(null);
   };
 
   const doDelete = async () => {
     setBusy(true);
-    try {
-      await apiDelete(`/process/projects/${projectId}/process/${process.id}`);
-      onRefresh();
-    } catch { /* ignore */ }
+    try { await apiDelete(`/process/projects/${projectId}/process/${process.id}`); onRefresh(); }
+    catch { /* ignore */ }
     setBusy(false); setConfirm(null);
   };
 
@@ -131,8 +108,8 @@ function ActionMenu({
           </div>
           <p className="text-xs text-slate-600">
             {confirm === "delete"
-              ? "Bu yeni yapım süreci silinecek. Mağaza kartı silinmez, sadece bu süreç kaldırılır. Devam etmek istiyor musunuz?"
-              : "Bu süreç iptal edilecek. Kayıt sistemde kalır, aktif listelerden çıkar. Devam etmek istiyor musunuz?"}
+              ? "Bu yeni yapım süreci silinecek. Mağaza kartı silinmez, sadece bu süreç kaldırılır."
+              : "Bu süreç iptal edilecek. Kayıt sistemde kalır, aktif listelerden çıkar."}
           </p>
           <div className="flex gap-2 justify-end">
             <button onClick={() => setConfirm(null)}
@@ -159,14 +136,15 @@ function ActionMenu({
         <MoreVertical className="h-4 w-4 text-slate-400" />
       </button>
       {open && (
-        <div className="absolute right-0 top-8 z-20 w-44 rounded-xl border border-slate-200 bg-white shadow-lg py-1 text-xs">
-          <Link href={`/projects/${projectId}?tab=process`}
+        <div className="absolute right-0 top-8 z-20 w-48 rounded-xl border border-slate-200 bg-white shadow-lg py-1 text-xs">
+          <Link
+            href={`/yeni-yapim/surecleri/${process.id}?p=${projectId}`}
             className="flex items-center gap-2 px-3 py-2 hover:bg-slate-50 text-slate-700">
-            <FolderOpen className="h-3.5 w-3.5" /> Süreci Görüntüle
+            <FolderOpen className="h-3.5 w-3.5" /> Yeni Yapım Klasörü
           </Link>
           <Link href={`/projects/${projectId}`}
-            className="flex items-center gap-2 px-3 py-2 hover:bg-slate-50 text-slate-700">
-            <Store className="h-3.5 w-3.5" /> Mağaza Kartı
+            className="flex items-center gap-2 px-3 py-2 hover:bg-slate-50 text-slate-500">
+            <Store className="h-3.5 w-3.5" /> Mağaza Kartı (görüntüle)
           </Link>
           <div className="my-1 border-t border-slate-100" />
           {process.status !== "cancelled" && (
@@ -189,51 +167,38 @@ function ActionMenu({
 
 type WizardMode = "new_store" | "existing_store";
 
-function Wizard({
-  onClose, onDone, existingProjects,
-}: {
-  onClose: () => void; onDone: (projectId: string) => void;
-  existingProjects: Project[];
+function Wizard({ onClose, onDone, existingProjects }: {
+  onClose: () => void; onDone: () => void; existingProjects: Project[];
 }) {
   const [mode,    setMode]    = useState<WizardMode | null>(null);
   const [step,    setStep]    = useState(1);
   const [busy,    setBusy]    = useState(false);
   const [err,     setErr]     = useState("");
 
-  // New store form
   const [ns, setNs] = useState({
     name: "", project_no: "", bolge: "", sehir: "",
     start_date: new Date().toISOString().split("T")[0],
   });
 
-  // Existing store selection
   const [searchQ,    setSearchQ]    = useState("");
   const [selProject, setSelProject] = useState<Project | null>(null);
-
-  // Scope + process form
-  const [scopes,    setScopes]    = useState<string[]>([]);
-  const [procTitle, setProcTitle] = useState("");
-  const [procStart, setProcStart] = useState(new Date().toISOString().split("T")[0]);
-  const [procEnd,   setProcEnd]   = useState("");
-  const [procResp,  setProcResp]  = useState("");
-
-  // Duplicate warning
-  const [dupWarning, setDupWarning] = useState(false);
-
+  const [scopes,     setScopes]     = useState<string[]>([]);
+  const [procTitle,  setProcTitle]  = useState("");
+  const [procStart,  setProcStart]  = useState(new Date().toISOString().split("T")[0]);
+  const [procEnd,    setProcEnd]    = useState("");
+  const [procResp,   setProcResp]   = useState("");
+  const [dupProcess, setDupProcess] = useState<StoreProcess | null>(null);
   const [createdProjectId, setCreatedProjectId] = useState<string | null>(null);
 
-  // Check for existing active process on a project
-  const checkDuplicate = async (projectId: string): Promise<boolean> => {
+  const checkDuplicate = async (projectId: string): Promise<StoreProcess | null> => {
     try {
       const procs = await apiGet<StoreProcess[]>(`/process/projects/${projectId}/process`);
-      return (procs ?? []).some(p =>
-        p.work_type === "yeni_yapim" && p.status === "in_progress"
-      );
-    } catch { return false; }
+      return (procs ?? []).find(p => p.work_type === "yeni_yapim" && p.status === "in_progress") ?? null;
+    } catch { return null; }
   };
 
   const handleCreateStore = async () => {
-    if (!ns.name.trim()) { setErr("Mağaza adı zorunludur."); return; }
+    if (!ns.name.trim())       { setErr("Mağaza adı zorunludur."); return; }
     if (!ns.project_no.trim()) { setErr("Mağaza kodu zorunludur."); return; }
     setBusy(true); setErr("");
     try {
@@ -248,20 +213,16 @@ function Wizard({
       setCreatedProjectId(created.id);
       setProcTitle(`Yeni Yapım — ${ns.name.trim()}`);
       setStep(2);
-    } catch (ex) {
-      setErr(apiErrMsg(ex));
-    } finally { setBusy(false); }
+    } catch (ex) { setErr(apiErrMsg(ex)); }
+    finally { setBusy(false); }
   };
 
   const handleSelectExisting = async () => {
     if (!selProject) { setErr("Bir mağaza seçin."); return; }
     setBusy(true); setErr("");
-    const hasDup = await checkDuplicate(selProject.id);
+    const existing = await checkDuplicate(selProject.id);
     setBusy(false);
-    if (hasDup) {
-      setDupWarning(true);
-      return;
-    }
+    if (existing) { setDupProcess(existing); return; }
     setCreatedProjectId(selProject.id);
     setProcTitle(`Yeni Yapım — ${selProject.name}`);
     setErr("");
@@ -269,9 +230,9 @@ function Wizard({
   };
 
   const handleCreateProcess = async () => {
-    if (!createdProjectId) { setErr("Mağaza ID bulunamadı."); return; }
-    if (!procTitle.trim()) { setErr("Süreç adı zorunludur."); return; }
-    if (scopes.length === 0) { setErr("En az bir iş kalemi seçmelisiniz."); return; }
+    if (!createdProjectId)    { setErr("Mağaza ID bulunamadı."); return; }
+    if (!procTitle.trim())    { setErr("Süreç adı zorunludur."); return; }
+    if (scopes.length === 0)  { setErr("En az bir iş kalemi seçmelisiniz."); return; }
     setBusy(true); setErr("");
     try {
       await apiPost(`/process/projects/${createdProjectId}/process/bulk`, {
@@ -282,18 +243,18 @@ function Wizard({
         target_end_date: procEnd ? `${procEnd}T00:00:00` : null,
         responsible_name: procResp.trim() || null,
       });
-      onDone(createdProjectId);
-    } catch (ex) {
-      setErr(apiErrMsg(ex));
-    } finally { setBusy(false); }
+      onDone();
+    } catch (ex) { setErr(apiErrMsg(ex)); }
+    finally { setBusy(false); }
   };
 
   const filteredExisting = existingProjects.filter(p =>
-    !searchQ || p.name.toLowerCase().includes(searchQ.toLowerCase()) || (p.project_no ?? "").includes(searchQ)
+    !searchQ ||
+    p.name.toLowerCase().includes(searchQ.toLowerCase()) ||
+    (p.project_no ?? "").includes(searchQ)
   );
 
-  // Duplicate warning overlay
-  if (dupWarning && selProject) {
+  if (dupProcess && selProject) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
         <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-2xl p-6 space-y-4">
@@ -306,13 +267,14 @@ function Wizard({
             Yeni süreç açmak yerine mevcut sürece devam edebilirsiniz.
           </p>
           <div className="flex flex-col gap-2">
-            <Link href={`/projects/${selProject.id}?tab=process`}
+            <Link
+              href={`/yeni-yapim/surecleri/${dupProcess.id}?p=${selProject.id}`}
               onClick={onClose}
               className="w-full text-center rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">
-              Mevcut Süreci Aç
+              Yeni Yapım Klasörünü Aç
             </Link>
             <button onClick={() => {
-              setDupWarning(false);
+              setDupProcess(null);
               setCreatedProjectId(selProject.id);
               setProcTitle(`Yeni Yapım — ${selProject.name}`);
               setStep(2);
@@ -320,7 +282,7 @@ function Wizard({
               className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
               Yine de Yeni Süreç Oluştur
             </button>
-            <button onClick={() => setDupWarning(false)}
+            <button onClick={() => setDupProcess(null)}
               className="w-full text-center text-xs text-slate-400 hover:text-slate-600 py-1">
               Vazgeç
             </button>
@@ -333,21 +295,16 @@ function Wizard({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 animate-in fade-in duration-150">
       <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white shadow-2xl">
-
-        {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
           <div>
             <h3 className="text-sm font-bold text-slate-900">
               {mode === null ? "Yeni Yapım Başlat" : mode === "new_store" ? "Yeni Mağaza Oluştur" : "Mevcut Mağaza Seç"}
             </h3>
-            {mode !== null && (
-              <p className="text-[11px] text-slate-400 mt-0.5">Adım {step} / 3</p>
-            )}
+            {mode !== null && <p className="text-[11px] text-slate-400 mt-0.5">Adım {step} / 3</p>}
           </div>
           <button onClick={onClose}><X className="h-5 w-5 text-slate-300 hover:text-slate-600" /></button>
         </div>
 
-        {/* Progress */}
         {mode !== null && (
           <div className="flex gap-1.5 px-5 pt-4">
             {[1, 2, 3].map(i => (
@@ -356,10 +313,7 @@ function Wizard({
           </div>
         )}
 
-        {/* Body */}
         <div className="px-5 py-5 min-h-[280px] max-h-[65vh] overflow-y-auto">
-
-          {/* Mode selection */}
           {mode === null && (
             <div className="space-y-3">
               <p className="text-xs text-slate-500 mb-4">Yeni yapım süreci başlatmak için bir seçenek seçin.</p>
@@ -388,31 +342,27 @@ function Wizard({
             </div>
           )}
 
-          {/* New store — step 1 */}
           {mode === "new_store" && step === 1 && (
             <div className="space-y-3">
-              <p className="text-[11px] text-slate-400 bg-slate-50 rounded-xl px-3 py-2.5 border border-slate-100">
-                Mağaza adı ve kodu zorunludur. Bölge ve şehir bilgisi isteğe bağlıdır.
-              </p>
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">Mağaza Adı *</label>
                 <input value={ns.name} onChange={e => setNs(p => ({ ...p, name: e.target.value }))}
                   placeholder="Örn: Migros Ataşehir MMM" autoFocus
-                  className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                  className="w-full rounded-lg border px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">Mağaza Kodu *</label>
                 <input value={ns.project_no} onChange={e => setNs(p => ({ ...p, project_no: e.target.value }))}
                   placeholder="Örn: 3421"
-                  className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                  className="w-full rounded-lg border px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-slate-600 mb-1">Bölge</label>
                   <select value={ns.bolge} onChange={e => setNs(p => ({ ...p, bolge: e.target.value }))}
-                    className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
+                    className="w-full rounded-lg border px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none">
                     <option value="">Seçin...</option>
-                    {["Marmara", "Ege", "İç Anadolu", "Akdeniz", "Karadeniz", "Doğu Anadolu", "Güneydoğu Anadolu"].map(b => (
+                    {["Marmara","Ege","İç Anadolu","Akdeniz","Karadeniz","Doğu Anadolu","Güneydoğu Anadolu"].map(b => (
                       <option key={b} value={b}>{b}</option>
                     ))}
                   </select>
@@ -420,9 +370,9 @@ function Wizard({
                 <div>
                   <label className="block text-xs font-medium text-slate-600 mb-1">Şehir</label>
                   <select value={ns.sehir} onChange={e => setNs(p => ({ ...p, sehir: e.target.value }))}
-                    className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
+                    className="w-full rounded-lg border px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none">
                     <option value="">Seçin...</option>
-                    {["İstanbul", "Ankara", "İzmir", "Kocaeli", "Konya", "Antalya", "Bursa", "Adana", "Mersin", "Sivas", "Diyarbakır"].map(s => (
+                    {["İstanbul","Ankara","İzmir","Kocaeli","Konya","Antalya","Bursa","Adana","Mersin","Sivas","Diyarbakır"].map(s => (
                       <option key={s} value={s}>{s}</option>
                     ))}
                   </select>
@@ -431,12 +381,11 @@ function Wizard({
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">Başlangıç Tarihi</label>
                 <input type="date" value={ns.start_date} onChange={e => setNs(p => ({ ...p, start_date: e.target.value }))}
-                  className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                  className="w-full rounded-lg border px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none" />
               </div>
             </div>
           )}
 
-          {/* Existing store — step 1 */}
           {mode === "existing_store" && step === 1 && (
             <div className="space-y-3">
               <p className="text-xs text-slate-500">Yeni yapım süreci başlatacağınız mağazayı seçin.</p>
@@ -444,20 +393,20 @@ function Wizard({
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
                 <input value={searchQ} onChange={e => setSearchQ(e.target.value)}
                   placeholder="Mağaza ara..." autoFocus
-                  className="w-full rounded-xl border pl-9 pr-4 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                  className="w-full rounded-xl border pl-9 pr-4 py-2 text-sm focus:border-emerald-500 focus:outline-none" />
               </div>
               <div className="max-h-56 overflow-y-auto space-y-1">
                 {filteredExisting.slice(0, 40).map(p => (
                   <button key={p.id} type="button" onClick={() => setSelProject(p)}
                     className={`w-full flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors ${
-                      selProject?.id === p.id ? "border-blue-500 bg-blue-50" : "border-slate-100 hover:border-slate-200"
+                      selProject?.id === p.id ? "border-emerald-500 bg-emerald-50" : "border-slate-100 hover:border-slate-200"
                     }`}>
                     <Store className="h-4 w-4 text-slate-300 shrink-0" />
                     <div className="min-w-0">
                       <p className="text-xs font-medium text-slate-900 truncate">{p.name}</p>
                       <p className="text-[10px] text-slate-400 font-mono">{p.project_no ?? "—"}</p>
                     </div>
-                    {selProject?.id === p.id && <ChevronRight className="ml-auto h-4 w-4 text-blue-600 shrink-0" />}
+                    {selProject?.id === p.id && <ChevronRight className="ml-auto h-4 w-4 text-emerald-600 shrink-0" />}
                   </button>
                 ))}
                 {filteredExisting.length === 0 && (
@@ -467,12 +416,11 @@ function Wizard({
             </div>
           )}
 
-          {/* Step 2 — Yapılacak işler */}
           {mode !== null && step === 2 && (
             <div className="space-y-3">
               <p className="text-sm font-semibold text-slate-800">Yapılacak İşler</p>
               <p className="text-[11px] text-slate-400">
-                Her seçilen iş için ayrı süreç kartı ve iş tipine özel aşamalar oluşturulur.
+                Her seçilen iş için ayrı süreç kartı ve 7 aşamalı süreç oluşturulur.
               </p>
               <div className="grid grid-cols-2 gap-2">
                 {SCOPE_TYPES.map(s => {
@@ -490,22 +438,18 @@ function Wizard({
               </div>
               {scopes.length > 0 && (
                 <p className="text-[11px] text-emerald-700 bg-emerald-50 rounded-xl px-3 py-2 border border-emerald-100">
-                  {scopes.length} iş kalemi seçildi → {scopes.length} ayrı süreç kartı oluşturulacak.
+                  {scopes.length} iş kalemi seçildi → {scopes.length} ayrı Yeni Yapım Klasörü oluşturulacak.
                 </p>
-              )}
-              {scopes.length === 0 && (
-                <p className="text-[11px] text-amber-600 italic">En az bir iş kalemi seçmelisiniz.</p>
               )}
             </div>
           )}
 
-          {/* Step 3 — Süreç bilgileri */}
           {mode !== null && step === 3 && (
             <div className="space-y-3">
               <p className="text-sm font-semibold text-slate-800">Süreç Bilgileri</p>
               {scopes.length > 0 && (
                 <div className="rounded-xl bg-emerald-50 border border-emerald-100 px-3 py-2.5 text-[11px] text-emerald-700 space-y-0.5">
-                  <p className="font-semibold">Oluşturulacak süreç kartları:</p>
+                  <p className="font-semibold">Oluşturulacak klasörler:</p>
                   {scopes.map(s => (
                     <p key={s}>• {SCOPE_TYPES.find(t => t.value === s)?.label}</p>
                   ))}
@@ -514,25 +458,25 @@ function Wizard({
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">Süreç Adı *</label>
                 <input value={procTitle} onChange={e => setProcTitle(e.target.value)}
-                  className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                  className="w-full rounded-lg border px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-slate-600 mb-1">Başlangıç</label>
                   <input type="date" value={procStart} onChange={e => setProcStart(e.target.value)}
-                    className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                    className="w-full rounded-lg border px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-600 mb-1">Hedef Bitiş</label>
                   <input type="date" value={procEnd} onChange={e => setProcEnd(e.target.value)}
-                    className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                    className="w-full rounded-lg border px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none" />
                 </div>
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">Sorumlu</label>
                 <input value={procResp} onChange={e => setProcResp(e.target.value)}
                   placeholder="Sorumlu kişi adı"
-                  className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                  className="w-full rounded-lg border px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none" />
               </div>
             </div>
           )}
@@ -540,30 +484,26 @@ function Wizard({
           {err && <p className="mt-3 text-xs text-red-600 bg-red-50 rounded-xl px-3 py-2 border border-red-100">{err}</p>}
         </div>
 
-        {/* Footer */}
         <div className="flex justify-between border-t border-slate-100 px-5 py-4">
-          <button
-            onClick={() => {
-              setErr("");
-              if (step > 1) setStep(s => s - 1);
-              else if (mode !== null) setMode(null);
-              else onClose();
-            }}
+          <button onClick={() => {
+            setErr("");
+            if (step > 1) setStep(s => s - 1);
+            else if (mode !== null) setMode(null);
+            else onClose();
+          }}
             className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
             {step > 1 ? "← Geri" : mode !== null ? "← Geri" : "Vazgeç"}
           </button>
 
           {mode === null ? null : step === 1 ? (
-            <button
-              onClick={() => {
-                setErr("");
-                if (mode === "new_store") handleCreateStore();
-                else handleSelectExisting();
-              }}
-              disabled={busy}
+            <button onClick={() => {
+              setErr("");
+              if (mode === "new_store") handleCreateStore();
+              else handleSelectExisting();
+            }} disabled={busy}
               className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
               {busy && <Loader2 className="h-4 w-4 animate-spin" />}
-              {mode === "new_store" ? "Mağazayı Oluştur ve Devam Et →" : "Seç ve Devam Et →"}
+              {mode === "new_store" ? "Mağazayı Oluştur →" : "Seç ve Devam Et →"}
             </button>
           ) : step === 2 ? (
             <button onClick={() => {
@@ -586,68 +526,69 @@ function Wizard({
   );
 }
 
-// ── Proje Satırı ───────────────────────────────────────────────────────────────
+// ── Store Group Row ────────────────────────────────────────────────────────────
 
-type ProjectWithProcesses = {
-  project: Project;
-  processes: StoreProcess[];
-};
+type StoreGroup = { project: Project; processes: StoreProcess[] };
 
-function ProjectRow({
-  entry, onRefresh,
-}: {
-  entry: ProjectWithProcesses;
-  onRefresh: () => void;
-}) {
+function StoreGroupRow({ entry, onRefresh }: { entry: StoreGroup; onRefresh: () => void }) {
   const { project, processes } = entry;
   const [expanded, setExpanded] = useState(false);
 
-  const activeProcs = processes.filter(p => p.status === "in_progress" || p.status === "pending");
+  const activeProcs    = processes.filter(p => p.status === "in_progress" || p.status === "pending");
   const cancelledProcs = processes.filter(p => p.status === "cancelled");
-  const hasExtra = cancelledProcs.length > 0;
+  const completedCount = processes.filter(p => p.status === "completed").length;
+  const totalActive    = activeProcs.length + completedCount;
 
-  const scopeLabel = (desc?: string) => {
-    const scope = parseDesc(desc).scope;
-    return SCOPE_TYPES.find(s => s.value === scope)?.label ?? "";
+  const scopeLabel = (proc: StoreProcess) => {
+    const d = parseDesc(proc.description);
+    if (d.scope) return SCOPE_TYPES.find(s => s.value === d.scope)?.label ?? d.scope;
+    if (proc.title) {
+      for (const s of SCOPE_TYPES) {
+        if (proc.title.toLowerCase().includes(s.label.toLowerCase())) return s.label;
+      }
+    }
+    return proc.title;
   };
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-      {/* Mağaza başlık */}
       <div className="flex items-center gap-4 px-5 py-4 border-b border-slate-100 bg-slate-50">
         <Store className="h-4 w-4 text-slate-400 shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-slate-900 truncate">{project.name}</p>
-          <p className="text-[10px] font-mono text-slate-400">{project.project_no ?? "—"}</p>
+          <p className="text-[10px] font-mono text-slate-400">
+            {project.project_no ?? "—"}
+            {totalActive > 0 && <span className="ml-2 text-emerald-600">{completedCount}/{totalActive} tamamlandı</span>}
+          </p>
         </div>
         <Link href={`/projects/${project.id}`}
-          className="text-xs text-slate-500 hover:text-blue-600 border border-slate-200 rounded-lg px-3 py-1 hover:border-blue-300 transition-colors">
+          className="text-xs text-slate-400 hover:text-slate-600 border border-slate-200 rounded-lg px-3 py-1 hover:border-slate-300 transition-colors">
           Mağaza Kartı
         </Link>
       </div>
 
-      {/* Süreç kartları */}
       <div className="divide-y divide-slate-50">
         {activeProcs.map(proc => {
           const current = proc.stages.find(s => s.status === "in_progress") ?? proc.stages[0];
           return (
-            <div key={proc.id} className="flex items-center gap-4 px-5 py-3 hover:bg-slate-50 transition-colors">
+            <div key={proc.id} className="flex items-center gap-4 px-5 py-3 hover:bg-emerald-50/30 transition-colors">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <p className="text-xs font-semibold text-slate-800">{scopeLabel(proc.description) || proc.title}</p>
-                  <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${STATUS_COLOR[proc.status] ?? "bg-slate-100 text-slate-500"}`}>
-                    {STATUS_LABEL[proc.status] ?? proc.status}
+                  <p className="text-xs font-semibold text-slate-800">{scopeLabel(proc)}</p>
+                  <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">
+                    Devam Ediyor
                   </span>
                 </div>
-                <p className="text-[10px] text-slate-400 mt-0.5">
-                  {current ? `Aşama: ${current.name}` : "—"}
-                  {proc.responsible_name && ` • ${proc.responsible_name}`}
-                </p>
+                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                  {current && <span className="text-[10px] text-slate-400">Aşama: {current.name}</span>}
+                  {proc.responsible_name && <span className="text-[10px] text-slate-400">• {proc.responsible_name}</span>}
+                  <span className="text-[10px] text-emerald-600 font-medium">{proc.progress_percent}%</span>
+                </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <Link href={`/projects/${project.id}?tab=process`}
-                  className="text-xs text-blue-600 hover:underline">
-                  Detay
+                <Link href={`/yeni-yapim/surecleri/${proc.id}?p=${project.id}`}
+                  className="text-xs text-emerald-600 border border-emerald-200 rounded-lg px-2.5 py-1 hover:bg-emerald-50 font-medium">
+                  Yeni Yapım Klasörü
                 </Link>
                 <ActionMenu projectId={project.id} process={proc} onRefresh={onRefresh} />
               </div>
@@ -659,8 +600,7 @@ function ProjectRow({
           <div className="px-5 py-4 text-xs text-slate-400 italic">Henüz süreç başlatılmamış.</div>
         )}
 
-        {/* İptal edilenler toggle */}
-        {hasExtra && (
+        {cancelledProcs.length > 0 && (
           <div>
             <button onClick={() => setExpanded(p => !p)}
               className="w-full px-5 py-2 text-left text-[11px] text-slate-400 hover:text-slate-600 transition-colors">
@@ -668,7 +608,7 @@ function ProjectRow({
             </button>
             {expanded && cancelledProcs.map(proc => (
               <div key={proc.id} className="flex items-center gap-4 px-5 py-2.5 bg-slate-50 opacity-60">
-                <p className="flex-1 text-xs text-slate-500 line-through">{scopeLabel(proc.description) || proc.title}</p>
+                <p className="flex-1 text-xs text-slate-500 line-through">{scopeLabel(proc)}</p>
                 <span className="text-[10px] text-slate-400">İptal Edildi</span>
                 <ActionMenu projectId={project.id} process={proc} onRefresh={onRefresh} />
               </div>
@@ -683,13 +623,13 @@ function ProjectRow({
 // ── Ana Sayfa ──────────────────────────────────────────────────────────────────
 
 export default function YeniYapimPage() {
-  const router = useRouter();
-  const [jobs,     setJobs]     = useState<ActiveJob[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [grouped,  setGrouped]  = useState<ProjectWithProcesses[]>([]);
-  const [loading,   setLoading]   = useState(true);
-  const [wizard,    setWizard]    = useState(false);
-  const [search,    setSearch]    = useState("");
+  const [activeJobs, setActiveJobs] = useState<ActiveJob[]>([]);
+  const [grouped,    setGrouped]    = useState<StoreGroup[]>([]);
+  const [projects,   setProjects]   = useState<Project[]>([]);
+  const [loading,    setLoading]    = useState(true);
+  const [wizard,     setWizard]     = useState(false);
+  const [search,     setSearch]     = useState("");
+  const [activeTab,  setActiveTab]  = useState<"isler" | "magazalar">("isler");
 
   const load = async () => {
     setLoading(true);
@@ -698,19 +638,18 @@ export default function YeniYapimPage() {
       apiGet<Project[]>("/projects?limit=5000").catch(() => [] as Project[]),
     ]);
 
-    const activeJobs = (Array.isArray(j) ? j : []).filter(jb => jb.work_type === "yeni_yapim");
+    const jobs = (Array.isArray(j) ? j : []).filter(jb => jb.work_type === "yeni_yapim");
     const allProjects = Array.isArray(p) ? p : [];
-    setJobs(activeJobs);
+
+    setActiveJobs(jobs);
     setProjects(allProjects);
 
-    // Yeni yapım mağazaları: store_type=new_build VEYA aktif yeni yapım süreci olanlar
-    const newBuildIds = new Set(activeJobs.map(jb => jb.project_id));
+    const newBuildIds = new Set(jobs.map(jb => jb.project_id));
     const newBuildProjects = allProjects.filter(pr =>
       parseStoreType(pr.description) === "new_build" || newBuildIds.has(pr.id)
     );
 
-    // Her proje için süreçleri yükle
-    const entries: ProjectWithProcesses[] = await Promise.all(
+    const entries: StoreGroup[] = await Promise.all(
       newBuildProjects.map(async pr => {
         try {
           const procs = await apiGet<StoreProcess[]>(`/process/projects/${pr.id}/process`);
@@ -730,16 +669,27 @@ export default function YeniYapimPage() {
 
   useEffect(() => { load(); }, []);
 
-  const filteredGrouped = grouped.filter(e =>
-    !search ||
-    e.project.name.toLowerCase().includes(search.toLowerCase()) ||
-    (e.project.project_no ?? "").includes(search)
-  );
+  const filteredJobs = useMemo(() => {
+    if (!search) return activeJobs;
+    const q = search.toLowerCase();
+    return activeJobs.filter(j =>
+      j.project_name.toLowerCase().includes(q) ||
+      (j.project_no ?? "").toLowerCase().includes(q) ||
+      j.process_title.toLowerCase().includes(q)
+    );
+  }, [activeJobs, search]);
 
-  const handleWizardDone = (projectId: string) => {
-    setWizard(false);
-    router.push(`/projects/${projectId}?tab=process`);
-  };
+  const filteredGrouped = useMemo(() => {
+    if (!search) return grouped;
+    const q = search.toLowerCase();
+    return grouped.filter(e =>
+      e.project.name.toLowerCase().includes(q) ||
+      (e.project.project_no ?? "").toLowerCase().includes(q)
+    );
+  }, [grouped, search]);
+
+  const overdueCount   = activeJobs.filter(j => (j.days_remaining ?? 0) < 0).length;
+  const storeCount     = grouped.length;
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -760,46 +710,129 @@ export default function YeniYapimPage() {
         </button>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-xs">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
-        <input value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="Mağaza ara..."
-          className="w-full rounded-xl border border-slate-200 pl-9 pr-4 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+      {/* Summary */}
+      <div className="grid grid-cols-3 gap-3">
+        {[
+          { label: "Aktif Mağaza",  value: storeCount,      color: "text-emerald-600" },
+          { label: "Aktif İş Kalemi", value: activeJobs.length, color: "text-blue-600"   },
+          { label: "Süre Aşımı",   value: overdueCount,    color: "text-red-600"     },
+        ].map(s => (
+          <div key={s.label} className="rounded-2xl border border-slate-200 bg-white p-4 text-center">
+            <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
+            <p className="text-[10px] text-slate-400 mt-0.5">{s.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Tabs + Search */}
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+        <div className="flex gap-0.5 border border-slate-200 rounded-xl p-1 bg-slate-50">
+          <button onClick={() => setActiveTab("isler")}
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+              activeTab === "isler" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"
+            }`}>
+            Aktif İş Kalemleri ({activeJobs.length})
+          </button>
+          <button onClick={() => setActiveTab("magazalar")}
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+              activeTab === "magazalar" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"
+            }`}>
+            Mağaza Grupları ({storeCount})
+          </button>
+        </div>
+        <div className="relative flex-1 max-w-xs">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
+          <input value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Mağaza ara..."
+            className="w-full rounded-xl border border-slate-200 pl-9 pr-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none" />
+        </div>
       </div>
 
       {loading ? (
         <div className="flex items-center justify-center py-16">
           <div className="h-6 w-6 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
         </div>
-      ) : filteredGrouped.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 gap-4 rounded-2xl border border-dashed border-slate-200 bg-white">
-          <Building2 className="h-12 w-12 text-slate-200" />
-          <div className="text-center">
-            <p className="text-sm font-semibold text-slate-600">Henüz yeni yapım işi başlatılmamış.</p>
-            <p className="text-xs text-slate-400 mt-1">Yeni bir mağaza oluşturun veya mevcut mağaza için süreç başlatın.</p>
+
+      ) : activeTab === "isler" ? (
+        /* ── Aktif İş Kalemleri (flat list) ── */
+        filteredJobs.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-4 rounded-2xl border border-dashed border-slate-200 bg-white">
+            <Building2 className="h-12 w-12 text-slate-200" />
+            <div className="text-center">
+              <p className="text-sm font-semibold text-slate-600">
+                {activeJobs.length === 0 ? "Henüz aktif yeni yapım iş kalemi yok." : "Arama sonucu bulunamadı."}
+              </p>
+              <p className="text-xs text-slate-400 mt-1">Yeni bir mağaza oluşturun veya mevcut mağaza için süreç başlatın.</p>
+            </div>
+            {activeJobs.length === 0 && (
+              <button onClick={() => setWizard(true)}
+                className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">
+                <Plus className="h-4 w-4" /> Yeni Yapım Başlat
+              </button>
+            )}
           </div>
-          <button onClick={() => setWizard(true)}
-            className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">
-            <Plus className="h-4 w-4" /> Yeni Yapım Başlat
-          </button>
-        </div>
+        ) : (
+          <div className="space-y-2">
+            {filteredJobs.map(j => {
+              const cd = fmtCountdown(j.days_remaining);
+              const isOverdue = (j.days_remaining ?? 0) < 0;
+              return (
+                <Link key={j.process_id}
+                  href={`/yeni-yapim/surecleri/${j.process_id}?p=${j.project_id}`}
+                  className={`flex items-center gap-4 rounded-2xl border p-4 hover:shadow-sm transition-all ${
+                    isOverdue ? "border-red-100 bg-red-50/30" : "border-slate-200 bg-white hover:border-emerald-200"
+                  }`}>
+                  <div className={`h-2 w-2 shrink-0 rounded-full ${isOverdue ? "bg-red-400" : "bg-emerald-400"}`} />
+                  <Store className="h-4 w-4 text-slate-300 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-900 truncate">{j.project_name}</p>
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                      <span className="text-[10px] font-mono text-slate-400">{j.project_no ?? "—"}</span>
+                      <span className="text-[10px] text-slate-500">{j.process_title}</span>
+                      {j.current_stage && (
+                        <span className="text-[10px] bg-emerald-50 text-emerald-700 rounded px-1.5 py-0.5 font-medium">
+                          {j.current_stage}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className={`text-xs font-semibold ${cd.color}`}>{cd.text}</p>
+                    {j.target_end_date && (
+                      <p className="text-[10px] text-slate-400 mt-0.5">
+                        {new Date(j.target_end_date).toLocaleDateString("tr-TR")}
+                      </p>
+                    )}
+                  </div>
+                  <FolderOpen className="h-4 w-4 text-emerald-400 shrink-0" />
+                </Link>
+              );
+            })}
+          </div>
+        )
+
       ) : (
-        <div className="space-y-4">
-          {filteredGrouped.map(entry => (
-            <ProjectRow
-              key={entry.project.id}
-              entry={entry}
-              onRefresh={load}
-            />
-          ))}
-        </div>
+        /* ── Mağaza Grupları ── */
+        filteredGrouped.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-3 rounded-2xl border border-dashed border-slate-200">
+            <Building2 className="h-10 w-10 text-slate-200" />
+            <p className="text-sm text-slate-400">
+              {grouped.length === 0 ? "Henüz yeni yapım mağazası yok." : "Arama sonucu bulunamadı."}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {filteredGrouped.map(entry => (
+              <StoreGroupRow key={entry.project.id} entry={entry} onRefresh={load} />
+            ))}
+          </div>
+        )
       )}
 
       {wizard && (
         <Wizard
           onClose={() => setWizard(false)}
-          onDone={handleWizardDone}
+          onDone={() => { setWizard(false); load(); }}
           existingProjects={projects}
         />
       )}

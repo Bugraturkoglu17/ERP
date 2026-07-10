@@ -513,7 +513,16 @@ async def update_process(
     proc.updated_at = utc_now()
 
     if body.status == "completed" and getattr(proc, "work_type", None) == "yeni_yapim":
-        await _mark_project_existing(db, proc.project_id)
+        other = await db.execute(
+            select(StoreProcess).where(
+                StoreProcess.project_id == proc.project_id,
+                StoreProcess.work_type == "yeni_yapim",
+                StoreProcess.status != "completed",
+                StoreProcess.id != proc.id,
+            )
+        )
+        if not other.scalars().first():
+            await _mark_project_existing(db, proc.project_id)
 
     log_title = "Tadilat süreci tamamlandı" if body.status == "completed" else "Süreç güncellendi"
     await _log_activity(
@@ -581,7 +590,16 @@ async def update_stage(
         proc.status = "completed"
         proc.completed_at = utc_now()
         if getattr(proc, "work_type", None) == "yeni_yapim":
-            await _mark_project_existing(db, proc.project_id)
+            other = await db.execute(
+                select(StoreProcess).where(
+                    StoreProcess.project_id == proc.project_id,
+                    StoreProcess.work_type == "yeni_yapim",
+                    StoreProcess.status != "completed",
+                    StoreProcess.id != proc.id,
+                )
+            )
+            if not other.scalars().first():
+                await _mark_project_existing(db, proc.project_id)
     proc.updated_at = utc_now()
 
     # Aktivite
@@ -737,14 +755,14 @@ async def get_completed_jobs(
     db:   AsyncSession = Depends(get_db),
     user: User         = Depends(get_current_user),
 ):
-    """Tamamlanan Tadilatlar sayfası — status=completed tadilat süreçleri."""
+    """Tamamlanan süreçler — tadilat ve yeni_yapim."""
     result = await db.execute(
         select(StoreProcess, Project)
         .join(Project, StoreProcess.project_id == Project.id)
         .where(
             StoreProcess.tenant_id == user.tenant_id,
             StoreProcess.status == "completed",
-            StoreProcess.work_type == "tadilat",
+            StoreProcess.work_type.in_(["tadilat", "yeni_yapim"]),
         )
         .order_by(StoreProcess.completed_at.desc().nulls_last())
     )

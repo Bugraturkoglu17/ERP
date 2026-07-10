@@ -89,8 +89,8 @@ export default function YeniYapimSurecleriPage() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <Store className="h-4 w-4 text-slate-300 shrink-0" />
-                        <Link href={`/projects/${j.project_id}?tab=process`}
-                          className="font-medium text-slate-900 hover:text-blue-600 transition-colors">
+                        <Link href={`/yeni-yapim/surecleri/${j.process_id}?p=${j.project_id}`}
+                          className="font-medium text-slate-900 hover:text-emerald-600 transition-colors">
                           {j.project_name}
                         </Link>
                       </div>
@@ -105,8 +105,8 @@ export default function YeniYapimSurecleriPage() {
                     </td>
                     <td className={`px-4 py-3 text-xs font-semibold ${cd.color}`}>{cd.text}</td>
                     <td className="px-4 py-3 text-right">
-                      <Link href={`/projects/${j.project_id}?tab=process`}
-                        className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline">
+                      <Link href={`/yeni-yapim/surecleri/${j.process_id}?p=${j.project_id}`}
+                        className="inline-flex items-center gap-1 text-xs text-emerald-600 hover:underline">
                         <FolderOpen className="h-3.5 w-3.5" /> Sürece Git
                       </Link>
                     </td>

@@ -94,8 +94,7 @@ export const NAV_ENTRIES: NavEntry[] = [
     items: [
       { label: "Yeni Yapım İşleri",      href: "/yeni-yapim",                      icon: Building2,   allowedRoles: ["admin", "saha_muhendisi"] },
       { label: "Yeni Yapım Süreçleri",   href: "/yeni-yapim/surecleri",             icon: GitCommit,   allowedRoles: ["admin", "saha_muhendisi"] },
-      { label: "Yapılacak İşler",        href: "/yeni-yapim/isler",                 icon: FileText,    allowedRoles: ["admin", "saha_muhendisi"] },
-      { label: "Teklifler",              href: "/yeni-yapim/teklifler",             icon: FileText,    allowedRoles: ["admin", "saha_muhendisi"] },
+      { label: "Tamamlanan İşler",       href: "/yeni-yapim/tamamlanan",            icon: CheckCircle, allowedRoles: ["admin", "saha_muhendisi"] },
       { label: "Yeni Yapım Hakedişleri", href: "/yeni-yapim/hakkedisler",           icon: Receipt,     allowedRoles: ["admin", "saha_muhendisi"] },
     ],
   },
