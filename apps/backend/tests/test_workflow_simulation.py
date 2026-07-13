@@ -6,7 +6,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.api.v1.routes.workflow import simulate_workflow
-from app.core.services.workflow_simulator import WorkflowSimulator
+from app.services.workflow_simulator import WorkflowSimulator
 from app.db.models import WorkflowDefinition, WorkflowVersion
 from app.db.schemas import WorkflowSimulationRequest
 

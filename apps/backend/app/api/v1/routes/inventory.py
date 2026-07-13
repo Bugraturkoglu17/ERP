@@ -16,8 +16,8 @@ from sqlalchemy.exc import IntegrityError
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, is_platform_admin
-from app.core.email_templates import low_stock_alert_mail
-from app.core.emailing import enqueue_tenant_email
+from app.services.email.email_templates import low_stock_alert_mail
+from app.services.email.emailing import enqueue_tenant_email
 from app.core.exceptions import NotFoundError, ConflictError
 from app.db.models import (
     InventoryTransaction,
@@ -53,7 +53,7 @@ router = APIRouter()
 LOW_STOCK_ALERT_COOLDOWN_MINUTES = 180
 
 
-from app.core.services.user_service import UserService
+from app.services.user_service import UserService
 
 async def _tenant_admin_emails(db: AsyncSession, tenant_id: uuid.UUID) -> list[str]:
     return await UserService.get_tenant_admin_emails(db, tenant_id)

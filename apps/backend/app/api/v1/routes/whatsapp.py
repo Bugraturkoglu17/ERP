@@ -15,7 +15,7 @@ from uuid import UUID
 from app.core.config import settings
 from app.core.database import get_db
 from app.db.models import OutboundWhatsAppAudit, ErpNotification, User
-from app.core.workers.tasks import send_whatsapp_message_task
+from app.workers.tasks import send_whatsapp_message_task
 from app.core.dependencies import get_current_user, require_role
 from app.core.permissions import is_platform_admin
 

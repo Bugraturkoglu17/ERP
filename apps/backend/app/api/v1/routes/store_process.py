@@ -193,7 +193,7 @@ async def _get_process_or_404(db: AsyncSession, process_id: UUID, user: User) ->
     return await verify_process_tenant(db, process_id, user)
 
 
-from app.core.services.activity_logger import ActivityLoggerService
+from app.services.activity_logger import ActivityLoggerService
 
 async def _log_activity(
     db: AsyncSession,

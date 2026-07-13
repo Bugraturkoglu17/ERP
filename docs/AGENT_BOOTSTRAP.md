@@ -8,6 +8,10 @@ Kullanıcı dostu, sade, modüler, güvenli, WhatsApp destekli ve AI-agent frien
 - **Frontend:** Next.js App Router, TailwindCSS
 - **Infrastructure:** Docker (varsa), Backend & Frontend ayrık modüler yapı
 
+## Code Organization Rules
+- **Frontend:** Sayfalar URL yapısını etkilemeyen `(auth)` ve `(dashboard)` route grupları altında organize edilir. "Fat Pages" mimarisinden kaçınılarak UI parçaları `components/modules/` altına alınır.
+- **Backend:** İş mantığı (Business Logic) `app/services/` altında tutulur. Altyapı kodları (DB, config, middleware) `app/core/` altında, Celery asenkron görevleri ise `app/workers/` altında tutulur. Asla `core/` altında doğrudan bir business servisi bulundurulmaz.
+
 ## Major Modules
 - Projects
 - Documents

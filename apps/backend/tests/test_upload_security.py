@@ -3,8 +3,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi import HTTPException, UploadFile
 import redis.asyncio as aioredis
 
-from app.core.upload_validator import validate_uploaded_file
-from app.core.storage import StorageService
+from app.services.upload_validator import validate_uploaded_file
+from app.services.storage import StorageService
 from app.core.rate_limiter import check_public_upload_rate_limit
 
 # 1. File Validator Tests
@@ -75,7 +75,7 @@ def test_validator_valid_signatures():
 @pytest.mark.asyncio
 async def test_storage_path_traversal_detection():
     # Create instance using env fallback config to avoid boto3 connection logic
-    with patch("app.core.storage.settings") as mock_settings:
+    with patch("app.services.storage.settings") as mock_settings:
         mock_settings.AWS_ACCESS_KEY_ID = ""
         mock_settings.OCI_BUCKET_NAME = "test-bucket"
         

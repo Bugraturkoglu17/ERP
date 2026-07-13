@@ -5,8 +5,8 @@ from fastapi import HTTPException
 from datetime import datetime
 
 from app.core.utils.helpers import utc_now
-from app.core.services.user_service import UserService
-from app.core.services.activity_logger import ActivityLoggerService
+from app.services.user_service import UserService
+from app.services.activity_logger import ActivityLoggerService
 from app.core.security.validators import (
     has_admin_role,
     tenant_mismatch,

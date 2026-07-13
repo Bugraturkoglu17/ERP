@@ -20,8 +20,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database         import get_db
 from app.core.dependencies     import get_current_user, is_platform_admin, require_role
-from app.core.email_templates import project_assignment_mail
-from app.core.emailing import enqueue_tenant_email
+from app.services.email.email_templates import project_assignment_mail
+from app.services.email.emailing import enqueue_tenant_email
 from app.core.exceptions       import NotFoundError
 from app.db.crud               import CRUDBase
 from app.db.models import (

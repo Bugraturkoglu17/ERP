@@ -8,7 +8,7 @@ from app.api.v1.routes import (
     auth, projects, inventory, finance, documents, platform,
     procurement, field_reports, whatsapp, store_process,
     service_forms, progress_payments, approvals, invoice_records,
-    work_orders, notifications, meta, workflow,
+    work_orders, notifications, meta, workflow, search,
 )
 
 router = APIRouter()
@@ -34,3 +34,4 @@ router.include_router(notifications.router,     prefix="/notifications",     tag
 router.include_router(workflow.router)
 router.include_router(workflow.catalog_router)
 router.include_router(meta.router)
+router.include_router(search.router,            prefix="/search",            tags=["search"])

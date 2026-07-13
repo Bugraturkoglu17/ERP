@@ -111,11 +111,11 @@ services:
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
       ENV: ${ENV:-development}
       AUTO_MIGRATE: "false"
-    command: celery -A app.core.workers.celery_app worker --loglevel=info --concurrency=${CELERY_WORKERS:-4}
+    command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=${CELERY_WORKERS:-4}
     volumes:
       - ../apps/backend:/app:cached
     healthcheck:
-      test: ["CMD-SHELL", "celery -A app.core.workers.celery_app inspect ping --destination celery@$$HOSTNAME | grep -q OK"]
+      test: ["CMD-SHELL", "celery -A app.workers.celery_app inspect ping --destination celery@$$HOSTNAME | grep -q OK"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -137,7 +137,7 @@ services:
       SECRET_KEY: ${SECRET_KEY:-change_me_secret_key_min_32_chars}
       ENV: ${ENV:-development}
       AUTO_MIGRATE: "false"
-    command: celery -A app.core.workers.celery_app beat --loglevel=info
+    command: celery -A app.workers.celery_app beat --loglevel=info
     volumes:
       - ../apps/backend:/app:cached
     healthcheck:

@@ -7,6 +7,21 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+### Sprint 21.9 — System Architecture & Layer Separation Cleanup
+
+#### Added
+- Frontend: `(auth)` and `(dashboard)` Next.js Route Groups implemented to logical group views without affecting API or URL paths.
+- Frontend: Thin page decomposition implemented for `/projects` and `/finance` (resolved P1 technical debt). Modals and Tabs extracted to `components/modules/`.
+- Backend: Strict layer separation. `app/core/services` moved to `app/services/`. `notification_service`, `storage`, and `upload_validator` decoupled from `core/` into `services/`.
+- Backend: Email modules extracted into a dedicated `app/services/email/` directory.
+- Backend: Celery worker tasks moved from `app/core/workers/` to `app/workers/`.
+
+#### Changed
+- 31 backend Python files updated to reflect new import paths.
+- Frontend TypeScript codebase compiled and validated against new component import paths using `npx tsc --noEmit`.
+
+---
+
 ### Sprint 22B — Platform Tenant Entitlements & Quotas
 
 #### Added

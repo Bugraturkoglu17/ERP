@@ -206,4 +206,15 @@ async def run_seed(dry_run: bool = False) -> dict[str, int]:
             br_sis, br_kad, br_can, br_kar = branch_uuids[f"{x_ist_rg}::X Market Şişli Şubesi"], branch_uuids[f"{x_ist_rg}::X Market Kadıköy Şubesi"], branch_uuids[f"{y_ank_rg}::Y Market Çankaya Şubesi"], branch_uuids[f"{y_izm_rg}::Y Market Karşıyaka Şubesi"]
 
             # ── 5-a · Depolar ve Malzemeler ─────────────────────────────────────
-            _, main_wh = await get_or_//... (truncated for brevity)
+            # Depo ve malzeme eklemeleri daha sonra eklenebilir.
+            
+    return counts
+
+
+async def main() -> None:
+    print("Seeding database...")
+    counts = await run_seed()
+    print(f"Seeding complete: {counts}")
+
+if __name__ == "__main__":
+    asyncio.run(main())

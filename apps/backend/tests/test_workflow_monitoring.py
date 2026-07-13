@@ -225,3 +225,32 @@ def test_stalled_alert_idempotency():
     run = make_run(status="stalled", alert_sent=True)
     # If already alerted, alert_sent_at is set
     assert run.alert_sent_at is not None
+
+
+@patch("app.workers.tasks.AsyncSessionLocal")
+@patch("app.core.database.async_engine")
+@patch("app.services.workflow_engine._create_failure_notification")
+def test_detect_stalled_workflow_runs_task_success(mock_create_notif, mock_engine, mock_session_class):
+    from app.workers.tasks import detect_stalled_workflow_runs_task
+
+    mock_session = MagicMock()
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=None)
+    mock_session_class.return_value = mock_session
+
+    mock_result = MagicMock()
+    run = make_run(status="running", started_minutes_ago=35)
+    mock_result.scalars.return_value.all.return_value = [run]
+    mock_session.execute = AsyncMock(return_value=mock_result)
+    mock_session.commit = AsyncMock()
+    mock_create_notif.return_value = AsyncMock()
+    mock_engine.dispose = AsyncMock()
+
+    result = detect_stalled_workflow_runs_task()
+
+    assert result == {"stalled_count": 1}
+    assert run.status == "stalled"
+    assert run.stalled_at is not None
+    mock_session.commit.assert_called_once()
+    mock_create_notif.assert_called_once()
+

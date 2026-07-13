@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from app.core.services.workflow_action_service import INITIAL_ACTIONS
-from app.core.services.workflow_trigger_service import INITIAL_TRIGGERS
+from app.services.workflow_action_service import INITIAL_ACTIONS
+from app.services.workflow_trigger_service import INITIAL_TRIGGERS
 from app.seeds.base_seeder import BaseSeeder
 
 

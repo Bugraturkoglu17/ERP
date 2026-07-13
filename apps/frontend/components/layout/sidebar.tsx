@@ -54,6 +54,8 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
   const [hasContext, setHasContext] = useState(false);
   const [entitlements, setEntitlements] = useState<{ modules?: string[]; features?: string[] }>();
+  const [tenantName, setTenantName] = useState<string>("Golabs ERP");
+  const [tenantLogo, setTenantLogo] = useState<string | null>(null);
 
   useEffect(() => {
     const payload = getTokenPayloadFromStorage();
@@ -69,6 +71,13 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
       const contextToken = window.localStorage.getItem("tenant_context_token");
       setHasContext(Boolean(contextToken));
       const rawContext = window.localStorage.getItem("tenant_context_data") || window.sessionStorage.getItem("tenant_context_v1");
+      if (rawContext) {
+        try {
+          const parsed = JSON.parse(rawContext);
+          if (parsed?.tenant_name) setTenantName(parsed.tenant_name);
+          if (parsed?.logo_url) setTenantLogo(parsed.logo_url);
+        } catch {}
+      }
       setEntitlements(extractEntitlements(rawContext));
     }
   }, [pathname]);
@@ -89,6 +98,8 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
       }
 
       const ctx = await fetchTenantContext(true);
+      if (ctx?.tenant_name) setTenantName(ctx.tenant_name);
+      if (ctx?.logo_url) setTenantLogo(ctx.logo_url);
       const modules = Array.isArray(ctx?.active_modules) ? ctx.active_modules : undefined;
       const features = Array.isArray(ctx?.active_features) ? ctx.active_features : Array.isArray(ctx?.feature_flags) ? ctx.feature_flags : undefined;
       setEntitlements(modules || features ? { modules, features } : undefined);
@@ -124,6 +135,8 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
     if (hasContext) return;
     fetchTenantContext()
       .then((ctx) => {
+        if (ctx?.tenant_name) setTenantName(ctx.tenant_name);
+        if (ctx?.logo_url) setTenantLogo(ctx.logo_url);
         const modules = Array.isArray(ctx?.active_modules) ? ctx.active_modules : undefined;
         const features = Array.isArray(ctx?.active_features) ? ctx.active_features : Array.isArray(ctx?.feature_flags) ? ctx.feature_flags : undefined;
         setEntitlements(modules || features ? { modules, features } : undefined);
@@ -185,14 +198,21 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
         )}
       >
         {/* Logo */}
-        <div className="flex h-14 shrink-0 items-center justify-between border-b border-slate-100 px-4">
+        <div className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 px-4">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-white text-xs font-bold shrink-0">
-              S
-            </div>
+            {(tenantLogo && (!isPlatform || hasContext)) ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={tenantLogo} alt={tenantName} className="h-7 w-7 rounded-lg object-contain shrink-0 bg-white" />
+            ) : (
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-white text-xs font-bold shrink-0">
+                {(isPlatform && !hasContext) ? "G" : tenantName.slice(0, 1).toUpperCase()}
+              </div>
+            )}
             <div>
-              <p className="text-sm font-bold text-slate-900 leading-none">{isPlatform ? "Golabs ERP" : "Golabs ERP"}</p>
-              <p className="text-[10px] text-slate-400 mt-0.5">{isPlatform ? "Platform Yönetimi" : "Mağaza Takip"}</p>
+              <p className="text-sm font-bold text-slate-900 leading-none truncate max-w-[130px]" title={(isPlatform && !hasContext) ? "Golabs ERP" : tenantName}>
+                {(isPlatform && !hasContext) ? "Golabs ERP" : tenantName}
+              </p>
+              <p className="text-[10px] text-slate-400 mt-0.5">{(isPlatform && !hasContext) ? "Platform Yönetimi" : "Mağaza Takip"}</p>
             </div>
           </div>
           <button onClick={onClose} className="lg:hidden flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100">

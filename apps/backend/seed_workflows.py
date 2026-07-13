@@ -46,7 +46,7 @@ async def seed_data():
                 "action_type": "send_email",
                 "module_id": "notifications",
                 "label_tr": "E-posta Gönder",
-                "celery_task": "app.core.workers.tasks.send_email_task",
+                "celery_task": "app.workers.tasks.send_email_task",
                 "config_schema": json.dumps({
                     "type": "object",
                     "properties": {
@@ -61,7 +61,7 @@ async def seed_data():
                 "action_type": "send_whatsapp",
                 "module_id": "whatsapp",
                 "label_tr": "WhatsApp Mesajı Gönder",
-                "celery_task": "app.core.workers.tasks.send_whatsapp_task",
+                "celery_task": "app.workers.tasks.send_whatsapp_task",
                 "config_schema": json.dumps({
                     "type": "object",
                     "properties": {
@@ -75,7 +75,7 @@ async def seed_data():
                 "action_type": "create_approval",
                 "module_id": "approvals",
                 "label_tr": "Onay Talebi Oluştur",
-                "celery_task": "app.core.workers.tasks.create_approval_task",
+                "celery_task": "app.workers.tasks.create_approval_task",
                 "config_schema": json.dumps({
                     "type": "object",
                     "properties": {
@@ -94,7 +94,7 @@ async def seed_data():
                 "action_type": "update_work_order",
                 "module_id": "work_orders",
                 "label_tr": "İş Emrini Güncelle",
-                "celery_task": "app.core.workers.tasks.update_work_order_task",
+                "celery_task": "app.workers.tasks.update_work_order_task",
                 "config_schema": json.dumps({
                     "type": "object",
                     "properties": {

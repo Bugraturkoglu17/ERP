@@ -6,9 +6,9 @@ import pytest
 
 
 def test_legacy_service_imports_reexport_core_services():
-    from app.core.services.entitlement_service import EntitlementService as CoreEntitlementService
-    from app.core.services.workflow_engine import WorkflowEngine as CoreWorkflowEngine
-    from app.core.services.workflow_validator import validate_workflow_dsl as core_validate_workflow_dsl
+    from app.services.entitlement_service import EntitlementService as CoreEntitlementService
+    from app.services.workflow_engine import WorkflowEngine as CoreWorkflowEngine
+    from app.services.workflow_validator import validate_workflow_dsl as core_validate_workflow_dsl
     from app.services.entitlement_service import EntitlementService
     from app.services.workflow_engine import WorkflowEngine
     from app.services.workflow_validator import validate_workflow_dsl

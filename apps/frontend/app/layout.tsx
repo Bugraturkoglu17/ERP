@@ -1,18 +1,19 @@
 "use client";
 
 import "./globals.css";
-import { Menu, AlertTriangle } from "lucide-react";
+import { Menu, AlertTriangle, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { fetchTenantContext } from "@/lib/tenant-context";
-import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { GlobalSearch } from "@/components/layout/global-search";
+import { NotificationBell } from "@/components/modules/notifications/NotificationBell";
 import { getTokenPayloadFromStorage, isPlatformAdmin } from "@/lib/auth";
 import { hasAuthToken } from "@/lib/session";
 
 function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [title, setTitle] = useState("Yönetim Paneli");
+  const [title, setTitle] = useState("");
   const pathname = usePathname();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
@@ -139,12 +140,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
       setTitle("Platform Yönetimi");
       return;
     }
-    (async () => {
-      const ctx = await fetchTenantContext();
-      if (ctx?.tenant_name) {
-        setTitle(`${ctx.tenant_name} ERP Paneli`);
-      }
-    })();
+    setTitle("");
   }, [pathname, hasToken, isAdmin, contextInfo]);
 
   // Prevent hydration mismatch and rendering layout components before path is determined
@@ -191,20 +187,32 @@ function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         )}
         <header className="flex h-16 shrink-0 items-center justify-between border-b bg-white px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3">
+          {/* Left section: Menu & Title */}
+          <div className="flex items-center gap-3 lg:w-1/3">
             <button
               type="button"
               onClick={() => setMobileOpen(true)}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 text-slate-700 hover:bg-slate-100 lg:hidden"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 text-slate-700 hover:bg-slate-100 lg:hidden shrink-0"
               aria-label="Menüyü aç"
             >
               <Menu className="h-4 w-4" />
             </button>
-            <h1 className="truncate text-sm font-semibold text-slate-800 sm:text-base lg:text-lg">
-              {title}
-            </h1>
+            {title && (
+              <h1 className="truncate text-sm font-semibold text-slate-800 sm:text-base lg:text-lg">
+                {title}
+              </h1>
+            )}
           </div>
-          <div className="flex items-center gap-3 sm:gap-4">
+
+          {/* Center section: Search Bar */}
+          <div className="hidden sm:flex flex-1 items-center justify-center lg:w-1/3">
+            {!title && (
+              <GlobalSearch />
+            )}
+          </div>
+
+          {/* Right section: Profile & Notifications */}
+          <div className="flex items-center justify-end gap-3 sm:gap-4 lg:w-1/3">
             <NotificationBell />
             <div className="h-8 w-8 rounded-full bg-slate-200" />
           </div>

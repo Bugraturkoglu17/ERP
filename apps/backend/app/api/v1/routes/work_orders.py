@@ -21,9 +21,9 @@ from sqlalchemy import select, desc, func as sa_func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import entitlement_http_error, get_current_user, get_db, require_feature, require_module, require_quota, require_role
-from app.core.storage import storage, sanitize_filename
+from app.services.storage import storage, sanitize_filename
 from app.core.permissions import verify_project_tenant, verify_work_order_tenant
-from app.core.upload_validator import validate_uploaded_file
+from app.services.upload_validator import validate_uploaded_file
 from app.core.rate_limiter import check_public_upload_rate_limit
 from app.db.models import (
     Project, User, WorkOrder, WorkOrderActivity, WorkOrderPhoto,
@@ -32,10 +32,10 @@ from app.db.models import (
     StoreActivity, StoreApprovalRequest, StoreServiceForm, OutboundWhatsAppAudit,
     Tenant, NotificationTemplateConfig, ErpNotification
 )
-from app.core.workers.tasks import send_whatsapp_message_task
-from app.core.services.whatsapp_service import WorkOrderNotification, whatsapp_service
-from app.core.notification_service import resolve_template_components, resolve_key_path
-from app.core.services.entitlement_service import EntitlementService
+from app.workers.tasks import send_whatsapp_message_task
+from app.services.whatsapp_service import WorkOrderNotification, whatsapp_service
+from app.services.notification_service import resolve_template_components, resolve_key_path
+from app.services.entitlement_service import EntitlementService
 
 router = APIRouter()
 

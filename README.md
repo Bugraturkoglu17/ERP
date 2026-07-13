@@ -205,7 +205,8 @@ GET /api/v1/openapi.json
 
 ## Development Standards
 
-- Keep route structure flat and predictable under `apps/frontend/app/*`.
+- **Frontend:** Use Route Groups (`(auth)`, `(dashboard)`) under `apps/frontend/app/` to organize domains logically without affecting the URL structure. Avoid "Fat Pages" by extracting modals, tabs, and reusable parts into `components/modules/`.
+- **Backend:** Strictly separate business logic into `app/services/` and keep `app/core/` limited to infrastructure components (config, db, middleware, security). Celery tasks belong in `app/workers/`.
 - Avoid committing runtime artifacts (`__pycache__`, build outputs, local binaries).
 - Prefer soft-delete where business history must be preserved.
 

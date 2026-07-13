@@ -8,9 +8,9 @@ from fastapi.responses import JSONResponse
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.dependencies import require_role
-from app.core.workers import celery_app
+from app.workers import celery_app
 from fastapi.routing import APIRoute
-from app.core.services.entitlement_service import EntitlementService
+from app.services.entitlement_service import EntitlementService
 
 router = APIRouter(tags=["meta"])
 

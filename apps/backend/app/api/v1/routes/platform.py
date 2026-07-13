@@ -9,12 +9,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, is_platform_admin
-from app.core.email_templates import (
+from app.services.email.email_templates import (
     tenant_admin_password_reset_mail,
     tenant_admin_provisioned_mail,
     tenant_status_changed_mail,
 )
-from app.core.emailing import enqueue_tenant_email
+from app.services.email.emailing import enqueue_tenant_email
 from app.core.security import hash_password
 from app.db.models import (
     PlatformAdminAction,
@@ -56,7 +56,7 @@ from app.db.schemas import (
     TenantUpdate,
     UserRead,
 )
-from app.core.services.entitlement_service import EntitlementService
+from app.services.entitlement_service import EntitlementService
 
 router = APIRouter()
 
@@ -896,7 +896,7 @@ async def get_health_check(
 
     # Celery Check
     try:
-        from app.core.workers import celery_app
+        from app.workers import celery_app
         if not celery_app.conf.broker_url:
             status["celery"] = "not_configured"
         else:
@@ -1051,7 +1051,7 @@ async def start_context(
     db.add(session)
     await db.flush() # gets session.id
     
-    from app.core.services.context_service import create_context_token
+    from app.services.context_service import create_context_token
     token = create_context_token(
         actor_user_id=str(user.id),
         tenant_id=str(tenant.id),
@@ -1104,7 +1104,7 @@ async def end_context(
     _ensure_platform_admin(user)
     
     if x_tenant_context:
-        from app.core.services.context_service import decode_context_token
+        from app.services.context_service import decode_context_token
         try:
             payload = decode_context_token(x_tenant_context)
             context_id = payload.get("context_id")
@@ -1134,7 +1134,7 @@ async def renew_context(
     if not x_tenant_context:
         raise HTTPException(status_code=400, detail="X-Tenant-Context başlığı eksik.")
         
-    from app.core.services.context_service import decode_context_token
+    from app.services.context_service import decode_context_token
     try:
         payload = decode_context_token(x_tenant_context)
         context_id = payload.get("context_id")
@@ -1164,7 +1164,7 @@ async def renew_context(
         await db.commit()
         
         # Issue new token
-        from app.core.services.context_service import create_context_token
+        from app.services.context_service import create_context_token
         new_token = create_context_token(
             actor_user_id=str(user.id),
             tenant_id=str(session.tenant_id),
@@ -1341,7 +1341,7 @@ async def current_context(
     if not x_tenant_context:
         return {"active": False}
         
-    from app.core.services.context_service import decode_context_token
+    from app.services.context_service import decode_context_token
     try:
         payload = decode_context_token(x_tenant_context)
         from app.db.models import Tenant

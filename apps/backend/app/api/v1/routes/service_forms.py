@@ -26,7 +26,7 @@ MONTHS_TR = ["", "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
 
 from app.core.utils.helpers import utc_now
 
-from app.core.services.activity_logger import ActivityLoggerService
+from app.services.activity_logger import ActivityLoggerService
 
 async def _log_activity(db, project_id, tenant_id, user, title, description=None):
     await ActivityLoggerService.log_activity(

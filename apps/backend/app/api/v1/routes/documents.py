@@ -12,12 +12,12 @@ from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.storage import storage, sanitize_filename
+from app.services.storage import storage, sanitize_filename
 from app.core.exceptions import NotFoundError, ConflictError
 from app.db.models import Document, User, Project
 from app.core.dependencies import get_current_user, require_module
 from app.core.permissions import verify_project_tenant, verify_document_tenant
-from app.core.upload_validator import validate_uploaded_file
+from app.services.upload_validator import validate_uploaded_file
 from app.db.schemas import (
     DocumentCreate,
     DocumentRead,
@@ -25,7 +25,7 @@ from app.db.schemas import (
     DocumentVersionCreate,
     DocumentDownloadResponse,
 )
-from app.core.services.entitlement_service import EntitlementService
+from app.services.entitlement_service import EntitlementService
 
 router = APIRouter()
 

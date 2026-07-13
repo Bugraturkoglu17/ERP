@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.core.services.entitlement_service import EntitlementService
+from app.services.entitlement_service import EntitlementService
 from app.seeds.base_seeder import BaseSeeder
 
 

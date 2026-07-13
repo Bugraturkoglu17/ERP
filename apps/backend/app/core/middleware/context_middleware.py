@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
-from app.core.services.context_service import decode_context_token
+from app.services.context_service import decode_context_token
 from app.core.database import AsyncSessionLocal
 from app.db.models import PlatformAdminAction, PlatformContextSession
 from sqlalchemy import select

@@ -14,8 +14,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, is_platform_admin
-from app.core.email_templates import invoice_created_mail, invoice_due_soon_mail
-from app.core.emailing import enqueue_tenant_email
+from app.services.email.email_templates import invoice_created_mail, invoice_due_soon_mail
+from app.services.email.emailing import enqueue_tenant_email
 from app.core.exceptions import NotFoundError
 from app.db.crud import CRUDBase
 from app.db.models import Customer, Expense, ExpenseCategory, Invoice, Project, InvoiceItem, Payment, InvoiceStatus, User
@@ -34,7 +34,7 @@ crud_invoice = CRUDBase(Invoice)
 crud_expense = CRUDBase(Expense)
 
 
-from app.core.services.user_service import UserService
+from app.services.user_service import UserService
 
 async def _tenant_admin_emails(db: AsyncSession, tenant_id: UUID) -> list[str]:
     return await UserService.get_tenant_admin_emails(db, tenant_id)

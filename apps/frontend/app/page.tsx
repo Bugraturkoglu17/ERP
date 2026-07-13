@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { DashboardOverview } from "@/components/dashboard/overview";
+import { DashboardOverview } from "@/components/modules/dashboard/overview";
 import { getTokenPayloadFromStorage, isPlatformAdmin } from "@/lib/auth";
 
 export default function Page() {

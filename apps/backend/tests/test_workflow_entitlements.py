@@ -2,18 +2,18 @@ import uuid
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 
-from app.core.workers.tasks import execute_workflow_run_task
+from app.workers.tasks import execute_workflow_run_task
 from app.db.models import WorkflowRun
 
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
 
-@patch("app.core.services.workflow_engine.WorkflowEngine")
-@patch("app.core.services.workflow_action_service.WorkflowActionService")
-@patch("app.core.services.entitlement_service.EntitlementService")
+@patch("app.services.workflow_engine.WorkflowEngine")
+@patch("app.services.workflow_action_service.WorkflowActionService")
+@patch("app.services.entitlement_service.EntitlementService")
 @patch("app.db.models.TenantUsageMeter")
-@patch("app.core.workers.tasks.AsyncSessionLocal")
+@patch("app.workers.tasks.AsyncSessionLocal")
 def test_execute_workflow_run_task_meters_usage(
     mock_session_local,
     mock_usage_meter,
@@ -48,7 +48,7 @@ def test_execute_workflow_run_task_meters_usage(
     mock_meter_instance.record_usage = AsyncMock()
     
     # We call the task. Since it uses asyncio.run internally, we run it as a regular sync function.
-    from app.core.workers.tasks import execute_workflow_run_task
+    from app.workers.tasks import execute_workflow_run_task
     res = execute_workflow_run_task(str(run_id))
     
     assert res["status"] == "completed"
