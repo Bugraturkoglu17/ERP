@@ -29,9 +29,14 @@ function fmtSize(bytes?: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-async function openDoc(docId: string) {
+async function openDoc(fileUrlOrDocId: string) {
+  // İş emrinden yüklenenler direkt URL saklar; Bakım modülünden yüklenenler UUID saklar
+  if (fileUrlOrDocId.startsWith("http")) {
+    window.open(fileUrlOrDocId, "_blank");
+    return;
+  }
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-  const res = await fetch(buildApiUrl(`/documents/${docId}/download`), {
+  const res = await fetch(buildApiUrl(`/documents/${fileUrlOrDocId}/download`), {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   }).catch(() => null);
   if (!res?.ok) { alert("Dosya açılamadı."); return; }

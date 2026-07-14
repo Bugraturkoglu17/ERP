@@ -30,9 +30,11 @@ function fmtDate(d: string) {
   return new Date(d).toLocaleDateString("tr-TR", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-async function fetchDocUrl(docId: string): Promise<string> {
+async function resolveFileUrl(fileUrlOrDocId: string): Promise<string> {
+  // İş emrinden yüklenen formlar direkt URL saklar; Bakım modülünden yüklenenler UUID saklar
+  if (fileUrlOrDocId.startsWith("http")) return fileUrlOrDocId;
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-  const res = await fetch(buildApiUrl(`/documents/${docId}/download`), {
+  const res = await fetch(buildApiUrl(`/documents/${fileUrlOrDocId}/download`), {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
   if (!res.ok) throw new Error();
@@ -40,18 +42,18 @@ async function fetchDocUrl(docId: string): Promise<string> {
   return url;
 }
 
-async function openDoc(docId: string) {
+async function openDoc(fileUrlOrDocId: string) {
   try {
-    const url = await fetchDocUrl(docId);
+    const url = await resolveFileUrl(fileUrlOrDocId);
     window.open(url, "_blank");
   } catch {
     alert("Dosya açılamadı.");
   }
 }
 
-async function downloadDoc(docId: string, fileName?: string) {
+async function downloadDoc(fileUrlOrDocId: string, fileName?: string) {
   try {
-    const url = await fetchDocUrl(docId);
+    const url = await resolveFileUrl(fileUrlOrDocId);
     const a = document.createElement("a");
     a.href = url;
     a.download = fileName ?? "servis-formu";

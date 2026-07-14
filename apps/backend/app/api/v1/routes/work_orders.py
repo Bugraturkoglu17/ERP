@@ -6,6 +6,7 @@ Routes: /api/v1/work-orders/...
 """
 from __future__ import annotations
 
+import json
 import secrets
 import time
 from datetime import datetime, timezone
@@ -20,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import get_current_user, get_db
 from app.core.storage import storage, sanitize_filename
 from app.db.models import (
-    Project, User, WorkOrder, WorkOrderActivity, WorkOrderPhoto,
+    Document, Project, User, WorkOrder, WorkOrderActivity, WorkOrderPhoto,
     WorkOrderPublicLink, WorkOrderServiceForm, WorkOrderStatus,
     WorkOrderType, WorkOrderWhatsappMessage, WorkOrderWhatsappStatus,
     StoreActivity, StoreApprovalRequest, StoreServiceForm,
@@ -112,6 +113,27 @@ class WorkOrderUpdate(BaseModel):
     status:            Optional[str] = None
 
 
+class WorkOrderPhotoRead(BaseModel):
+    id:                    UUID
+    work_order_id:         UUID
+    file_key:              str
+    file_name:             Optional[str]
+    file_size_bytes:       Optional[int]
+    mime_type:             Optional[str]
+    photo_type:            str
+    uploaded_by_name:      Optional[str]
+    uploaded_at:           datetime
+    is_added_to_inventory: bool
+    vi_doc_id:             Optional[UUID]
+    fresh_url:             Optional[str] = None
+
+
+class AddPhotosToInventoryPayload(BaseModel):
+    photo_ids: List[UUID]
+    category:  Optional[str] = "saha_gorseli"
+    title:     Optional[str] = None
+
+
 class PublicWorkOrderRead(BaseModel):
     id:                UUID
     project_id:        UUID
@@ -140,6 +162,26 @@ class PublicSubmit(BaseModel):
 
 def _generate_token() -> str:
     return secrets.token_urlsafe(32)
+
+
+def _parse_project_address(proj: Project) -> Optional[str]:
+    if not proj or not proj.description:
+        return None
+    try:
+        d = json.loads(proj.description)
+        return d.get("adres") or None
+    except Exception:
+        return None
+
+
+def _parse_project_phone(proj: Project) -> Optional[str]:
+    if not proj or not proj.description:
+        return None
+    try:
+        d = json.loads(proj.description)
+        return d.get("tel1") or None
+    except Exception:
+        return None
 
 
 def _parse_date(d: Optional[str]) -> Optional[datetime]:
@@ -497,6 +539,122 @@ async def upload_admin_photo(
     return {"id": str(photo.id), "file_url": file_url, "photo_type": photo_type}
 
 
+# ── İş emri fotoğraflarını listele ───────────────────────────────────────────
+
+@router.get("/{work_order_id}/photos", response_model=List[WorkOrderPhotoRead])
+async def list_work_order_photos(
+    work_order_id: UUID,
+    db:   AsyncSession = Depends(get_db),
+    user: User         = Depends(get_current_user),
+):
+    wo = await db.get(WorkOrder, work_order_id)
+    if not wo:
+        raise HTTPException(404, "İş emri bulunamadı.")
+
+    photos_r = await db.execute(
+        select(WorkOrderPhoto)
+        .where(WorkOrderPhoto.work_order_id == work_order_id)
+        .order_by(WorkOrderPhoto.uploaded_at)
+    )
+    photos = photos_r.scalars().all()
+
+    result = []
+    for p in photos:
+        try:
+            url = await storage.generate_presigned_url(p.file_key)
+        except Exception:
+            url = p.file_url
+        result.append(WorkOrderPhotoRead(
+            id=p.id,
+            work_order_id=p.work_order_id,
+            file_key=p.file_key,
+            file_name=p.file_name,
+            file_size_bytes=p.file_size_bytes,
+            mime_type=p.mime_type,
+            photo_type=p.photo_type,
+            uploaded_by_name=p.uploaded_by_name,
+            uploaded_at=p.uploaded_at,
+            is_added_to_inventory=p.is_added_to_inventory,
+            vi_doc_id=p.vi_doc_id,
+            fresh_url=url,
+        ))
+    return result
+
+
+# ── Fotoğrafları Görsel Envanter'e aktar ─────────────────────────────────────
+
+@router.post("/{work_order_id}/add-photos-to-inventory")
+async def add_photos_to_inventory(
+    work_order_id: UUID,
+    payload: AddPhotosToInventoryPayload,
+    db:   AsyncSession = Depends(get_db),
+    user: User         = Depends(get_current_user),
+):
+    wo = await db.get(WorkOrder, work_order_id)
+    if not wo:
+        raise HTTPException(404, "İş emri bulunamadı.")
+
+    added: list[str] = []
+    skipped: list[str] = []
+
+    for photo_id in payload.photo_ids:
+        photo_r = await db.execute(
+            select(WorkOrderPhoto).where(
+                WorkOrderPhoto.id == photo_id,
+                WorkOrderPhoto.work_order_id == work_order_id,
+            )
+        )
+        photo = photo_r.scalar_one_or_none()
+        if not photo:
+            continue
+        if photo.is_added_to_inventory:
+            skipped.append(str(photo_id))
+            continue
+
+        vi_meta = {
+            "c":        payload.category or "saha_gorseli",
+            "t":        payload.title or photo.file_name or "Saha Görseli",
+            "source":   "work_order",
+            "wo_id":    str(wo.id),
+            "wo_title": wo.title,
+            "reporter": photo.uploaded_by_name,
+            "wo_date":  photo.uploaded_at.strftime("%Y-%m-%d"),
+        }
+
+        doc = Document(
+            id=uuid4(),
+            project_id=wo.project_id,
+            doc_type="visual_inventory",
+            original_name=photo.file_name or "saha-fotografi.jpg",
+            file_key=photo.file_key,
+            bucket_name=storage.bucket_name,
+            file_size_bytes=photo.file_size_bytes,
+            mime_type=photo.mime_type,
+            revision_note=None,
+            vi_meta=json.dumps(vi_meta, ensure_ascii=False),
+            version=1,
+            uploaded_by=user.id,
+            created_at=utc_now(),
+        )
+        db.add(doc)
+        await db.flush()
+
+        photo.is_added_to_inventory = True
+        photo.vi_doc_id = doc.id
+        added.append(str(photo_id))
+
+    if added:
+        await _log_activity(
+            db, wo.id, wo.project_id,
+            "photos_added_to_inventory",
+            f"İş emrinden {len(added)} saha görseli Görsel Envanter'e eklendi",
+            f"İş emri: {wo.title}",
+        )
+
+    await db.commit()
+    return {"added": added, "skipped": skipped, "total_added": len(added)}
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 #  PUBLIC ROUTES (token korumalı, login gerektirmez)
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -540,8 +698,8 @@ async def public_get_work_order(token: str, db: AsyncSession = Depends(get_db)):
         project_id=wo.project_id,
         project_name=proj.name if proj else "—",
         project_no=proj.project_no if proj else None,
-        project_address=proj.description if proj else None,
-        project_phone=None,
+        project_address=_parse_project_address(proj),
+        project_phone=_parse_project_phone(proj),
         work_type=wo.work_type,
         work_type_label=WORK_TYPE_LABELS.get(wo.work_type, wo.work_type),
         title=wo.title,
@@ -704,7 +862,7 @@ async def public_upload_service_form(
             tenant_id=wo.tenant_id,
             project_id=wo.project_id,
             year=year, month=month,
-            file_url=uploaded_key,   # document key olarak sakla
+            file_url=file_url,
             file_name=file.filename,
             file_size_bytes=len(content),
             uploaded_by_name=uploaded_by_name or "Saha (İş Emri)",
