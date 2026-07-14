@@ -30,16 +30,23 @@ function fmtDate(d: string) {
   return new Date(d).toLocaleDateString("tr-TR", { day: "2-digit", month: "short", year: "numeric" });
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 async function resolveFileUrl(fileUrlOrDocId: string): Promise<string> {
-  // İş emrinden yüklenen formlar direkt URL saklar; Bakım modülünden yüklenenler UUID saklar
+  // Direkt URL (yeni kayıtlar)
   if (fileUrlOrDocId.startsWith("http")) return fileUrlOrDocId;
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-  const res = await fetch(buildApiUrl(`/documents/${fileUrlOrDocId}/download`), {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
-  if (!res.ok) throw new Error();
-  const { url } = await res.json();
-  return url;
+  // UUID → /documents/{id}/download
+  if (UUID_RE.test(fileUrlOrDocId)) {
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    const res = await fetch(buildApiUrl(`/documents/${fileUrlOrDocId}/download`), {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error();
+    const { url } = await res.json();
+    return url;
+  }
+  // Eski kayıtlarda file_key (path) saklanmış → yerel statik servis
+  return `http://localhost:8000/static/uploads/${fileUrlOrDocId}`;
 }
 
 async function openDoc(fileUrlOrDocId: string) {

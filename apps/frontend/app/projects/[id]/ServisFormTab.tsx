@@ -29,19 +29,27 @@ function fmtSize(bytes?: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 async function openDoc(fileUrlOrDocId: string) {
-  // İş emrinden yüklenenler direkt URL saklar; Bakım modülünden yüklenenler UUID saklar
+  // Direkt URL (yeni kayıtlar)
   if (fileUrlOrDocId.startsWith("http")) {
     window.open(fileUrlOrDocId, "_blank");
     return;
   }
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-  const res = await fetch(buildApiUrl(`/documents/${fileUrlOrDocId}/download`), {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  }).catch(() => null);
-  if (!res?.ok) { alert("Dosya açılamadı."); return; }
-  const { url } = await res.json();
-  window.open(url, "_blank");
+  // UUID → /documents/{id}/download
+  if (UUID_RE.test(fileUrlOrDocId)) {
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    const res = await fetch(buildApiUrl(`/documents/${fileUrlOrDocId}/download`), {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    }).catch(() => null);
+    if (!res?.ok) { alert("Dosya açılamadı."); return; }
+    const { url } = await res.json();
+    window.open(url, "_blank");
+    return;
+  }
+  // Eski kayıtlarda file_key (path) saklanmış → yerel statik servis
+  window.open(`http://localhost:8000/static/uploads/${fileUrlOrDocId}`, "_blank");
 }
 
 function MonthCard({ year, month, forms }: { year: number; month: number; forms: ServiceForm[] }) {
