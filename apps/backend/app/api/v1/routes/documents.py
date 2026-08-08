@@ -16,7 +16,9 @@ from app.core.storage import storage, sanitize_filename
 from app.core.exceptions import NotFoundError, ConflictError
 from app.db.models import Document, User
 from app.core.dependencies import get_current_user
+from app.db.models import Project
 from app.db.schemas import (
+    ArchiveTransferRequest,
     DocumentCreate,
     DocumentRead,
     DocumentUpdate,
@@ -63,6 +65,7 @@ async def upload_document(
     revision_note: str | None = Form(None),
     expense_id:    uuid.UUID | None = Form(None),
     process_id:    uuid.UUID | None = Form(None),
+    vi_meta:       str | None = Form(None),
     file:          UploadFile = File(...),
     db:           AsyncSession = Depends(get_db),
     current_user: User         = Depends(get_current_user),
@@ -95,6 +98,7 @@ async def upload_document(
         uploaded_by   = current_user.id,
         expense_id    = expense_id,
         process_id    = process_id,
+        vi_meta       = vi_meta,
     )
     db.add(doc)
     
@@ -296,3 +300,142 @@ async def list_document_versions(
     versions = list(result.scalars())
     await populate_uploader_details(versions, db)
     return versions
+
+
+# ── Genel Arşiv ───────────────────────────────────────────────────────────────
+
+async def _populate_transfer_project(docs: list[Document], db: AsyncSession) -> None:
+    """Taşındıysa hedef mağaza adını ve kodunu ekle."""
+    project_ids = {d.transferred_project_id for d in docs if d.transferred_project_id}
+    if not project_ids:
+        return
+    result = await db.execute(select(Project).where(Project.id.in_(project_ids)))
+    proj_map = {p.id: p for p in result.scalars()}
+    for d in docs:
+        if d.transferred_project_id and d.transferred_project_id in proj_map:
+            p = proj_map[d.transferred_project_id]
+            object.__setattr__(d, "transferred_project_name", p.name)
+            object.__setattr__(d, "transferred_project_no", p.project_no)
+
+
+@router.post(
+    "/archive/upload",
+    response_model=DocumentRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="Genel Arşive dosya yükle (proje bağlantısı yok)",
+)
+async def upload_archive_document(
+    doc_type:      str        = Form(default="other"),
+    revision_note: str | None = Form(None),
+    file:          UploadFile = File(...),
+    db:            AsyncSession = Depends(get_db),
+    current_user:  User         = Depends(get_current_user),
+) -> Document:
+    content  = await file.read()
+    safe_name = sanitize_filename(file.filename or "file")
+    file_key  = f"archive/{int(time.time())}_{safe_name}"
+
+    try:
+        uploaded_key = await storage.upload_file(
+            file_content=content,
+            file_key=file_key,
+            content_type=file.content_type,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Bulut depolama hatası: {e}")
+
+    doc = Document(
+        project_id      = None,
+        doc_type        = doc_type,
+        original_name   = file.filename,
+        file_key        = uploaded_key,
+        bucket_name     = storage.bucket_name,
+        file_size_bytes = len(content),
+        mime_type       = file.content_type,
+        revision_note   = revision_note,
+        version         = 1,
+        uploaded_by     = current_user.id,
+        is_archive      = True,
+        archive_status  = "archive",
+    )
+    db.add(doc)
+    try:
+        await db.commit()
+        await db.refresh(doc)
+    except Exception as e:
+        await storage.delete_file(uploaded_key)
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Veritabanı kaydı başarısız: {e}")
+
+    await populate_uploader_details(doc, db)
+    return doc
+
+
+@router.get(
+    "/archive",
+    response_model=list[DocumentRead],
+    summary="Genel Arşiv dosya listesi",
+)
+async def list_archive_documents(
+    q:            str | None = None,
+    db:           AsyncSession = Depends(get_db),
+    current_user: User         = Depends(get_current_user),
+) -> list[Document]:
+    query = select(Document).where(
+        Document.is_archive == True,
+        Document.archived   == False,
+    )
+    if q:
+        like = f"%{q.lower()}%"
+        from sqlalchemy import func as sa_func
+        query = query.where(
+            sa_func.lower(Document.original_name).like(like)
+        )
+    query = query.order_by(Document.created_at.desc())
+    result = await db.execute(query)
+    docs = list(result.scalars())
+    await populate_uploader_details(docs, db)
+    await _populate_transfer_project(docs, db)
+    return docs
+
+
+@router.post(
+    "/archive/{doc_id}/transfer",
+    response_model=DocumentRead,
+    summary="Arşiv dosyasını mağaza kartına taşı",
+)
+async def transfer_archive_document(
+    doc_id:       uuid.UUID,
+    body:         ArchiveTransferRequest,
+    db:           AsyncSession = Depends(get_db),
+    current_user: User         = Depends(get_current_user),
+) -> Document:
+    doc = await db.get(Document, doc_id)
+    if not doc:
+        raise NotFoundError(detail="Döküman bulunamadı.")
+    if not doc.is_archive:
+        raise HTTPException(status_code=400, detail="Bu döküman arşiv dosyası değil.")
+
+    project = await db.get(Project, body.project_id)
+    if not project:
+        raise NotFoundError(detail="Proje bulunamadı.")
+
+    from app.db.models import utc_now as _utc_now
+    doc.project_id              = body.project_id
+    doc.doc_type                = body.doc_type
+    doc.archive_status          = "transferred"
+    doc.transferred_project_id  = body.project_id
+    doc.transferred_category    = body.doc_type
+    doc.transferred_at          = _utc_now()
+
+    try:
+        await db.commit()
+        await db.refresh(doc)
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Taşıma başarısız: {e}")
+
+    await populate_uploader_details(doc, db)
+    object.__setattr__(doc, "transferred_project_name", project.name)
+    object.__setattr__(doc, "transferred_project_no", project.project_no)
+    return doc

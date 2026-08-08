@@ -395,7 +395,7 @@ class Document(SQLModel, table=True):
     __tablename__ = "documents"
 
     id:              UUID   = Field(default_factory=uuid4, primary_key=True)
-    project_id:      UUID   = Field(foreign_key="projects.id", index=True)
+    project_id:      Optional[UUID] = Field(default=None, foreign_key="projects.id", index=True)
     # Dosya türü — DOC_TYPE_ENUM
     doc_type:        str    = Field(max_length=50, index=True)
     original_name:   str    = Field(max_length=255)
@@ -419,8 +419,18 @@ class Document(SQLModel, table=True):
     expense_id:      Optional[UUID] = Field(default=None, foreign_key="expenses.id", index=True)
     # ── Tadilat/Süreç İlişkisi ─────────────────────────────
     process_id:      Optional[UUID] = Field(default=None, foreign_key="store_processes.id", index=True, ondelete="SET NULL")
+    # ── Görsel Envanter Metadata (JSON string) ──────────────
+    vi_meta:         Optional[str] = Field(default=None, sa_column=mapped_column(Text, nullable=True))
 
-    project:   Mapped["Project"] = Relationship(back_populates="documents")
+    # ── Genel Arşiv ─────────────────────────────────────────
+    is_archive:                bool             = Field(default=False, index=True)
+    # "archive" | "transferred"
+    archive_status:            str              = Field(default="archive", max_length=20)
+    transferred_project_id:    Optional[UUID]   = Field(default=None)
+    transferred_category:      Optional[str]    = Field(default=None, max_length=50)
+    transferred_at:            Optional[datetime] = Field(default=None)
+
+    project:   Mapped[Optional["Project"]] = Relationship(back_populates="documents")
     expense:   Optional["Expense"] = Relationship(back_populates="documents")
 
 
@@ -1253,6 +1263,9 @@ class WorkOrderPhoto(SQLModel, table=True):
     photo_type:     WorkOrderPhotoType = Field(default=WorkOrderPhotoType.COMPLETION, index=True)
     uploaded_by_name: Optional[str]   = Field(default=None, max_length=255)
     uploaded_at:    datetime           = Field(default_factory=utc_now, nullable=False)
+    # ── Görsel Envanter aktarım ─────────────────────────────
+    is_added_to_inventory: bool          = Field(default=False, index=True)
+    vi_doc_id:             Optional[UUID] = Field(default=None)  # → documents.id
 
     work_order: Mapped["WorkOrder"] = Relationship(back_populates="photos")
 

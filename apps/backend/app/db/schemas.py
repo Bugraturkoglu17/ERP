@@ -310,9 +310,9 @@ class ProjectScope(BaseModel):
 
 
 class ProjectCreate(BaseModel):
-    customer_id:    UUID
-    region_id:      UUID
-    branch_id:      UUID
+    customer_id:    UUID | None        = None
+    region_id:      UUID | None        = None
+    branch_id:      UUID | None        = None
     name:           str
     project_no:     str | None         = None
     description:    str | None         = None
@@ -509,15 +509,16 @@ class DocumentCreate(BaseModel):
     revision_note: str | None = None
     expense_id:   UUID | None = None
     process_id:   UUID | None = None
- 
+    vi_meta:      str | None = None
+
 class DocumentUpdate(BaseModel):
     doc_type:     str | None = None
     original_name: str | None = None
     revision_note: str | None = None
- 
+
 class DocumentRead(BaseModel):
     id:              UUID
-    project_id:      UUID
+    project_id:      UUID | None
     doc_type:        str
     original_name:   str
     file_key:        str
@@ -529,11 +530,26 @@ class DocumentRead(BaseModel):
     archived:        bool
     uploaded_by:     UUID | None
     created_at:      datetime
-    expense_id:        UUID | None = None
-    process_id:        UUID | None = None
-    uploaded_by_name:  str | None = None
-    uploaded_by_email: str | None = None
+    expense_id:           UUID | None = None
+    process_id:           UUID | None = None
+    vi_meta:              str | None = None
+    uploaded_by_name:     str | None = None
+    uploaded_by_email:    str | None = None
+    # Genel Arşiv alanları
+    is_archive:           bool = False
+    archive_status:       str = "archive"
+    transferred_project_id:   UUID | None = None
+    transferred_category:     str | None = None
+    transferred_at:           datetime | None = None
+    # Taşındığı mağaza adı (API tarafından populate edilir)
+    transferred_project_name: str | None = None
+    transferred_project_no:   str | None = None
     model_config    = ConfigDict(from_attributes=True)
+
+
+class ArchiveTransferRequest(BaseModel):
+    project_id:   UUID
+    doc_type:     str  # hedef category → mevcut doc_type değeri
  
 class DocumentVersionCreate(BaseModel):
     doc_id:         UUID

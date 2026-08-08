@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import {
   AlertCircle,
+  Archive,
   ChevronRight,
   Download,
   Edit2,
@@ -55,6 +56,7 @@ type Document = {
   mime_type?: string;
   created_at: string;
   process_id?: string;
+  is_archive?: boolean;
 };
 
 type DocVersion = {
@@ -458,6 +460,15 @@ function DocList({
                 className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700"><History className="h-3.5 w-3.5" /></button>
               <button onClick={() => handleDownload(doc)} title="İndir"
                 className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-green-50 hover:text-green-600"><Download className="h-3.5 w-3.5" /></button>
+              {doc.is_archive && (
+                <Link
+                  href="/genel-arsiv"
+                  title="Genel Arşiv Kaynağını Göster"
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-purple-50 hover:text-purple-600"
+                >
+                  <Archive className="h-3.5 w-3.5" />
+                </Link>
+              )}
               {doc.doc_type.startsWith("tadilat_") && doc.process_id && projectId && (
                 <Link
                   href={`/tadilat/surecleri/${doc.process_id}?p=${projectId}&tab=dosyalar`}
