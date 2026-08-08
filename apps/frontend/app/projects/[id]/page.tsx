@@ -2,9 +2,8 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ChangeEvent, FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import {
-  Activity,
   AlertCircle,
   ChevronRight,
   Download,
@@ -15,21 +14,16 @@ import {
   History,
   Loader2,
   MapPin,
-  NotebookPen,
   Phone,
-  Plus,
   Save,
-  StickyNote,
   Store,
   Tag,
   X,
 } from "lucide-react";
 import { apiGet, apiPatch, apiDelete, buildApiUrl } from "@/lib/api";
-import ProcessTab from "./ProcessTab";
 import ServisFormTab from "./ServisFormTab";
-import HakkedisTab from "./HakkedisTab";
-import FaturaTab from "./FaturaTab";
 import WorkOrdersTab from "./WorkOrdersTab";
+import VisualInventoryTab from "./VisualInventoryTab";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -55,8 +49,10 @@ type Document = {
   doc_type: string;
   version: number;
   revision_note?: string;
+  vi_meta?: string;
   uploaded_by_name?: string;
   file_size_bytes?: number;
+  mime_type?: string;
   created_at: string;
   process_id?: string;
 };
@@ -71,28 +67,17 @@ type DocVersion = {
   created_at: string;
 };
 
-type Note = {
-  id: string;
-  text: string;
-  author?: string;
-  created_at: string;
-};
-
 // ── Tab Config ─────────────────────────────────────────────────────────────────
 
-type TabKey = "identity" | "project_files" | "revisions" | "servisform" | "hakkediş" | "fatura" | "notes" | "activity" | "process" | "work-orders";
+type TabKey = "identity" | "work-orders" | "project_files" | "visual_inventory" | "servisform" | "other";
 
 const TABS: { key: TabKey; label: string }[] = [
-  { key: "identity",      label: "Kimlik"          },
-  { key: "process",       label: "Süreç Takibi"    },
-  { key: "work-orders",   label: "İş Emirleri"     },
-  { key: "project_files", label: "Proje Dosyaları" },
-  { key: "revisions",     label: "Revizyonlar"     },
-  { key: "servisform",    label: "Servis Formları" },
-  { key: "hakkediş",      label: "Hakkedişler"     },
-  { key: "fatura",        label: "Faturalar"       },
-  { key: "activity",      label: "Son İşlemler"    },
-  { key: "notes",         label: "Notlar"          },
+  { key: "identity",         label: "Kimlik"          },
+  { key: "work-orders",      label: "İş Emirleri"     },
+  { key: "project_files",    label: "Proje Dosyaları" },
+  { key: "visual_inventory", label: "Görsel Envanter" },
+  { key: "servisform",       label: "Servis Formları" },
+  { key: "other",            label: "Diğer Dosyalar"  },
 ];
 
 type DescExtra = {
@@ -116,8 +101,8 @@ function parseDesc(desc?: string): DescExtra {
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 // category: hangi sekmeye ait olduğu
-// "project_file" → Proje Dosyaları, "revision" → Revizyonlar, "module" → kendi sekmesi, "other" → Diğer
-const DOC_TYPES: Record<string, { label: string; category: "project_file" | "revision" | "module" | "other"; ext?: string }> = {
+// "project_file" → Proje Dosyaları, "revision" → Revizyonlar, "module" → kendi sekmesi, "other" → Diğer, "visual_inventory" → Görsel Envanter
+const DOC_TYPES: Record<string, { label: string; category: "project_file" | "revision" | "module" | "other" | "visual_inventory"; ext?: string }> = {
   // Proje Dosyaları
   drawing_hvac:    { label: "HVAC Çizim",      category: "project_file", ext: "DWG" },
   drawing_fire:    { label: "Yangın Çizim",    category: "project_file", ext: "DWG" },
@@ -141,6 +126,8 @@ const DOC_TYPES: Record<string, { label: string; category: "project_file" | "rev
   approval_email:  { label: "Onay Maili",      category: "module" },
   // Diğer Dosyalar
   other:           { label: "Diğer",           category: "other"  },
+  // Görsel Envanter — sadece Görsel Envanter sekmesinde görünür
+  visual_inventory: { label: "Görsel Envanter", category: "visual_inventory" },
 };
 
 // Upload modalında sadece Proje Dosyaları kategorisindeki tipler gösterilir
@@ -164,21 +151,6 @@ const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
   CANCELLED:    { label: "İptal",         cls: "bg-red-50 text-red-600 border-red-100"         },
 };
 
-const STATUS_STEPS = [
-  { key: "inquiry",      label: "Keşif"      },
-  { key: "approved",     label: "Onaylandı"  },
-  { key: "in_progress",  label: "Sahada"     },
-  { key: "invoice_pend", label: "Hakediş"    },
-  { key: "completed",    label: "Tamamlandı" },
-];
-
-const DISIPLIN_OPTS = [
-  { value: "seismic", label: "Sismik" },
-  { value: "hvac",    label: "HVAC"   },
-  { value: "fire",    label: "Yangın" },
-  { value: "mep",     label: "MEP"    },
-];
-
 const STATUS_OPTS = [
   { value: "inquiry",      label: "Keşif"         },
   { value: "approved",     label: "Onaylandı"     },
@@ -192,17 +164,6 @@ function fmtBytes(n?: number): string {
   if (!n) return "—";
   if (n < 1048576) return `${(n / 1024).toFixed(0)} KB`;
   return `${(n / 1048576).toFixed(1)} MB`;
-}
-
-function getIstipi(codes: string[] = []): { value: string; label: string } {
-  if (codes.includes("bakim"))      return { value: "bakim",      label: "Bakım & Onarım" };
-  if (codes.includes("tadilat"))    return { value: "tadilat",    label: "Tadilat" };
-  if (codes.includes("yeni_yapim")) return { value: "yeni_yapim", label: "Yeni Yapım" };
-  return { value: "", label: "Belirtilmemiş" };
-}
-
-function getDisiplinler(codes: string[] = []): string[] {
-  return codes.filter((c) => DISIPLIN_OPTS.some((d) => d.value === c));
 }
 
 function getDocCategory(doc_type: string) {
@@ -221,8 +182,11 @@ function readTabFromUrl(): TabKey {
   if (typeof window === "undefined") return "identity";
   const p = new URLSearchParams(window.location.search);
   const t = p.get("tab");
-  // Eski URL'lerden gelen dwg/pdf sekme key'lerini Proje Dosyaları'na yönlendir
-  if (t === "dwg" || t === "pdf") return "project_files";
+  // Eski sekme key'lerini yeni yapıya yönlendir
+  if (t === "dwg" || t === "pdf" || t === "revisions") return "project_files";
+  if (t === "process" || t === "activity" || t === "notes") return "identity";
+  if (t === "hakkediş" || t === "fatura") return "other";
+  if (t === "visual_inventory") return "visual_inventory";
   return (t && TABS.some((x) => x.key === t) ? t : "identity") as TabKey;
 }
 
@@ -637,11 +601,6 @@ export default function MagazaDetailPage() {
   const [historyDoc, setHistoryDoc] = useState<Document | null>(null);
   const [projFileFilter,    setProjFileFilter]    = useState<string>("all");
 
-  // TODO: Notlar backend endpoint gerekiyor (POST /projects/{id}/notes). Şimdilik localStorage kullanılıyor.
-  const [notes,      setNotes]      = useState<Note[]>([]);
-  const [noteText,   setNoteText]   = useState("");
-  const [savingNote, setSavingNote] = useState(false);
-
   // Read initial tab from URL on mount
   useEffect(() => { setTab(readTabFromUrl()); }, []);
 
@@ -649,12 +608,6 @@ export default function MagazaDetailPage() {
     setTab(t);
     writeTabToUrl(t);
   };
-
-  const loadDocs = useCallback(async () => {
-    if (!id) return;
-    const d = await apiGet<Document[]>(`/documents/project/${id}`).catch(() => [] as Document[]);
-    setDocs(Array.isArray(d) ? d : []);
-  }, [id]);
 
   useEffect(() => {
     if (!id) return;
@@ -667,37 +620,6 @@ export default function MagazaDetailPage() {
       setDocs(Array.isArray(d) ? d : []);
     }).finally(() => setLoading(false));
   }, [id]);
-
-  // Load notes from localStorage (TODO: replace with backend)
-  useEffect(() => {
-    if (!id) return;
-    try {
-      const raw = localStorage.getItem(`project_notes_${id}`);
-      setNotes(raw ? JSON.parse(raw) : []);
-    } catch { setNotes([]); }
-  }, [id]);
-
-  const saveNotes = (updated: Note[]) => {
-    setNotes(updated);
-    localStorage.setItem(`project_notes_${id}`, JSON.stringify(updated));
-  };
-
-  const addNote = () => {
-    if (!noteText.trim()) return;
-    setSavingNote(true);
-    const newNote: Note = {
-      id: Date.now().toString(),
-      text: noteText.trim(),
-      created_at: new Date().toISOString(),
-    };
-    saveNotes([newNote, ...notes]);
-    setNoteText("");
-    setSavingNote(false);
-  };
-
-  const deleteNote = (noteId: string) => {
-    saveNotes(notes.filter((n) => n.id !== noteId));
-  };
 
   if (loading) {
     return (
@@ -718,19 +640,20 @@ export default function MagazaDetailPage() {
   }
 
   const statusInfo = STATUS_BADGE[project.status] ?? { label: project.status, cls: "bg-slate-100 text-slate-600 border-slate-200" };
-  const istipi     = getIstipi(project.scope_codes);
-  const disiplinler = getDisiplinler(project.scope_codes);
-  const stepIdx     = STATUS_STEPS.findIndex((s) => s.key === project.status.toLowerCase());
 
-  // Dosyalar doc_type kategorisine göre ayrılır — uzantıya göre değil
+  // Dosyalar doc_type kategorisine göre ayrılır
   const projectFileDocs = docs.filter((d) => getDocCategory(d.doc_type) === "project_file");
   const revisionDocs    = docs.filter((d) => getDocCategory(d.doc_type) === "revision");
   const otherDocs       = docs.filter((d) => getDocCategory(d.doc_type) === "other");
+  // Proje Dosyaları = proje dosyaları + revizyonlar birleşik
+  const allProjectDocs  = [...projectFileDocs, ...revisionDocs];
 
-  // Proje Dosyaları içi filtre
+  // Proje Dosyaları içi filtre (revizyon filtresi dahil)
   const filteredProjectDocs = projFileFilter === "all"
-    ? projectFileDocs
-    : projectFileDocs.filter((d) => {
+    ? allProjectDocs
+    : projFileFilter === "revizyon"
+    ? revisionDocs
+    : allProjectDocs.filter((d) => {
         const ext = getExtBadge(d).toLowerCase();
         if (projFileFilter === "dwg")   return ext === "dwg";
         if (projFileFilter === "pdf")   return ext === "pdf";
@@ -742,17 +665,15 @@ export default function MagazaDetailPage() {
   const extra = parseDesc(project.description);
   const phones = [extra.tel1, extra.tel2, extra.tel3, extra.tel4].filter((t) => t && t.trim());
 
+  const visualInventoryDocs = docs.filter((d) => getDocCategory(d.doc_type) === "visual_inventory");
+
   const tabCounts: Record<TabKey, number | null> = {
-    identity:       null,
-    process:        null,
-    "work-orders":  null,
-    project_files:  projectFileDocs.length || null,
-    revisions:      revisionDocs.length    || null,
-    servisform:     null,
-    "hakkediş":     null,
-    fatura:         null,
-    activity:       null,
-    notes:          notes.length           || null,
+    identity:          null,
+    "work-orders":     null,
+    project_files:     allProjectDocs.length       || null,
+    visual_inventory:  visualInventoryDocs.length  || null,
+    servisform:        null,
+    other:             otherDocs.length            || null,
   };
 
   return (
@@ -773,16 +694,6 @@ export default function MagazaDetailPage() {
               <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${statusInfo.cls}`}>
                 {statusInfo.label}
               </span>
-              {istipi.value && (
-                <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-600">
-                  {istipi.label}
-                </span>
-              )}
-              {disiplinler.map((d) => (
-                <span key={d} className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-blue-600">
-                  {d}
-                </span>
-              ))}
               {project.project_no && (
                 <span className="text-[11px] font-mono text-slate-400">#{project.project_no}</span>
               )}
@@ -800,29 +711,6 @@ export default function MagazaDetailPage() {
           </div>
         </div>
 
-        {/* Süreç Adımları */}
-        {project.status !== "cancelled" && project.status !== "CANCELLED" && (
-          <div className="mt-5 pt-4 border-t border-slate-100 overflow-x-auto">
-            <div className="flex items-center gap-1.5 min-w-max">
-              {STATUS_STEPS.map((s, idx) => {
-                const done   = idx < stepIdx;
-                const active = idx === stepIdx;
-                return (
-                  <div key={s.key} className="flex items-center gap-1.5">
-                    <div className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                      active ? "bg-blue-600 text-white shadow-sm" : done ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-400"
-                    }`}>
-                      {done && <span className="text-[10px]">✓</span>} {s.label}
-                    </div>
-                    {idx < STATUS_STEPS.length - 1 && (
-                      <ChevronRight className={`h-3 w-3 shrink-0 ${done ? "text-slate-600" : "text-slate-200"}`} />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Sekmeler + İçerik */}
@@ -865,13 +753,9 @@ export default function MagazaDetailPage() {
                 <InfoCard label="Mağaza Adı" value={project.name} />
                 <InfoCard label="Mağaza Kodu" value={project.project_no ?? "—"} mono />
                 <InfoCard label="Durum" value={statusInfo.label} />
-                {istipi.value && <InfoCard label="Kapsam" value={istipi.label} />}
                 {extra.bolge && <InfoCard label="Bölge" value={extra.bolge} />}
                 {extra.sehir && <InfoCard label="Şehir" value={extra.sehir} />}
                 {extra.tel1  && <InfoCard label="Telefon" value={extra.tel1} mono />}
-                {disiplinler.length > 0 && (
-                  <InfoCard label="Disiplinler" value={disiplinler.join(", ").toUpperCase()} />
-                )}
                 {project.start_date && (
                   <InfoCard label="Başlangıç Tarihi" value={new Date(project.start_date).toLocaleDateString("tr-TR")} />
                 )}
@@ -913,15 +797,16 @@ export default function MagazaDetailPage() {
                 <p className="text-xs text-slate-500">Bu alan sadece görüntüleme içindir. Dosya yükleme ve düzenleme işlemleri ilgili modülden yapılır.</p>
               </div>
               {/* Filtre Chipleri */}
-              {projectFileDocs.length > 0 && (
+              {allProjectDocs.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {[
-                    { key: "all",   label: "Tümü"  },
-                    { key: "dwg",   label: "DWG"   },
-                    { key: "pdf",   label: "PDF"   },
-                    { key: "excel", label: "Excel" },
-                    { key: "zip",   label: "ZIP"   },
-                    { key: "other", label: "Diğer" },
+                    { key: "all",      label: "Tümü"     },
+                    { key: "dwg",      label: "DWG"      },
+                    { key: "pdf",      label: "PDF"      },
+                    { key: "excel",    label: "Excel"    },
+                    { key: "zip",      label: "ZIP"      },
+                    { key: "revizyon", label: "Revizyon" },
+                    { key: "other",    label: "Diğer"    },
                   ].map((f) => (
                     <button key={f.key} onClick={() => setProjFileFilter(f.key)}
                       className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
@@ -938,59 +823,14 @@ export default function MagazaDetailPage() {
             </div>
           )}
 
-          {/* ── Revizyonlar ── */}
-          {tab === "revisions" && (
-            <div className="space-y-4">
-              <div className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                <AlertCircle className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" />
-                <p className="text-xs text-slate-500">Bu alan sadece görüntüleme içindir. Dosya yükleme ve düzenleme işlemleri ilgili modülden yapılır.</p>
-              </div>
-              {revisionDocs.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 gap-3">
-                  <History className="h-8 w-8 text-slate-200" />
-                  <p className="text-sm text-slate-400">Henüz revizyon kaydı yok.</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {[...revisionDocs]
-                    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-                    .map((doc) => (
-                      <div key={doc.id} className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 group">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 border border-blue-100 text-[11px] font-bold text-blue-700">
-                          v{doc.version}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-slate-800 truncate">{doc.original_name}</p>
-                          <p className="text-[11px] text-slate-400 mt-0.5">
-                            {doc.uploaded_by_name ?? "—"} · {fmtBytes(doc.file_size_bytes)}
-                          </p>
-                          {doc.revision_note && <p className="text-[11px] text-slate-500 italic mt-0.5">{doc.revision_note}</p>}
-                        </div>
-                        <div className="shrink-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => setHistoryDoc(doc)} title="Tüm versiyonlar"
-                            className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700"><History className="h-3.5 w-3.5" /></button>
-                        </div>
-                        <p className="text-[11px] text-slate-400 shrink-0 ml-1">{new Date(doc.created_at).toLocaleDateString("tr-TR")}</p>
-                      </div>
-                    ))}
-                </div>
-              )}
-            </div>
-          )}
-
-
-          {/* ── Süreç Takibi ── */}
-          {tab === "process" && project && (
-            <ProcessTab
-              projectId={project.id}
-              workType={project.scope_codes?.includes("bakim") ? "bakim" : "tadilat"}
-              onTabSwitch={(t) => switchTab(t as TabKey)}
-            />
-          )}
-
           {/* ── İş Emirleri ── */}
           {tab === "work-orders" && project && (
             <WorkOrdersTab projectId={project.id} />
+          )}
+
+          {/* ── Görsel Envanter ── */}
+          {tab === "visual_inventory" && project && (
+            <VisualInventoryTab projectId={project.id} docs={visualInventoryDocs} />
           )}
 
           {/* ── Servis Formları ── */}
@@ -998,97 +838,14 @@ export default function MagazaDetailPage() {
             <ServisFormTab projectId={project.id} />
           )}
 
-          {/* ── Hakkedişler ── */}
-          {tab === "hakkediş" && project && (
-            <HakkedisTab projectId={project.id} />
-          )}
-
-          {/* ── Faturalar ── */}
-          {tab === "fatura" && project && (
-            <FaturaTab projectId={project.id} />
-          )}
-
-          {/* ── Son İşlemler ── */}
-          {/* TODO: Backend'de activity/audit log endpoint'i eklenince gerçek verilerle doldurulacak. */}
-          {tab === "activity" && (
-            <div className="space-y-3">
-              <div className="rounded-xl bg-amber-50 border border-amber-100 px-4 py-2.5">
-                <p className="text-xs text-amber-700">Son işlemler geçmişi backend'de audit log endpoint'i hazır olduğunda burada görüntülenecek.</p>
-              </div>
-
-              {/* Mock geçmiş — gerçek verilerle değişecek */}
-              {docs.length > 0 ? (
-                <div className="space-y-2">
-                  {[...docs]
-                    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-                    .slice(0, 20)
-                    .map((doc) => (
-                      <div key={doc.id} className="flex items-start gap-3 rounded-xl border border-slate-100 bg-white px-4 py-3">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 border border-blue-100">
-                          <Activity className="h-3.5 w-3.5 text-blue-500" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-slate-800">
-                            <span className="text-blue-600">Dosya yüklendi</span> — {doc.original_name}
-                          </p>
-                          <p className="text-[11px] text-slate-400 mt-0.5">
-                            {DOC_TYPES[doc.doc_type]?.label ?? doc.doc_type} · v{doc.version} · {doc.uploaded_by_name ?? "—"}
-                          </p>
-                        </div>
-                        <p className="text-[11px] text-slate-400 shrink-0">
-                          {new Date(doc.created_at).toLocaleDateString("tr-TR", { day: "2-digit", month: "short", year: "numeric" })}
-                        </p>
-                      </div>
-                    ))}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-12 gap-3">
-                  <Activity className="h-8 w-8 text-slate-200" />
-                  <p className="text-sm text-slate-400">Henüz kayıtlı işlem yok.</p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ── Notlar ── */}
-          {tab === "notes" && (
+          {/* ── Diğer Dosyalar ── */}
+          {tab === "other" && (
             <div className="space-y-4">
-              {/* TODO: Notlar şu an localStorage'da saklanıyor. Backend endpoint eklenince burası değişecek. */}
-              <div className="rounded-xl bg-amber-50 border border-amber-100 px-4 py-2.5">
-                <p className="text-xs text-amber-700">Notlar şu an yalnızca bu tarayıcıda kaydediliyor. Kalıcı notlar için backend geliştirmesi gerekiyor.</p>
+              <div className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <AlertCircle className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" />
+                <p className="text-xs text-slate-500">Bu alan sadece görüntüleme içindir.</p>
               </div>
-              <div className="flex gap-2">
-                <textarea
-                  rows={2}
-                  value={noteText}
-                  onChange={(e) => setNoteText(e.target.value)}
-                  placeholder="Mağaza hakkında not ekleyin..."
-                  className="flex-1 rounded-xl border border-slate-200 px-3 py-2.5 text-sm resize-none focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                />
-                <button onClick={addNote} disabled={!noteText.trim() || savingNote}
-                  className="self-end inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-40 transition-colors">
-                  <Plus className="h-4 w-4" /> Ekle
-                </button>
-              </div>
-              {notes.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 gap-2">
-                  <StickyNote className="h-7 w-7 text-slate-200" />
-                  <p className="text-sm text-slate-400">Henüz not eklenmemiş.</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {notes.map((note) => (
-                    <div key={note.id} className="rounded-xl border border-slate-100 bg-white px-4 py-3 group">
-                      <p className="text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">{note.text}</p>
-                      <div className="flex items-center justify-between mt-2">
-                        <p className="text-[11px] text-slate-400">{new Date(note.created_at).toLocaleDateString("tr-TR", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
-                        <button onClick={() => deleteNote(note.id)}
-                          className="text-[11px] text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">Sil</button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <DocList docs={otherDocs} onHistory={setHistoryDoc} projectId={id} />
             </div>
           )}
         </div>

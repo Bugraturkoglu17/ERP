@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import {
   Camera,
   ChevronLeft,
@@ -496,13 +496,10 @@ function UploadModal({
 export default function VisualInventoryTab({
   projectId,
   docs,
-  onRefresh,
 }: {
   projectId: string;
   docs: Document[];
-  onRefresh: () => void;
 }) {
-  const [uploadOpen, setUploadOpen]     = useState(false);
   const [lightboxIdx, setLightboxIdx]   = useState<number | null>(null);
   const [filterCategory, setFilterCategory] = useState("all");
 
@@ -516,10 +513,6 @@ export default function VisualInventoryTab({
   const usedCategories = Array.from(
     new Set(docs.map((d) => parseMeta(d.vi_meta).c).filter(Boolean))
   ) as string[];
-
-  const handleUploadDone = useCallback(() => {
-    onRefresh();
-  }, [onRefresh]);
 
   return (
     <div className="space-y-4">
@@ -558,12 +551,6 @@ export default function VisualInventoryTab({
             </>
           )}
         </div>
-        <button
-          onClick={() => setUploadOpen(true)}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-blue-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="h-4 w-4" /> Fotoğraf Ekle
-        </button>
       </div>
 
       {/* Grid */}
@@ -575,14 +562,6 @@ export default function VisualInventoryTab({
               ? "Henüz görsel yüklenmemiş."
               : "Bu kategoride görsel yok."}
           </p>
-          {docs.length === 0 && (
-            <button
-              onClick={() => setUploadOpen(true)}
-              className="mt-1 inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700"
-            >
-              <Plus className="h-4 w-4" /> İlk Fotoğrafı Ekle
-            </button>
-          )}
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
@@ -594,15 +573,6 @@ export default function VisualInventoryTab({
             />
           ))}
         </div>
-      )}
-
-      {/* Upload Modal */}
-      {uploadOpen && (
-        <UploadModal
-          projectId={projectId}
-          onClose={() => setUploadOpen(false)}
-          onDone={handleUploadDone}
-        />
       )}
 
       {/* Lightbox */}
