@@ -16,6 +16,7 @@ type Project = {
 type ProgressPayment = {
   id: string;
   project_id: string;
+  process_id?: string;
   payment_type: string;
   period?: string;
   amount?: number;
@@ -153,7 +154,7 @@ export default function YeniYapimHakkedislerPage() {
           <p className="text-sm font-semibold text-slate-500">
             {query ? "Arama sonucu bulunamadı." : "Henüz yeni yapım hakkedişi girilmemiş."}
           </p>
-          <p className="text-xs text-slate-400">Mağaza kartı › Hakkedişler sekmesinden kayıt ekleyin.</p>
+          <p className="text-xs text-slate-400">Yeni Yapım Klasörü › Hakkedişler sekmesinden kayıt ekleyin.</p>
         </div>
       ) : (
         <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
@@ -189,7 +190,12 @@ export default function YeniYapimHakkedislerPage() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <Store className="h-4 w-4 text-slate-300 shrink-0" />
-                        <Link href={`/projects/${project.id}?tab=hakkediş`} className="text-sm font-medium text-slate-900 hover:text-blue-600 transition-colors">
+                        <Link
+                          href={payment.process_id
+                            ? `/yeni-yapim/surecleri/${payment.process_id}?p=${project.id}&tab=hakkedisler`
+                            : `/projects/${project.id}?tab=hakkediş`}
+                          className="text-sm font-medium text-slate-900 hover:text-emerald-600 transition-colors"
+                        >
                           {project.name}
                         </Link>
                       </div>
@@ -206,8 +212,13 @@ export default function YeniYapimHakkedislerPage() {
                         : <span className="text-[11px] text-slate-300">—</span>}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <Link href={`/projects/${project.id}?tab=hakkediş`} className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline">
-                        <FolderOpen className="h-3.5 w-3.5" /> Hakkedişe Git
+                      <Link
+                        href={payment.process_id
+                          ? `/yeni-yapim/surecleri/${payment.process_id}?p=${project.id}&tab=hakkedisler`
+                          : `/projects/${project.id}?tab=hakkediş`}
+                        className="inline-flex items-center gap-1 text-xs text-emerald-600 hover:underline"
+                      >
+                        <FolderOpen className="h-3.5 w-3.5" /> Klasöre Git
                       </Link>
                     </td>
                   </tr>

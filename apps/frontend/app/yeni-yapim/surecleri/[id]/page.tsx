@@ -98,6 +98,27 @@ function calcDays(d?: string | null): { text: string; color: string } {
   return             { text: `${Math.abs(diff)}g gecikti`, color: "text-red-600"   };
 }
 
+/** description alanı JSON metadata ise gizler, düz metin ise gösterir */
+function DescriptionDisplay({ description }: { description?: string }) {
+  if (!description) return null;
+  try {
+    const parsed = JSON.parse(description);
+    if (typeof parsed === "object" && parsed !== null) {
+      // JSON metadata — scope varsa küçük bir badge göster, raw JSON'u gösterme
+      const scope = parsed.scope as string | undefined;
+      if (!scope) return null;
+      return (
+        <span className="inline-block mt-1.5 text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-100 px-2 py-0.5 rounded-full">
+          {scope}
+        </span>
+      );
+    }
+  } catch {
+    // JSON değil — düz metin olarak göster
+  }
+  return <p className="text-sm text-slate-500 mt-1.5">{description}</p>;
+}
+
 async function uploadFile(file: File, projectId: string, docType: string): Promise<{ id: string; original_name: string }> {
   const fd = new FormData();
   fd.append("project_id", projectId);
@@ -654,7 +675,7 @@ export default function YeniYapimKlasorPage() {
               </div>
             </div>
 
-            {process.description && <p className="text-sm text-slate-500 mt-1.5">{process.description}</p>}
+            {process.description && <DescriptionDisplay description={process.description} />}
             <div className="flex items-center gap-4 mt-2 flex-wrap">
               {process.start_date && (
                 <span className="text-[11px] text-slate-400 flex items-center gap-1">

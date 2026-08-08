@@ -3,43 +3,48 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
-  FolderOpen,
-  HardHat,
+  AlertCircle,
+  Archive,
+  ChevronRight,
+  ClipboardList,
+  FileText,
   Plus,
   Search,
   Store,
   UploadCloud,
-  FileArchive,
-  AlertCircle,
-  ChevronRight,
 } from "lucide-react";
 import { apiGet } from "@/lib/api";
 
-// ── Types ───────────────────────────────────────────────────────────────────
+// ── Types ────────────────────────────────────────────────────────────────────
 
 interface Project {
   id: string;
   name: string;
   project_no?: string;
   status: string;
-  scope_codes?: string[];
-  start_date?: string;
-  due_date?: string;
-  created_at?: string;
   updated_at?: string;
-  description?: string;
+  created_at?: string;
 }
 
 interface Document {
   id: string;
-  project_id: string;
-  name: string;
+  project_id: string | null;
+  original_name?: string;
+  name?: string;
   doc_type: string;
-  version: number;
   created_at: string;
 }
 
-// ── Status / scope helpers ───────────────────────────────────────────────────
+interface WorkOrder {
+  id: string;
+  project_id: string;
+  project_name?: string;
+  title: string;
+  status: string;
+  work_type?: string;
+}
+
+// ── Status helpers ───────────────────────────────────────────────────────────
 
 const STATUS: Record<string, { label: string; dot: string; text: string }> = {
   inquiry:      { label: "Keşif",        dot: "bg-purple-400", text: "text-purple-700" },
@@ -56,21 +61,17 @@ const STATUS: Record<string, { label: string; dot: string; text: string }> = {
   CANCELLED:    { label: "İptal",        dot: "bg-red-400",    text: "text-red-700"    },
 };
 
-function isAktif(status: string) {
-  const s = status.toLowerCase();
-  return s === "in_progress" || s === "approved" || s === "invoice_pend";
-}
-
-// TODO: "iş tipi" (Bakım/Tadilat/Yeni Yapım) için backend'e ayrı bir alan eklenmesi gerekiyor.
-// Şimdilik status'a göre tahmin yapılıyor.
-function getIstipi(p: Project): { label: string; color: string } {
-  if (p.status === "completed") return { label: "Tamamlandı", color: "bg-slate-100 text-slate-600" };
-  if (p.scope_codes?.includes("seismic") && (p.status === "inquiry" || p.status === "approved"))
-    return { label: "Bakım", color: "bg-sky-50 text-sky-700" };
-  if (p.status === "in_progress" || p.status === "invoice_pend")
-    return { label: "Tadilat", color: "bg-amber-50 text-amber-700" };
-  return { label: "Yeni Yapım", color: "bg-emerald-50 text-emerald-700" };
-}
+const WO_STATUS: Record<string, { label: string; color: string }> = {
+  draft:            { label: "Taslak",           color: "text-slate-500"  },
+  sent:             { label: "Gönderildi",        color: "text-blue-600"   },
+  started:          { label: "Devam Ediyor",      color: "text-amber-600"  },
+  material_waiting: { label: "Malzeme Bekliyor",  color: "text-orange-600" },
+  revisit:          { label: "Tekrar Gidilecek",  color: "text-purple-600" },
+  approval_pending: { label: "Onay Bekliyor",     color: "text-rose-600"   },
+  completed:        { label: "Tamamlandı",        color: "text-emerald-600"},
+  failed:           { label: "Tamamlanmadı",      color: "text-red-600"    },
+  cancelled:        { label: "İptal",             color: "text-slate-400"  },
+};
 
 const NOW = new Date();
 const THIS_MONTH_START = new Date(NOW.getFullYear(), NOW.getMonth(), 1).toISOString();
@@ -104,12 +105,10 @@ function StatCard({
 
 function MagazaCard({ project }: { project: Project }) {
   const st = STATUS[project.status] ?? { label: project.status, dot: "bg-slate-400", text: "text-slate-600" };
-  const isTipi = getIstipi(project);
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm hover:border-blue-200 hover:shadow-md transition-all group">
-      {/* Üst satır */}
-      <div className="flex items-start justify-between gap-2 mb-3">
+      <div className="flex items-start justify-between gap-2 mb-4">
         <div className="flex items-center gap-2 min-w-0">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
             <Store className="h-4 w-4" />
@@ -127,19 +126,6 @@ function MagazaCard({ project }: { project: Project }) {
         </span>
       </div>
 
-      {/* İş tipi + kapsam */}
-      <div className="flex items-center gap-2 flex-wrap mb-4">
-        <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${isTipi.color}`}>
-          {isTipi.label}
-        </span>
-        {project.scope_codes?.slice(0, 2).map((code) => (
-          <span key={code} className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-full uppercase">
-            {code}
-          </span>
-        ))}
-      </div>
-
-      {/* Alt satır */}
       <div className="flex items-center justify-between">
         {project.updated_at && (
           <p className="text-[11px] text-slate-400">
@@ -157,8 +143,6 @@ function MagazaCard({ project }: { project: Project }) {
   );
 }
 
-// ── Search ───────────────────────────────────────────────────────────────────
-
 function SmartSearch({ projects }: { projects: Project[] }) {
   const [query, setQuery] = useState("");
 
@@ -169,8 +153,7 @@ function SmartSearch({ projects }: { projects: Project[] }) {
       .filter(
         (p) =>
           p.name.toLowerCase().includes(q) ||
-          (p.project_no ?? "").toLowerCase().includes(q) ||
-          (p.description ?? "").toLowerCase().includes(q)
+          (p.project_no ?? "").toLowerCase().includes(q)
       )
       .slice(0, 6);
   }, [query, projects]);
@@ -182,7 +165,7 @@ function SmartSearch({ projects }: { projects: Project[] }) {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Mağaza adı, mağaza kodu, şehir veya dosya adı ara..."
+          placeholder="Mağaza adı veya kodu ara..."
           className="w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
       </div>
@@ -222,53 +205,26 @@ function SmartSearch({ projects }: { projects: Project[] }) {
   );
 }
 
-// ── Active Job type ──────────────────────────────────────────────────────────
-
-interface ActiveJob {
-  project_id: string;
-  project_name: string;
-  project_no?: string;
-  work_type: string;
-  process_id: string;
-  process_title: string;
-  process_status: string;
-  current_stage?: string;
-  target_end_date?: string;
-  days_remaining?: number;
-}
-
-const WORK_TYPE_LABELS: Record<string, string> = {
-  tadilat: "Tadilat", yeni_yapim: "Yeni Yapım", bakim: "Bakım",
-};
-
-function activeJobCountdown(days?: number, status?: string): { text: string; color: string } {
-  if (status === "completed") return { text: "Tamamlandı", color: "text-green-600" };
-  if (days == null) return { text: "Tarih yok", color: "text-slate-400" };
-  if (days > 0)   return { text: `${days}g kaldı`, color: "text-blue-600" };
-  if (days === 0) return { text: "Bugün!", color: "text-amber-600" };
-  return { text: `${Math.abs(days)}g gecikti`, color: "text-red-600" };
-}
-
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 export function DashboardOverview() {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [docs, setDocs] = useState<Document[]>([]);
-  const [activeJobs, setActiveJobs] = useState<ActiveJob[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [projects, setProjects]     = useState<Project[]>([]);
+  const [docs, setDocs]             = useState<Document[]>([]);
+  const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState("");
 
   useEffect(() => {
     (async () => {
       try {
-        const [p, d, jobs] = await Promise.all([
+        const [p, d, wo] = await Promise.all([
           apiGet<Project[]>("/projects?limit=5000"),
           apiGet<Document[]>("/documents").catch(() => [] as Document[]),
-          apiGet<ActiveJob[]>("/process/active-jobs").catch(() => [] as ActiveJob[]),
+          apiGet<WorkOrder[]>("/work-orders").catch(() => [] as WorkOrder[]),
         ]);
         setProjects(Array.isArray(p) ? p : []);
         setDocs(Array.isArray(d) ? d : []);
-        setActiveJobs(Array.isArray(jobs) ? jobs : []);
+        setWorkOrders(Array.isArray(wo) ? wo : []);
       } catch (err: any) {
         setError(err?.response?.data?.detail || "Veriler yüklenemedi.");
       } finally {
@@ -278,21 +234,44 @@ export function DashboardOverview() {
   }, []);
 
   const stats = useMemo(() => {
-    const aktif = projects.filter((p) => isAktif(p.status)).length;
-    const tadilatYeniYapim = projects.filter((p) => p.status.toLowerCase() === "in_progress").length;
+    const aktifIsEmirleri = workOrders.filter((wo) =>
+      ["sent", "started", "material_waiting", "revisit"].includes(wo.status)
+    ).length;
+    const bekleyenGorevler = workOrders.filter((wo) =>
+      ["draft", "approval_pending"].includes(wo.status)
+    ).length;
     const buAyDocs = docs.filter((d) => d.created_at >= THIS_MONTH_START).length;
-    const revizyonBekleyen = 0; // TODO: backend audit log endpoint gerekiyor
-    return { total: projects.length, aktif, tadilatYeniYapim, buAyDocs, revizyonBekleyen };
-  }, [projects, docs]);
+    return { total: projects.length, aktifIsEmirleri, bekleyenGorevler, buAyDocs };
+  }, [projects, docs, workOrders]);
 
   const sonMagazalar = useMemo(
     () =>
       [...projects]
-        .sort((a, b) => new Date(b.updated_at ?? b.created_at ?? 0).getTime() - new Date(a.updated_at ?? a.created_at ?? 0).getTime())
+        .sort((a, b) =>
+          new Date(b.updated_at ?? b.created_at ?? 0).getTime() -
+          new Date(a.updated_at ?? a.created_at ?? 0).getTime()
+        )
         .slice(0, 6),
     [projects]
   );
 
+  const aktifIsler = useMemo(
+    () =>
+      workOrders
+        .filter((wo) =>
+          ["sent", "started", "material_waiting", "revisit", "approval_pending"].includes(wo.status)
+        )
+        .slice(0, 10),
+    [workOrders]
+  );
+
+  const sonDosyalar = useMemo(
+    () =>
+      [...docs]
+        .sort((a, b) => b.created_at.localeCompare(a.created_at))
+        .slice(0, 5),
+    [docs]
+  );
 
   if (loading) {
     return (
@@ -308,9 +287,9 @@ export function DashboardOverview() {
       {/* Başlık + Arama */}
       <div className="flex flex-col gap-4">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Sismik Proje Arşivi</h1>
+          <h1 className="text-xl font-bold text-slate-900">Genel Bakış</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Mağaza bazlı DWG, PDF ve proje revizyonlarını tek ekrandan yönetin.
+            Mağaza kartları, iş emirleri ve dosyaları tek ekrandan takip edin.
           </p>
         </div>
         <SmartSearch projects={projects} />
@@ -328,15 +307,22 @@ export function DashboardOverview() {
           icon={Store}
           label="Toplam Mağaza"
           value={stats.total}
-          sub={`${activeJobs.length} aktif süreç`}
+          sub="Kayıtlı mağaza kartı"
           iconClass="bg-blue-50 text-blue-600"
         />
         <StatCard
-          icon={HardHat}
-          label="Aktif Tadilat / Yeni Yapım"
-          value={stats.tadilatYeniYapim}
-          sub="Devam eden projeler"
+          icon={ClipboardList}
+          label="Aktif İş Emirleri"
+          value={stats.aktifIsEmirleri}
+          sub="Devam eden görevler"
           iconClass="bg-amber-50 text-amber-600"
+        />
+        <StatCard
+          icon={AlertCircle}
+          label="Bekleyen Görevler"
+          value={stats.bekleyenGorevler}
+          sub="Taslak ve onay bekleyen"
+          iconClass="bg-rose-50 text-rose-500"
         />
         <StatCard
           icon={UploadCloud}
@@ -344,13 +330,6 @@ export function DashboardOverview() {
           value={stats.buAyDocs}
           sub={new Date().toLocaleDateString("tr-TR", { month: "long", year: "numeric" })}
           iconClass="bg-emerald-50 text-emerald-600"
-        />
-        <StatCard
-          icon={FileArchive}
-          label="Revizyon Bekleyen"
-          value={stats.revizyonBekleyen}
-          sub="TODO: backend alanı gerekli"
-          iconClass="bg-rose-50 text-rose-500"
         />
       </div>
 
@@ -360,29 +339,23 @@ export function DashboardOverview() {
           href="/projects"
           className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 transition-colors"
         >
-          <Plus className="h-4 w-4" /> Yeni Proje Başlat
+          <Store className="h-4 w-4" /> Mağaza Kartları
         </Link>
         <Link
-          href="/documents"
+          href="/is-emirleri"
           className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
         >
-          <UploadCloud className="h-4 w-4" /> Dosya Yükle
+          <Plus className="h-4 w-4" /> İş Emirleri
         </Link>
         <Link
-          href="/projects?tip=tadilat"
+          href="/genel-arsiv"
           className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
         >
-          <HardHat className="h-4 w-4" /> Tadilat & Yeni Yapım
-        </Link>
-        <Link
-          href="/documents"
-          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
-        >
-          <FolderOpen className="h-4 w-4" /> Dosya Arşivi
+          <Archive className="h-4 w-4" /> Genel Arşiv
         </Link>
       </div>
 
-      {/* Ana içerik + Aktif İşler yan paneli */}
+      {/* Ana içerik + Yan panel */}
       <div className="flex gap-6 items-start">
 
         {/* Sol: Son Mağazalar */}
@@ -405,7 +378,7 @@ export function DashboardOverview() {
                 href="/projects"
                 className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 transition-colors"
               >
-                <Plus className="h-4 w-4" /> Yeni Proje Başlat
+                <Plus className="h-4 w-4" /> Mağaza Ekle
               </Link>
             </div>
           ) : (
@@ -417,60 +390,100 @@ export function DashboardOverview() {
           )}
         </div>
 
-        {/* Sağ: Aktif İşler paneli */}
-        <div className="w-72 shrink-0 hidden xl:block">
+        {/* Sağ: Aktif İşler + Son Dosyalar */}
+        <div className="w-72 shrink-0 hidden xl:block space-y-4">
+
+          {/* Aktif İş Emirleri */}
           <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
-                <HardHat className="h-4 w-4 text-amber-500" />
+                <ClipboardList className="h-4 w-4 text-amber-500" />
                 <h2 className="text-sm font-semibold text-slate-900">Aktif İşler</h2>
               </div>
               <span className="text-[11px] font-semibold text-slate-400 bg-slate-100 rounded-full px-2 py-0.5">
-                {activeJobs.length}
+                {aktifIsler.length}
               </span>
             </div>
-            {activeJobs.length === 0 ? (
+            {aktifIsler.length === 0 ? (
               <div className="p-6 text-center">
-                <HardHat className="mx-auto h-7 w-7 text-slate-200 mb-2" />
-                <p className="text-xs text-slate-400">Aktif süreç bulunmuyor.</p>
-                <p className="text-[10px] text-slate-300 mt-1">Mağaza detayından süreç başlatın.</p>
+                <ClipboardList className="mx-auto h-7 w-7 text-slate-200 mb-2" />
+                <p className="text-xs text-slate-400">Aktif iş emri bulunmuyor.</p>
               </div>
             ) : (
-              <div className="divide-y divide-slate-50 max-h-[480px] overflow-y-auto">
-                {activeJobs.map((job) => {
-                  const cd = activeJobCountdown(job.days_remaining, job.process_status);
+              <div className="divide-y divide-slate-50 max-h-[360px] overflow-y-auto">
+                {aktifIsler.map((wo) => {
+                  const wst = WO_STATUS[wo.status] ?? { label: wo.status, color: "text-slate-500" };
                   return (
                     <Link
-                      key={job.process_id}
-                      href={`/projects/${job.project_id}?tab=process`}
+                      key={wo.id}
+                      href={`/is-emirleri/${wo.id}`}
                       className="flex items-start gap-3 px-4 py-3 hover:bg-slate-50 transition-colors group"
                     >
                       <div className={`mt-1 h-2 w-2 shrink-0 rounded-full ${
-                        (job.days_remaining ?? 1) < 0 ? "bg-red-400" :
-                        (job.days_remaining ?? 1) === 0 ? "bg-amber-400" : "bg-blue-400"
+                        wo.status === "started"          ? "bg-amber-400"  :
+                        wo.status === "material_waiting" ? "bg-orange-400" :
+                        wo.status === "approval_pending" ? "bg-rose-400"   :
+                        "bg-blue-400"
                       }`} />
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium text-slate-800 truncate leading-tight group-hover:text-blue-600">
-                          {job.project_name}
+                          {wo.project_name ?? wo.title}
                         </p>
-                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                          <span className="text-[10px] font-medium text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
-                            {WORK_TYPE_LABELS[job.work_type] ?? job.work_type}
-                          </span>
-                          {job.current_stage && (
-                            <span className="text-[10px] text-slate-400 truncate max-w-[90px]">
-                              {job.current_stage}
-                            </span>
-                          )}
-                        </div>
-                        <p className={`text-[10px] font-semibold mt-0.5 ${cd.color}`}>{cd.text}</p>
+                        {wo.project_name && (
+                          <p className="text-[10px] text-slate-500 truncate mt-0.5">{wo.title}</p>
+                        )}
+                        <p className={`text-[10px] font-semibold mt-0.5 ${wst.color}`}>{wst.label}</p>
                       </div>
                     </Link>
                   );
                 })}
               </div>
             )}
+            <div className="border-t border-slate-50 px-4 py-2">
+              <Link href="/is-emirleri" className="text-xs font-medium text-blue-600 hover:text-blue-700">
+                Tümünü gör →
+              </Link>
+            </div>
           </div>
+
+          {/* Son Yüklenen Dosyalar */}
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-emerald-500" />
+                <h2 className="text-sm font-semibold text-slate-900">Son Yüklenen Dosyalar</h2>
+              </div>
+            </div>
+            {sonDosyalar.length === 0 ? (
+              <div className="p-4 text-center">
+                <p className="text-xs text-slate-400">Henüz dosya yüklenmemiş.</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-50 max-h-[240px] overflow-y-auto">
+                {sonDosyalar.map((d) => {
+                  const fileName = d.original_name ?? d.name ?? "—";
+                  const ext = fileName.split(".").pop()?.toUpperCase() ?? "";
+                  return (
+                    <div key={d.id} className="flex items-center gap-2.5 px-4 py-2.5">
+                      <span className={`inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-[9px] font-bold uppercase ${
+                        ext === "DWG"                           ? "bg-orange-50 text-orange-600"
+                        : ext === "PDF"                        ? "bg-red-50 text-red-600"
+                        : ["JPG","JPEG","PNG"].includes(ext)   ? "bg-green-50 text-green-600"
+                        : "bg-slate-100 text-slate-500"
+                      }`}>{ext || "?"}</span>
+                      <p className="flex-1 text-[11px] text-slate-700 truncate">{fileName}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <div className="border-t border-slate-50 px-4 py-2">
+              <Link href="/genel-arsiv" className="text-xs font-medium text-blue-600 hover:text-blue-700">
+                Genel Arşiv →
+              </Link>
+            </div>
+          </div>
+
         </div>
 
       </div>

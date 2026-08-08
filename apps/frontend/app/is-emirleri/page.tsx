@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle, Building2, Camera, CheckCircle2, ChevronDown, ClipboardList,
-  ExternalLink, Eye, Loader2, MessageSquare, Plus, Search, Trash2, User, X, Zap,
+  Eye, Loader2, MessageSquare, Plus, Search, Trash2, User, X, Zap,
 } from "lucide-react";
 import { apiDelete, apiGet, apiPost } from "@/lib/api";
 
@@ -305,7 +305,7 @@ function CreateModal({ onClose, onDone }: { onClose: () => void; onDone: () => v
                     className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Telefon (WhatsApp)</label>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Telefon</label>
                   <input value={form.assigned_to_phone} onChange={e => setForm(p => ({ ...p, assigned_to_phone: e.target.value }))}
                     placeholder="05XX XXX XX XX"
                     className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
@@ -407,8 +407,6 @@ export default function IsEmirleriPage() {
     return true;
   }), [orders, query, filterType, filterStatus]);
 
-  const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
-
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       {/* Header */}
@@ -419,7 +417,7 @@ export default function IsEmirleriPage() {
           </div>
           <div>
             <h1 className="text-lg font-bold text-slate-900">İş Emirleri</h1>
-            <p className="text-xs text-slate-500">Bakım, arıza, onarım, tadilat ve yeni yapım görevlerini tek ekrandan yönetin.</p>
+            <p className="text-xs text-slate-500">Arıza, tadilat ve yeni yapım görevlerini tek ekrandan oluşturun, atayın ve takip edin.</p>
           </div>
         </div>
         <button onClick={() => setShowCreate(true)}
@@ -445,7 +443,7 @@ export default function IsEmirleriPage() {
           className="rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
           <option value="">Tüm Durumlar</option>
           {[
-            ["draft","Taslak"],["sent","WhatsApp Gönderildi"],["started","İşe Başlandı"],
+            ["draft","Taslak"],["sent","Gönderildi"],["started","İşe Başlandı"],
             ["completed","Tamamlandı"],["failed","Tamamlanmadı"],["cancelled","İptal"],
             ["material_waiting","Malzeme Bekliyor"],["revisit","Tekrar Gidilecek"],
             ["approval_pending","Onay Bekliyor"],["approved","Onaylandı"],
@@ -548,13 +546,6 @@ export default function IsEmirleriPage() {
                       className="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:underline">
                       <Camera className="h-3 w-3" /> {wo.photo_count} fotoğraf
                     </Link>
-                  )}
-                  <SendWhatsAppBtn wo={wo} onRefresh={load} />
-                  {wo.public_token && (
-                    <a href={`${baseUrl}/is-emri/${wo.public_token}`} target="_blank" rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-blue-600">
-                      <ExternalLink className="h-3 w-3" /> Public Link
-                    </a>
                   )}
                   <Link href={`/projects/${wo.project_id}?tab=work-orders`}
                     className="text-[11px] text-slate-400 hover:text-slate-600">

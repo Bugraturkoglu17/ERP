@@ -358,33 +358,54 @@ async def create_project(
 ) -> ProjectRead:
     """
     Yeni şantiye projesi oluşturur.
-    Hiyerarşi doğrulaması yapılır: branch_id → region_id → customer_id zinciri var mı kontrol edilir.
+    branch_id verilmişse hiyerarşi doğrulaması yapılır.
+    Verilmemişse tenant'ın ilk branch'i otomatik kullanılır (wizard akışı için).
     """
-    # Şube var mı?
-    branch = await crud_branch.get(db, project_in.branch_id)
-    if not branch:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Şube bulunamadı.")
-    if _tenant_mismatch(user, branch.tenant_id):
-        raise HTTPException(status_code=403, detail="Bu şube üzerinde yetkiniz yok.")
+    # branch_id verilmemişse tenant'ın ilk branch'ini otomatik kullan (wizard akışı)
+    if project_in.branch_id is None:
+        auto_res = await db.execute(
+            select(Branch).where(Branch.tenant_id == user.tenant_id).limit(1)
+        )
+        branch = auto_res.scalar_one_or_none()
+        if not branch:
+            raise HTTPException(status_code=400, detail="Tenant için tanımlı şube bulunamadı.")
+        auto_region = await crud_region.get(db, branch.region_id)
+        resolved_branch_id   = branch.id
+        resolved_region_id   = branch.region_id
+        resolved_customer_id = auto_region.customer_id if auto_region else None
+        resolved_tenant_id   = branch.tenant_id
+    else:
+        branch = await crud_branch.get(db, project_in.branch_id)
+        if not branch:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Şube bulunamadı.")
+        if _tenant_mismatch(user, branch.tenant_id):
+            raise HTTPException(status_code=403, detail="Bu şube üzerinde yetkiniz yok.")
 
-    # Bölge şubeye ait mi?
-    region = await crud_region.get(db, branch.region_id)
-    if not region or region.customer_id != project_in.customer_id or region.id != project_in.region_id:
-        raise HTTPException(status_code=400, detail="Bölge / müşteri uyumsuzluğu.")
-    if str(region.tenant_id) != str(branch.tenant_id):
-        raise HTTPException(status_code=400, detail="Hiyerarşi tenant bilgisi tutarsız.")
+        region = await crud_region.get(db, branch.region_id)
+        if not region or region.customer_id != project_in.customer_id or region.id != project_in.region_id:
+            raise HTTPException(status_code=400, detail="Bölge / müşteri uyumsuzluğu.")
+        if str(region.tenant_id) != str(branch.tenant_id):
+            raise HTTPException(status_code=400, detail="Hiyerarşi tenant bilgisi tutarsız.")
 
-    customer = await crud_customer.get(db, project_in.customer_id)
-    if not customer:
-        raise NotFoundError(detail="Müşteri bulunamadı.")
-    if str(customer.tenant_id) != str(branch.tenant_id):
-        raise HTTPException(status_code=400, detail="Hiyerarşi tenant bilgisi tutarsız.")
+        customer = await crud_customer.get(db, project_in.customer_id)
+        if not customer:
+            raise NotFoundError(detail="Müşteri bulunamadı.")
+        if str(customer.tenant_id) != str(branch.tenant_id):
+            raise HTTPException(status_code=400, detail="Hiyerarşi tenant bilgisi tutarsız.")
+
+        resolved_branch_id   = branch.id
+        resolved_region_id   = branch.region_id
+        resolved_customer_id = project_in.customer_id
+        resolved_tenant_id   = branch.tenant_id
 
     created = await crud_project.create(
         db,
         project_in,
         scope_codes=json.dumps(project_in.scope_codes or []),
-        tenant_id=branch.tenant_id,
+        tenant_id=resolved_tenant_id,
+        branch_id=resolved_branch_id,
+        region_id=resolved_region_id,
+        customer_id=resolved_customer_id,
     )
     return _to_project_read(created)
 
