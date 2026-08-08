@@ -9,12 +9,10 @@ import { apiGet, buildApiUrl } from "@/lib/api";
 // ── Sabitler ─────────────────────────────────────────────────────────────────
 
 const CATEGORY_OPTS = [
-  { value: "project_file",    label: "Proje Dosyaları"  },
-  { value: "revision",        label: "Revizyonlar"      },
-  { value: "visual_inventory",label: "Görsel Envanter"  },
-  { value: "field_report",    label: "Servis Formları"  },
-  { value: "invoice_doc",     label: "Faturalar"        },
-  { value: "other",           label: "Diğer Dosyalar"   },
+  { value: "project_file",     label: "Proje Dosyaları"  },
+  { value: "visual_inventory", label: "Görsel Envanter"  },
+  { value: "field_report",     label: "Servis Formları"  },
+  { value: "other",            label: "Diğer Dosyalar"   },
 ];
 
 function getExtension(name: string) {

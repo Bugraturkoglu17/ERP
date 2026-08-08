@@ -13,18 +13,45 @@ import TransferModal from "./TransferModal";
 
 const CATEGORY_MAP: Record<string, string> = {
   project_file:     "Proje Dosyaları",
-  revision:         "Revizyonlar",
   visual_inventory: "Görsel Envanter",
   field_report:     "Servis Formları",
-  invoice_doc:      "Faturalar",
   other:            "Diğer Dosyalar",
 };
 
-const STATUS_FILTER_OPTS = [
-  { key: "all",         label: "Tümü"          },
-  { key: "archive",     label: "Arşivde"       },
-  { key: "transferred", label: "Taşındı"       },
+type FilterKey =
+  | "all" | "dwg" | "pdf" | "image" | "excel" | "zip"
+  | "other_type" | "transferred" | "not_transferred";
+
+const FILTER_OPTS: { key: FilterKey; label: string }[] = [
+  { key: "all",             label: "Tüm Dosyalar"   },
+  { key: "dwg",             label: "DWG"            },
+  { key: "pdf",             label: "PDF"            },
+  { key: "image",           label: "Görseller"      },
+  { key: "excel",           label: "Excel"          },
+  { key: "zip",             label: "ZIP"            },
+  { key: "other_type",      label: "Diğer"          },
+  { key: "transferred",     label: "Taşınanlar"     },
+  { key: "not_transferred", label: "Taşınmamışlar"  },
 ];
+
+const EXT_IMAGE = ["JPG","JPEG","PNG","GIF","WEBP","BMP"];
+const EXT_EXCEL = ["XLSX","XLS","CSV"];
+
+function matchesTypeFilter(doc: ArchiveDoc, f: FilterKey): boolean {
+  const ext = getExtension(doc.original_name);
+  switch (f) {
+    case "all":             return true;
+    case "dwg":             return ext === "DWG";
+    case "pdf":             return ext === "PDF";
+    case "image":           return EXT_IMAGE.includes(ext);
+    case "excel":           return EXT_EXCEL.includes(ext);
+    case "zip":             return ["ZIP","RAR","7Z"].includes(ext);
+    case "other_type":      return !["DWG","PDF","ZIP","RAR","7Z"].includes(ext) && !EXT_IMAGE.includes(ext) && !EXT_EXCEL.includes(ext);
+    case "transferred":     return doc.archive_status === "transferred";
+    case "not_transferred": return doc.archive_status !== "transferred";
+    default:                return true;
+  }
+}
 
 function fmtBytes(n?: number | null): string {
   if (!n) return "—";
@@ -83,7 +110,7 @@ export default function GenelArsivPage() {
   const [docs,        setDocs]        = useState<ArchiveDoc[]>([]);
   const [loading,     setLoading]     = useState(true);
   const [search,      setSearch]      = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
   const [selected,    setSelected]    = useState<Set<string>>(new Set());
   const [uploadOpen,  setUploadOpen]  = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
@@ -100,7 +127,7 @@ export default function GenelArsivPage() {
 
   // Arama + filtre
   const filtered = docs.filter((d) => {
-    if (statusFilter !== "all" && d.archive_status !== statusFilter) return false;
+    if (!matchesTypeFilter(d, activeFilter)) return false;
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     return (
@@ -142,8 +169,11 @@ export default function GenelArsivPage() {
   };
 
   // Aç
-  const handleOpen = (doc: ArchiveDoc) => {
-    window.open(`${buildApiUrl("")}static/uploads/${doc.file_key.split("/").pop()}`, "_blank");
+  const handleOpen = async (doc: ArchiveDoc) => {
+    try {
+      const res = await apiGet<{ url: string }>(`/documents/${doc.id}/download`);
+      if (res?.url) window.open(res.url, "_blank");
+    } catch { /* ignore */ }
   };
 
   // Sil (arşive al)
@@ -173,7 +203,7 @@ export default function GenelArsivPage() {
           </div>
           <div>
             <h1 className="text-lg font-bold text-slate-900">Genel Arşiv</h1>
-            <p className="text-xs text-slate-500">Tüm dosyalar burada yüklenir, mağaza kartlarına buradan aktarılır.</p>
+            <p className="text-xs text-slate-500">PDF, DWG, görsel, Excel ve diğer dokümanları tek merkezde yönetin.</p>
           </div>
         </div>
         <button
@@ -198,15 +228,15 @@ export default function GenelArsivPage() {
           />
         </div>
 
-        {/* Durum filtresi */}
-        <div className="flex items-center gap-1">
+        {/* Filtre chip'leri */}
+        <div className="flex items-center gap-1 flex-wrap">
           <Filter className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-          {STATUS_FILTER_OPTS.map((f) => (
+          {FILTER_OPTS.map((f) => (
             <button
               key={f.key}
-              onClick={() => setStatusFilter(f.key)}
+              onClick={() => setActiveFilter(f.key)}
               className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
-                statusFilter === f.key
+                activeFilter === f.key
                   ? "bg-blue-600 text-white border-blue-600"
                   : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
               }`}
