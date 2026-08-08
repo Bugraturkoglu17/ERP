@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle, Building2, Camera, CheckCircle2, ChevronDown, ClipboardList,
@@ -26,12 +27,9 @@ type WorkOrder = {
 };
 
 const WORK_TYPES = [
-  { value: "maintenance",   label: "Bakım"    },
-  { value: "fault",         label: "Arıza"    },
-  { value: "repair",        label: "Onarım"   },
-  { value: "renovation",    label: "Tadilat"  },
-  { value: "manufacturing", label: "İmalat"   },
-  { value: "other",         label: "Diğer"    },
+  { value: "fault",         label: "Arıza"      },
+  { value: "renovation",    label: "Tadilat"    },
+  { value: "manufacturing", label: "Yeni Yapım" },
 ];
 
 const PRIORITIES = [
@@ -120,18 +118,20 @@ function DeleteModal({
 
 // ── Create Form Modal ──────────────────────────────────────────────────────────
 
-function CreateModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+type WorkOrderCreated = { id: string };
+
+function CreateModal({ onClose, onDone }: { onClose: () => void; onDone: (id: string) => void }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [users,    setUsers]    = useState<AppUser[]>([]);
   const [search, setSearch] = useState("");
   const [selProject, setSelProject] = useState<Project | null>(null);
+  const [selUserId,  setSelUserId]  = useState("");
   const [step, setStep] = useState<1 | 2>(1);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [form, setForm] = useState({
-    work_type: "maintenance", title: "", description: "",
-    assigned_to_name: "", assigned_to_phone: "", priority: "normal",
-    due_date: "",
+    work_type: "fault", title: "", description: "",
+    priority: "normal", due_date: "",
   });
 
   useEffect(() => {
@@ -152,38 +152,24 @@ function CreateModal({ onClose, onDone }: { onClose: () => void; onDone: () => v
     setSelProject(p);
   };
 
-  const handleSelectUser = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const uid = e.target.value;
-    if (!uid) {
-      setForm(prev => ({ ...prev, assigned_to_name: "", assigned_to_phone: "" }));
-      return;
-    }
-    const u = users.find(u => u.id === uid);
-    if (u) {
-      setForm(prev => ({
-        ...prev,
-        assigned_to_name: u.full_name || u.email,
-        assigned_to_phone: u.phone || "",
-      }));
-    }
-  };
-
   const handleCreate = async () => {
     if (!selProject) { setErr("Mağaza seçin."); return; }
     if (!form.title.trim()) { setErr("İş başlığı zorunludur."); return; }
     setBusy(true); setErr("");
     try {
-      await apiPost("/work-orders", {
+      const selUser = users.find(u => u.id === selUserId);
+      const wo = await apiPost<WorkOrderCreated>("/work-orders", {
         project_id: selProject.id,
         work_type: form.work_type,
         title: form.title.trim(),
         description: form.description.trim() || null,
-        assigned_to_name: form.assigned_to_name.trim() || null,
-        assigned_to_phone: form.assigned_to_phone.trim() || null,
+        assigned_to_name: selUser ? (selUser.full_name || selUser.email) : null,
+        assigned_to_phone: selUser?.phone || null,
+        assigned_to_user_id: selUserId || null,
         priority: form.priority,
         due_date: form.due_date ? `${form.due_date}T00:00:00` : null,
       });
-      onDone();
+      onDone(wo.id);
     } catch (ex) { setErr(apiErrMsg(ex, "İş emri oluşturulamadı. Sunucu bağlantısı kontrol edilmeli.")); }
     finally { setBusy(false); }
   };
@@ -276,39 +262,25 @@ function CreateModal({ onClose, onDone }: { onClose: () => void; onDone: () => v
                   className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none resize-none" />
               </div>
 
-              {/* Atanacak kişi — kullanıcı listesinden seç */}
+              {/* Atanacak kişi — yalnızca kullanıcı listesinden seç */}
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">
                   <span className="flex items-center gap-1"><User className="h-3.5 w-3.5" /> Atanacak Kişi</span>
                 </label>
                 <div className="relative">
                   <select
-                    onChange={handleSelectUser}
-                    defaultValue=""
+                    value={selUserId}
+                    onChange={e => setSelUserId(e.target.value)}
                     className="w-full appearance-none rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none pr-8"
                   >
-                    <option value="">— Listeden seç veya aşağıya yaz —</option>
+                    <option value="">— Seçiniz —</option>
                     {users.map(u => (
                       <option key={u.id} value={u.id}>
-                        {u.full_name || u.email}{u.phone ? ` (${u.phone})` : ""}
+                        {u.full_name || u.email}
                       </option>
                     ))}
                   </select>
                   <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Ad Soyad</label>
-                  <input value={form.assigned_to_name} onChange={e => setForm(p => ({ ...p, assigned_to_name: e.target.value }))}
-                    placeholder="Ad Soyad"
-                    className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Telefon</label>
-                  <input value={form.assigned_to_phone} onChange={e => setForm(p => ({ ...p, assigned_to_phone: e.target.value }))}
-                    placeholder="05XX XXX XX XX"
-                    className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
                 </div>
               </div>
 
@@ -383,6 +355,7 @@ function SendWhatsAppBtn({ wo, onRefresh }: { wo: WorkOrder; onRefresh: () => vo
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function IsEmirleriPage() {
+  const router = useRouter();
   const [orders, setOrders] = useState<WorkOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -563,7 +536,10 @@ export default function IsEmirleriPage() {
       )}
 
       {showCreate && (
-        <CreateModal onClose={() => setShowCreate(false)} onDone={() => { setShowCreate(false); load(); }} />
+        <CreateModal
+          onClose={() => setShowCreate(false)}
+          onDone={(woId) => { setShowCreate(false); router.push(`/is-emirleri/${woId}`); }}
+        />
       )}
       {deleting && (
         <DeleteModal

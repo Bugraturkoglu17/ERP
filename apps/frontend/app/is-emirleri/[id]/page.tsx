@@ -2,48 +2,52 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ArrowLeft,
-  Camera,
-  CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
-  ClipboardList,
-  ExternalLink,
-  Image as ImageIcon,
-  Loader2,
-  MapPin,
-  Store,
-  User,
-  X,
+  AlertCircle, AlertTriangle, ArrowLeft, Camera, CheckCircle2,
+  ChevronDown, ChevronLeft, ChevronRight, ClipboardList,
+  FileText, Image as ImageIcon, Loader2, Plus, Store,
+  Trash2, User, X, Zap,
 } from "lucide-react";
-import { apiGet, apiPost } from "@/lib/api";
+import { apiDelete, apiGet, apiPatch, apiPost, buildApiUrl } from "@/lib/api";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 type WorkOrder = {
   id: string; project_id: string; project_name?: string; project_no?: string;
   work_type: string; work_type_label: string; title: string; description?: string;
-  assigned_to_name?: string; assigned_to_phone?: string;
+  assigned_to_name?: string;
   priority: string; status: string; status_label: string;
   completion_notes?: string;
   sent_at?: string; started_at?: string; completed_at?: string;
-  created_by_name?: string; created_at: string;
+  created_by_name?: string; created_at: string; due_date?: string;
   photo_count: number;
 };
 
 type WOPhoto = {
-  id: string;
-  file_name?: string;
-  file_size_bytes?: number;
-  mime_type?: string;
-  photo_type: string;
-  uploaded_by_name?: string;
-  uploaded_at: string;
-  is_added_to_inventory: boolean;
-  vi_doc_id?: string;
-  fresh_url?: string;
+  id: string; file_name?: string; file_size_bytes?: number;
+  mime_type?: string; photo_type: string; uploaded_by_name?: string;
+  uploaded_at: string; is_added_to_inventory: boolean; fresh_url?: string;
+};
+
+type ReportPhoto = {
+  id: string; report_id: string; file_name?: string;
+  file_size_bytes?: number; mime_type?: string;
+  uploaded_by_name?: string; uploaded_at: string; fresh_url?: string;
+};
+
+type Report = {
+  id: string; work_order_id: string; title: string;
+  description?: string; severity: string;
+  created_by_name?: string; created_at: string;
+  photo_count: number; photos: ReportPhoto[];
+};
+
+type Stage = {
+  id: string; work_order_id: string; stage_order: number;
+  stage_name: string; status: string;
+  description?: string; updated_at?: string; updated_by_name?: string;
+  created_at: string;
 };
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -61,75 +65,107 @@ const STATUS_COLOR: Record<string, string> = {
   approved:         "bg-emerald-100 text-emerald-800",
 };
 
+const PRIORITY_COLOR: Record<string, string> = {
+  normal:   "bg-slate-100 text-slate-600",
+  urgent:   "bg-orange-100 text-orange-700",
+  critical: "bg-red-100 text-red-700",
+};
+
 const PRIORITY_LABEL: Record<string, string> = {
   normal: "Normal", urgent: "Acil", critical: "Kritik",
 };
 
-const VI_CATEGORIES = [
-  { value: "klima",        label: "Klima"              },
-  { value: "yangin",       label: "Yangın Sistemi"     },
-  { value: "sprinkler",    label: "Sprinkler"          },
-  { value: "havalandirma", label: "Havalandırma"       },
-  { value: "sogutma",      label: "Soğutma"            },
-  { value: "elektrik",     label: "Elektrik/Pano"      },
-  { value: "pompa",        label: "Pompa Odası"        },
-  { value: "genel",        label: "Genel Teknik Alan"  },
-  { value: "ariza",        label: "Arıza Görseli"      },
-  { value: "bakim",        label: "Bakım Sonrası"      },
-  { value: "saha_gorseli", label: "Saha Görseli"       },
-  { value: "diger",        label: "Diğer"              },
+const SEVERITY_COLOR: Record<string, string> = {
+  normal:    "bg-slate-100 text-slate-600",
+  important: "bg-orange-100 text-orange-700",
+  critical:  "bg-red-100 text-red-700",
+};
+
+const SEVERITY_LABEL: Record<string, string> = {
+  normal:    "Normal",
+  important: "Önemli",
+  critical:  "Kritik",
+};
+
+const STAGE_STATUS_COLOR: Record<string, string> = {
+  planned:     "bg-slate-100 text-slate-500",
+  in_progress: "bg-amber-100 text-amber-700",
+  completed:   "bg-emerald-100 text-emerald-700",
+  cancelled:   "bg-red-50 text-red-500",
+};
+
+const STAGE_STATUS_LABEL: Record<string, string> = {
+  planned:     "Planlandı",
+  in_progress: "Devam Ediyor",
+  completed:   "Tamamlandı",
+  cancelled:   "İptal Edildi",
+};
+
+const STAGE_STATUS_OPTS = [
+  { value: "planned",     label: "Planlandı"     },
+  { value: "in_progress", label: "Devam Ediyor"  },
+  { value: "completed",   label: "Tamamlandı"    },
+  { value: "cancelled",   label: "İptal Edildi"  },
 ];
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
+function fmtDate(s?: string | null) {
+  if (!s) return "—";
+  return new Date(s).toLocaleDateString("tr-TR", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+function fmtDateTime(s?: string | null) {
+  if (!s) return "—";
+  return new Date(s).toLocaleString("tr-TR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+}
+
+function computedStatus(stages: Stage[]): { label: string; cls: string } {
+  if (!stages.length) return { label: "Açık", cls: "bg-slate-100 text-slate-600" };
+  const statuses = stages.map(s => s.status);
+  if (statuses[statuses.length - 1] === "completed") return { label: "Tamamlandı", cls: "bg-emerald-100 text-emerald-700" };
+  if (statuses.every(s => s === "cancelled")) return { label: "İptal Edildi", cls: "bg-red-50 text-red-600" };
+  if (statuses.some(s => s === "in_progress")) return { label: "Devam Ediyor", cls: "bg-amber-100 text-amber-700" };
+  if (statuses.some(s => s === "completed")) return { label: "Devam Ediyor", cls: "bg-amber-100 text-amber-700" };
+  return { label: "Açık", cls: "bg-slate-100 text-slate-600" };
+}
 
 // ── Lightbox ───────────────────────────────────────────────────────────────────
 
-function Lightbox({
-  photos, index, onClose, onPrev, onNext,
-}: {
-  photos: WOPhoto[]; index: number;
+function Lightbox({ urls, names, index, onClose, onPrev, onNext }: {
+  urls: string[]; names: string[]; index: number;
   onClose: () => void; onPrev: () => void; onNext: () => void;
 }) {
-  const photo = photos[index];
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
-      if (e.key === "ArrowLeft")  onPrev();
+      if (e.key === "ArrowLeft") onPrev();
       if (e.key === "ArrowRight") onNext();
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
   }, [onClose, onPrev, onNext]);
 
-  if (!photo) return null;
+  const url = urls[index];
+  if (!url) return null;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90" onClick={onClose}>
       <button onClick={onClose} className="absolute top-4 right-4 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20">
         <X className="h-5 w-5" />
       </button>
       {index > 0 && (
-        <button onClick={(e) => { e.stopPropagation(); onPrev(); }}
+        <button onClick={e => { e.stopPropagation(); onPrev(); }}
           className="absolute left-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20">
           <ChevronLeft className="h-6 w-6" />
         </button>
       )}
-      <div className="flex flex-col items-center gap-4 max-w-4xl w-full px-16" onClick={(e) => e.stopPropagation()}>
-        {photo.fresh_url ? (
-          <img src={photo.fresh_url} alt={photo.file_name ?? "foto"} className="max-h-[75vh] max-w-full rounded-xl object-contain shadow-2xl" />
-        ) : (
-          <div className="flex h-64 w-64 items-center justify-center rounded-xl bg-white/10">
-            <ImageIcon className="h-12 w-12 text-white/30" />
-          </div>
-        )}
-        <div className="w-full rounded-xl bg-white/10 px-4 py-3 text-white text-sm space-y-1">
-          <p className="font-medium">{photo.file_name ?? "—"}</p>
-          <p className="text-[12px] text-white/60">
-            {photo.uploaded_by_name ?? "Saha"} · {new Date(photo.uploaded_at).toLocaleDateString("tr-TR")}
-            {photo.is_added_to_inventory && " · ✓ Mağaza Kartına Eklendi"}
-          </p>
-        </div>
-        <p className="text-xs text-white/40">{index + 1} / {photos.length}</p>
+      <div className="flex flex-col items-center gap-4 max-w-4xl w-full px-16" onClick={e => e.stopPropagation()}>
+        <img src={url} alt={names[index] ?? "foto"} className="max-h-[75vh] max-w-full rounded-xl object-contain shadow-2xl" />
+        <p className="text-xs text-white/40">{index + 1} / {urls.length}</p>
       </div>
-      {index < photos.length - 1 && (
-        <button onClick={(e) => { e.stopPropagation(); onNext(); }}
+      {index < urls.length - 1 && (
+        <button onClick={e => { e.stopPropagation(); onNext(); }}
           className="absolute right-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20">
           <ChevronRight className="h-6 w-6" />
         </button>
@@ -138,35 +174,305 @@ function Lightbox({
   );
 }
 
-// ── Transfer Modal ─────────────────────────────────────────────────────────────
+// ── Rapor Oluştur Modal ────────────────────────────────────────────────────────
 
-function TransferModal({
-  woId, photoIds, onClose, onDone,
-}: {
-  woId: string; photoIds: string[];
-  onClose: () => void; onDone: () => void;
+function CreateReportModal({ woId, onClose, onDone }: {
+  woId: string; onClose: () => void; onDone: () => void;
+}) {
+  const [title,       setTitle]       = useState("");
+  const [description, setDescription] = useState("");
+  const [severity,    setSeverity]    = useState("normal");
+  const [files,       setFiles]       = useState<File[]>([]);
+  const [busy,        setBusy]        = useState(false);
+  const [err,         setErr]         = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const addFiles = (incoming: FileList | null) => {
+    if (!incoming) return;
+    const allowed = Array.from(incoming).filter(f =>
+      f.type.startsWith("image/") || f.type === "application/pdf"
+    );
+    setFiles(prev => [...prev, ...allowed]);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    addFiles(e.dataTransfer.files);
+  };
+
+  const handleSubmit = async () => {
+    if (!title.trim()) { setErr("Rapor başlığı zorunludur."); return; }
+    setBusy(true); setErr("");
+    try {
+      const fd = new FormData();
+      fd.append("title", title.trim());
+      fd.append("description", description.trim());
+      fd.append("severity", severity);
+      files.forEach(f => fd.append("files", f));
+
+      const res = await fetch(buildApiUrl(`/work-orders/${woId}/reports`), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${localStorage.getItem("token") ?? ""}` },
+        body: fd,
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.detail ?? "Rapor kaydedilemedi.");
+      }
+      onDone();
+    } catch (ex: unknown) {
+      setErr((ex as Error).message ?? "Rapor kaydedilemedi.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl flex flex-col max-h-[90vh]">
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 shrink-0">
+          <div>
+            <h2 className="text-sm font-bold text-slate-900">Rapor Oluştur</h2>
+            <p className="text-xs text-slate-400 mt-0.5">İş ilerlemesi, sorun veya not ekleyin</p>
+          </div>
+          <button onClick={onClose}><X className="h-5 w-5 text-slate-400 hover:text-slate-700" /></button>
+        </div>
+
+        <div className="p-5 space-y-4 overflow-y-auto flex-1">
+          {/* Başlık */}
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Rapor Başlığı *</label>
+            <input
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              autoFocus
+              placeholder="Ör: Kompresör değiştirildi"
+              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none"
+            />
+          </div>
+
+          {/* Açıklama */}
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Açıklama / Not</label>
+            <textarea
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              rows={3}
+              placeholder="Detaylı açıklama, sorun tespiti, yapılan işlemler..."
+              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none resize-none"
+            />
+          </div>
+
+          {/* Önem Derecesi */}
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-2">Önem Derecesi</label>
+            <div className="flex gap-2">
+              {[
+                { value: "normal",    label: "Normal",  cls: "border-slate-200 text-slate-600" },
+                { value: "important", label: "Önemli",  cls: "border-orange-200 text-orange-600" },
+                { value: "critical",  label: "Kritik",  cls: "border-red-200 text-red-600" },
+              ].map(opt => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setSeverity(opt.value)}
+                  className={`flex-1 rounded-xl border-2 py-2.5 text-xs font-semibold transition-all ${
+                    severity === opt.value
+                      ? opt.value === "normal"    ? "border-slate-500 bg-slate-50 text-slate-700"
+                        : opt.value === "important" ? "border-orange-500 bg-orange-50 text-orange-700"
+                        : "border-red-500 bg-red-50 text-red-700"
+                      : `${opt.cls} bg-white hover:bg-slate-50`
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Görsel Yükleme */}
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-2">Görsel / Dosya Yükleme</label>
+            <div
+              onDrop={handleDrop}
+              onDragOver={e => e.preventDefault()}
+              onClick={() => fileRef.current?.click()}
+              className="flex flex-col items-center gap-2 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 px-4 py-6 cursor-pointer hover:border-blue-300 hover:bg-blue-50/30 transition-colors"
+            >
+              <Camera className="h-6 w-6 text-slate-300" />
+              <p className="text-xs text-slate-500 text-center">Görselleri buraya sürükleyin veya tıklayın</p>
+              <p className="text-[11px] text-slate-400">JPG · PNG · PDF</p>
+            </div>
+            <input
+              ref={fileRef}
+              type="file"
+              multiple
+              accept="image/jpeg,image/png,image/jpg,application/pdf"
+              className="hidden"
+              capture="environment"
+              onChange={e => addFiles(e.target.files)}
+            />
+            {files.length > 0 && (
+              <div className="mt-2 space-y-1.5">
+                {files.map((f, i) => (
+                  <div key={i} className="flex items-center gap-2 rounded-lg bg-slate-50 border border-slate-100 px-3 py-1.5">
+                    <FileText className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                    <span className="flex-1 text-xs text-slate-700 truncate">{f.name}</span>
+                    <span className="text-[10px] text-slate-400 shrink-0">
+                      {(f.size / 1024).toFixed(0)} KB
+                    </span>
+                    <button onClick={() => setFiles(prev => prev.filter((_, j) => j !== i))}
+                      className="text-slate-400 hover:text-red-500 shrink-0">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {err && (
+            <div className="flex items-start gap-2 rounded-xl bg-red-50 border border-red-100 px-3 py-2.5">
+              <AlertCircle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
+              <p className="text-xs text-red-600">{err}</p>
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-between border-t border-slate-100 px-5 py-4 shrink-0">
+          <button onClick={onClose}
+            className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            Vazgeç
+          </button>
+          <button onClick={handleSubmit} disabled={busy}
+            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            Kaydet
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Aşama Güncelle Modal ───────────────────────────────────────────────────────
+
+function StageUpdateModal({ stage, woId, onClose, onDone }: {
+  stage: Stage; woId: string; onClose: () => void; onDone: (s: Stage) => void;
+}) {
+  const [status,      setStatus]      = useState(stage.status);
+  const [description, setDescription] = useState(stage.description ?? "");
+  const [busy,        setBusy]        = useState(false);
+  const [err,         setErr]         = useState("");
+
+  const handleSave = async () => {
+    setBusy(true); setErr("");
+    try {
+      const updated = await apiPatch<Stage>(
+        `/work-orders/${woId}/stages/${stage.id}`,
+        { status, description: description.trim() || null },
+      );
+      onDone(updated);
+    } catch {
+      setErr("Aşama güncellenemedi.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+          <div>
+            <h2 className="text-sm font-bold text-slate-900">{stage.stage_name}</h2>
+            <p className="text-xs text-slate-400 mt-0.5">Aşama {stage.stage_order} / 4</p>
+          </div>
+          <button onClick={onClose}><X className="h-5 w-5 text-slate-400 hover:text-slate-700" /></button>
+        </div>
+        <div className="p-5 space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-2">Durum</label>
+            <div className="grid grid-cols-2 gap-2">
+              {STAGE_STATUS_OPTS.map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => setStatus(opt.value)}
+                  className={`rounded-xl border-2 py-2.5 text-xs font-semibold transition-all ${
+                    status === opt.value
+                      ? opt.value === "completed"   ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+                        : opt.value === "in_progress" ? "border-amber-500 bg-amber-50 text-amber-700"
+                        : opt.value === "cancelled"   ? "border-red-400 bg-red-50 text-red-600"
+                        : "border-slate-500 bg-slate-50 text-slate-700"
+                      : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Açıklama (İsteğe Bağlı)</label>
+            <textarea
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              rows={3}
+              placeholder="Bu aşamada yapılan işlemler veya notlar..."
+              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none resize-none"
+            />
+          </div>
+          {err && <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{err}</p>}
+        </div>
+        <div className="flex justify-between border-t border-slate-100 px-5 py-4">
+          <button onClick={onClose}
+            className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            Vazgeç
+          </button>
+          <button onClick={handleSave} disabled={busy}
+            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+            Kaydet
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Fotoğraf Aktarım Modal ─────────────────────────────────────────────────────
+
+const VI_CATEGORIES = [
+  { value: "klima",        label: "Klima"            },
+  { value: "yangin",       label: "Yangın Sistemi"   },
+  { value: "havalandirma", label: "Havalandırma"     },
+  { value: "elektrik",     label: "Elektrik/Pano"    },
+  { value: "genel",        label: "Genel Teknik Alan"},
+  { value: "ariza",        label: "Arıza Görseli"    },
+  { value: "saha_gorseli", label: "Saha Görseli"     },
+  { value: "diger",        label: "Diğer"            },
+];
+
+function TransferModal({ woId, photoIds, onClose, onDone }: {
+  woId: string; photoIds: string[]; onClose: () => void; onDone: () => void;
 }) {
   const [category, setCategory] = useState("saha_gorseli");
-  const [title, setTitle]       = useState("");
-  const [busy, setBusy]         = useState(false);
-  const [err, setErr]           = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err,  setErr]  = useState("");
 
   const handleTransfer = async () => {
     setBusy(true); setErr("");
     try {
-      const res = await apiPost<{ total_added: number; skipped: string[] }>(
-        `/work-orders/${woId}/add-photos-to-inventory`,
-        { photo_ids: photoIds, category, title: title.trim() || null }
-      );
+      await apiPost(`/work-orders/${woId}/add-photos-to-inventory`, { photo_ids: photoIds, category });
       onDone();
-    } catch (ex: any) {
-      setErr(ex?.response?.data?.detail ?? "Aktarım başarısız.");
+    } catch {
+      setErr("Aktarım başarısız.");
     } finally { setBusy(false); }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white shadow-2xl">
+      <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
           <div>
             <h2 className="text-sm font-bold text-slate-900">Mağaza Kartına Ekle</h2>
@@ -177,29 +483,15 @@ function TransferModal({
         <div className="px-5 py-5 space-y-4">
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Görsel Kategorisi</label>
-            <select value={category} onChange={(e) => setCategory(e.target.value)}
-              className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
-              {VI_CATEGORIES.map((c) => (
-                <option key={c.value} value={c.value}>{c.label}</option>
-              ))}
-            </select>
+            <div className="relative">
+              <select value={category} onChange={e => setCategory(e.target.value)}
+                className="w-full appearance-none rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none pr-8">
+                {VI_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            </div>
           </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Başlık (İsteğe Bağlı)</label>
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Ör: Klima montaj sonrası..."
-              className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-            />
-          </div>
-          <div className="rounded-xl bg-blue-50 border border-blue-100 px-3 py-2.5">
-            <p className="text-xs text-blue-700">
-              Seçilen fotoğraflar mağaza kartındaki <strong>Görsel Envanter</strong> sekmesine eklenecek.
-              Kaynak bilgisi ile birlikte saklanacak.
-            </p>
-          </div>
-          {err && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{err}</p>}
+          {err && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-xl">{err}</p>}
           <div className="flex gap-2 justify-end">
             <button onClick={onClose}
               className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
@@ -217,63 +509,79 @@ function TransferModal({
   );
 }
 
-// ── Main Page ──────────────────────────────────────────────────────────────────
+// ── Ana Sayfa ──────────────────────────────────────────────────────────────────
 
 export default function WorkOrderDetailPage() {
   const { id } = useParams<{ id: string }>();
 
-  const [wo,      setWo]      = useState<WorkOrder | null>(null);
-  const [photos,  setPhotos]  = useState<WOPhoto[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [photoLoading, setPhotoLoading] = useState(true);
+  const [wo,           setWo]           = useState<WorkOrder | null>(null);
+  const [photos,       setPhotos]       = useState<WOPhoto[]>([]);
+  const [reports,      setReports]      = useState<Report[]>([]);
+  const [stages,       setStages]       = useState<Stage[]>([]);
+  const [loading,      setLoading]      = useState(true);
+  const [activeTab,    setActiveTab]    = useState<"reports" | "stages" | "photos">("reports");
 
-  const [selected, setSelected]         = useState<Set<string>>(new Set());
-  const [lightboxIdx, setLightboxIdx]   = useState<number | null>(null);
+  const [reportModal,  setReportModal]  = useState(false);
+  const [stageModal,   setStageModal]   = useState<Stage | null>(null);
   const [transferOpen, setTransferOpen] = useState(false);
-  const [successMsg, setSuccessMsg]     = useState("");
+  const [selected,     setSelected]     = useState<Set<string>>(new Set());
+  const [lightbox,     setLightbox]     = useState<{ urls: string[]; names: string[]; idx: number } | null>(null);
+  const [successMsg,   setSuccessMsg]   = useState("");
+
+  const showSuccess = (msg: string) => {
+    setSuccessMsg(msg);
+    setTimeout(() => setSuccessMsg(""), 4000);
+  };
+
+  const loadReports = useCallback(async () => {
+    if (!id) return;
+    const d = await apiGet<Report[]>(`/work-orders/${id}/reports`).catch(() => []);
+    setReports(Array.isArray(d) ? d : []);
+  }, [id]);
+
+  const loadStages = useCallback(async () => {
+    if (!id) return;
+    const d = await apiGet<Stage[]>(`/work-orders/${id}/stages`).catch(() => []);
+    setStages(Array.isArray(d) ? d : []);
+  }, [id]);
 
   const loadPhotos = useCallback(async () => {
     if (!id) return;
-    setPhotoLoading(true);
-    const d = await apiGet<WOPhoto[]>(`/work-orders/${id}/photos`).catch(() => [] as WOPhoto[]);
+    const d = await apiGet<WOPhoto[]>(`/work-orders/${id}/photos`).catch(() => []);
     setPhotos(Array.isArray(d) ? d : []);
-    setPhotoLoading(false);
   }, [id]);
 
   useEffect(() => {
     if (!id) return;
     setLoading(true);
-    apiGet<WorkOrder>(`/work-orders/${id}`)
-      .then((d) => setWo(d))
-      .catch(() => setWo(null))
-      .finally(() => setLoading(false));
-    loadPhotos();
-  }, [id, loadPhotos]);
+    Promise.all([
+      apiGet<WorkOrder>(`/work-orders/${id}`),
+      apiGet<Report[]>(`/work-orders/${id}/reports`),
+      apiGet<Stage[]>(`/work-orders/${id}/stages`),
+      apiGet<WOPhoto[]>(`/work-orders/${id}/photos`),
+    ]).then(([woData, repData, stgData, phData]) => {
+      setWo(woData ?? null);
+      setReports(Array.isArray(repData) ? repData : []);
+      setStages(Array.isArray(stgData) ? stgData : []);
+      setPhotos(Array.isArray(phData) ? phData : []);
+    }).catch(() => {
+      setWo(null);
+    }).finally(() => setLoading(false));
+  }, [id]);
 
-  const toggleSelect = (photoId: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(photoId)) next.delete(photoId);
-      else next.add(photoId);
-      return next;
-    });
+  const handleDeleteReport = async (reportId: string) => {
+    if (!confirm("Bu raporu silmek istediğinize emin misiniz?")) return;
+    try {
+      await apiDelete(`/work-orders/${id}/reports/${reportId}`);
+      setReports(prev => prev.filter(r => r.id !== reportId));
+      showSuccess("Rapor silindi.");
+    } catch { /* ignore */ }
   };
 
-  const toggleAll = () => {
-    const eligible = photos.filter((p) => !p.is_added_to_inventory).map((p) => p.id);
-    if (selected.size === eligible.length && eligible.length > 0) {
-      setSelected(new Set());
-    } else {
-      setSelected(new Set(eligible));
-    }
-  };
-
-  const handleTransferDone = async () => {
-    setTransferOpen(false);
-    setSelected(new Set());
-    await loadPhotos();
-    setSuccessMsg("Seçilen fotoğraflar mağaza kartına eklendi.");
-    setTimeout(() => setSuccessMsg(""), 4000);
+  const handleStageUpdate = (updated: Stage) => {
+    setStages(prev => prev.map(s => s.id === updated.id ? updated : s));
+    setStageModal(null);
+    showSuccess("Aşama güncellendi.");
   };
 
   if (loading) {
@@ -294,12 +602,315 @@ export default function WorkOrderDetailPage() {
     );
   }
 
-  const eligiblePhotos = photos.filter((p) => !p.is_added_to_inventory);
-  const allEligibleSelected = eligiblePhotos.length > 0 && selected.size === eligiblePhotos.length;
+  const computedSt = computedStatus(stages);
   const statusCls = STATUS_COLOR[wo.status] ?? "bg-slate-100 text-slate-600";
+  const eligiblePhotos = photos.filter(p => !p.is_added_to_inventory);
+  const hasCriticalReport = reports.some(r => r.severity === "critical");
+
+  // ── Raporlar Sekmesi ──────────────────────────────────────────────────────────
+
+  const ReportsTab = () => (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-semibold text-slate-800">İş Raporları</p>
+          <p className="text-xs text-slate-400 mt-0.5">Her aşamada oluşturulan rapor kayıtları</p>
+        </div>
+        <button
+          onClick={() => setReportModal(true)}
+          className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+        >
+          <Plus className="h-4 w-4" /> Rapor Oluştur
+        </button>
+      </div>
+
+      {reports.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-14 gap-3 rounded-2xl border border-dashed border-slate-200">
+          <FileText className="h-10 w-10 text-slate-200" />
+          <p className="text-sm text-slate-400">Henüz rapor oluşturulmamış.</p>
+          <button onClick={() => setReportModal(true)}
+            className="text-xs text-blue-600 border border-blue-200 rounded-lg px-3 py-1.5 hover:bg-blue-50">
+            İlk Raporu Oluştur
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {reports.map(rep => (
+            <div key={rep.id} className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${SEVERITY_COLOR[rep.severity] ?? "bg-slate-100 text-slate-600"}`}>
+                      {rep.severity === "critical" && <AlertTriangle className="h-3 w-3 mr-1" />}
+                      {SEVERITY_LABEL[rep.severity] ?? rep.severity}
+                    </span>
+                    {rep.photo_count > 0 && (
+                      <span className="text-[11px] text-slate-400">{rep.photo_count} görsel</span>
+                    )}
+                  </div>
+                  <p className="text-sm font-semibold text-slate-900">{rep.title}</p>
+                  {rep.description && (
+                    <p className="text-xs text-slate-500 mt-1 leading-relaxed line-clamp-3">{rep.description}</p>
+                  )}
+                  <div className="flex items-center gap-2 mt-2 text-[11px] text-slate-400">
+                    {rep.created_by_name && (
+                      <span className="flex items-center gap-1">
+                        <User className="h-3 w-3" /> {rep.created_by_name}
+                      </span>
+                    )}
+                    <span>·</span>
+                    <span>{fmtDateTime(rep.created_at)}</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleDeleteReport(rep.id)}
+                  className="shrink-0 flex h-7 w-7 items-center justify-center rounded-lg text-slate-300 hover:bg-red-50 hover:text-red-500"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+
+              {/* Görsel önizlemeler */}
+              {rep.photos.length > 0 && (
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {rep.photos.map((rp, idx) => (
+                    <button
+                      key={rp.id}
+                      onClick={() => setLightbox({
+                        urls: rep.photos.map(p => p.fresh_url ?? ""),
+                        names: rep.photos.map(p => p.file_name ?? ""),
+                        idx,
+                      })}
+                      className="shrink-0 h-16 w-16 overflow-hidden rounded-lg border border-slate-200 hover:border-blue-300 transition-colors"
+                    >
+                      {rp.fresh_url && rp.mime_type?.startsWith("image/") ? (
+                        <img src={rp.fresh_url} alt={rp.file_name ?? ""} className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="h-full w-full bg-slate-100 flex items-center justify-center">
+                          <FileText className="h-5 w-5 text-slate-300" />
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  // ── Aşamalar Sekmesi ──────────────────────────────────────────────────────────
+
+  const StagesTab = () => {
+    const completed = stages.filter(s => s.status === "completed").length;
+    const progressPct = stages.length > 0 ? Math.round((completed / stages.length) * 100) : 0;
+
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold text-slate-800">4 Aşamalı Takip Çizelgesi</p>
+            <p className="text-xs text-slate-400 mt-0.5">Her aşamayı güncelleyerek iş ilerlemesini kaydedin</p>
+          </div>
+          <div className="text-right">
+            <p className="text-lg font-bold text-slate-900">{progressPct}%</p>
+            <p className="text-[10px] text-slate-400">Tamamlandı</p>
+          </div>
+        </div>
+
+        {/* Progress bar */}
+        <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+          <div
+            className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+            style={{ width: `${progressPct}%` }}
+          />
+        </div>
+
+        {/* Aşama kartları */}
+        <div className="space-y-3">
+          {stages.map((stage, idx) => {
+            const statusCls = STAGE_STATUS_COLOR[stage.status] ?? "bg-slate-100 text-slate-500";
+            const isCompleted = stage.status === "completed";
+            const isActive    = stage.status === "in_progress";
+
+            return (
+              <div key={stage.id} className={`rounded-2xl border-2 p-4 transition-colors ${
+                isActive    ? "border-amber-200 bg-amber-50/30"
+                : isCompleted ? "border-emerald-200 bg-emerald-50/20"
+                : "border-slate-200 bg-white"
+              }`}>
+                <div className="flex items-start gap-3">
+                  {/* Step number */}
+                  <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
+                    isCompleted ? "bg-emerald-500 text-white"
+                    : isActive  ? "bg-amber-500 text-white"
+                    : "bg-slate-100 text-slate-500"
+                  }`}>
+                    {isCompleted ? <CheckCircle2 className="h-5 w-5" /> : idx + 1}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-semibold text-slate-900">{stage.stage_name}</p>
+                      <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusCls}`}>
+                        {STAGE_STATUS_LABEL[stage.status] ?? stage.status}
+                      </span>
+                    </div>
+
+                    {stage.description && (
+                      <p className="text-xs text-slate-500 mt-1 leading-relaxed">{stage.description}</p>
+                    )}
+
+                    {stage.updated_at && (
+                      <div className="flex items-center gap-2 mt-1.5 text-[11px] text-slate-400">
+                        {stage.updated_by_name && <span>{stage.updated_by_name}</span>}
+                        <span>·</span>
+                        <span>{fmtDateTime(stage.updated_at)}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    onClick={() => setStageModal(stage)}
+                    className="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 active:scale-95 transition-transform"
+                  >
+                    Güncelle
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Hesaplanan durum */}
+        <div className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 flex items-center justify-between">
+          <p className="text-xs text-slate-500">Hesaplanan Genel Durum:</p>
+          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${computedSt.cls}`}>
+            {computedSt.label}
+          </span>
+        </div>
+      </div>
+    );
+  };
+
+  // ── Fotoğraflar Sekmesi ───────────────────────────────────────────────────────
+
+  const PhotosTab = () => {
+    const allEligibleSelected = eligiblePhotos.length > 0 && eligiblePhotos.every(p => selected.has(p.id));
+
+    const toggleAll = () => {
+      if (allEligibleSelected) setSelected(new Set());
+      else setSelected(new Set(eligiblePhotos.map(p => p.id)));
+    };
+    const toggleOne = (pid: string) => setSelected(prev => {
+      const n = new Set(prev);
+      n.has(pid) ? n.delete(pid) : n.add(pid);
+      return n;
+    });
+
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Camera className="h-4 w-4 text-slate-400" />
+            <p className="text-sm font-semibold text-slate-800">Saha Fotoğrafları</p>
+            <span className="text-xs text-slate-400">{photos.length} adet</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {eligiblePhotos.length > 0 && (
+              <button onClick={toggleAll}
+                className="text-xs text-slate-500 border border-slate-200 rounded-lg px-2.5 py-1.5 hover:bg-slate-50">
+                {allEligibleSelected ? "Seçimi Kaldır" : "Tümünü Seç"}
+              </button>
+            )}
+            {selected.size > 0 && (
+              <button onClick={() => setTransferOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-blue-700">
+                <Store className="h-3.5 w-3.5" /> {selected.size} Fotoğrafı Ekle
+              </button>
+            )}
+          </div>
+        </div>
+
+        {photos.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-14 gap-3">
+            <Camera className="h-10 w-10 text-slate-200" />
+            <p className="text-sm text-slate-400">Bu iş emrinde fotoğraf bulunmuyor.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+            {photos.map((photo, idx) => {
+              const isChecked  = selected.has(photo.id);
+              const isEligible = !photo.is_added_to_inventory;
+              return (
+                <div key={photo.id} className="relative group">
+                  {isEligible && (
+                    <button
+                      onClick={() => toggleOne(photo.id)}
+                      className={`absolute top-2 left-2 z-10 flex h-5 w-5 items-center justify-center rounded border-2 shadow-sm transition-colors ${
+                        isChecked ? "bg-blue-600 border-blue-600" : "bg-white/80 border-slate-300 hover:border-blue-400"
+                      }`}
+                    >
+                      {isChecked && (
+                        <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+                  )}
+                  {photo.is_added_to_inventory && (
+                    <div className="absolute top-2 left-2 z-10 flex items-center gap-1 rounded-full bg-emerald-600/90 px-2 py-0.5">
+                      <CheckCircle2 className="h-3 w-3 text-white" />
+                      <span className="text-[10px] font-semibold text-white">Eklendi</span>
+                    </div>
+                  )}
+                  <button
+                    onClick={() => setLightbox({
+                      urls: photos.filter(p => p.fresh_url).map(p => p.fresh_url!),
+                      names: photos.filter(p => p.fresh_url).map(p => p.file_name ?? ""),
+                      idx,
+                    })}
+                    className={`w-full aspect-square overflow-hidden rounded-xl border transition-all ${
+                      isChecked ? "border-blue-500 ring-2 ring-blue-400" : "border-slate-200 hover:border-slate-300"
+                    }`}
+                  >
+                    {photo.fresh_url ? (
+                      <img src={photo.fresh_url} alt={photo.file_name ?? ""} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" />
+                    ) : (
+                      <div className="w-full h-full bg-slate-100 flex items-center justify-center">
+                        <ImageIcon className="h-8 w-8 text-slate-300" />
+                      </div>
+                    )}
+                  </button>
+                  <div className="mt-1.5 px-0.5">
+                    <p className="text-[10px] text-slate-500 truncate">{photo.file_name ?? "—"}</p>
+                    <p className="text-[10px] text-slate-400">{photo.uploaded_by_name ?? "Saha"} · {fmtDate(photo.uploaded_at)}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // ── Render ────────────────────────────────────────────────────────────────────
+
+  const TABS = [
+    { key: "reports" as const, label: "Raporlar", count: reports.length,
+      icon: <FileText className="h-4 w-4" />,
+      badge: hasCriticalReport ? "critical" : undefined },
+    { key: "stages"  as const, label: "Aşamalar", count: null,
+      icon: <Zap className="h-4 w-4" /> },
+    { key: "photos"  as const, label: "Fotoğraflar", count: photos.length,
+      icon: <Camera className="h-4 w-4" /> },
+  ];
 
   return (
-    <div className="max-w-4xl mx-auto space-y-5">
+    <div className="max-w-4xl mx-auto space-y-5 pb-10">
 
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-xs text-slate-400">
@@ -310,7 +921,6 @@ export default function WorkOrderDetailPage() {
         <span className="text-slate-700 font-medium truncate max-w-xs">{wo.title}</span>
       </div>
 
-      {/* Success banner */}
       {successMsg && (
         <div className="flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3">
           <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
@@ -318,8 +928,8 @@ export default function WorkOrderDetailPage() {
         </div>
       )}
 
-      {/* İş Emri Bilgisi */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4 shadow-sm">
+      {/* Üst Özet Kartı */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-2 mb-2">
@@ -329,9 +939,14 @@ export default function WorkOrderDetailPage() {
               <span className="text-[11px] font-medium border border-slate-200 rounded-full px-2 py-0.5 text-slate-600">
                 {wo.work_type_label}
               </span>
-              <span className="text-[11px] text-slate-400">
+              <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${PRIORITY_COLOR[wo.priority]}`}>
                 {PRIORITY_LABEL[wo.priority] ?? wo.priority}
               </span>
+              {hasCriticalReport && (
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded-full border border-red-100">
+                  <AlertTriangle className="h-3 w-3" /> Kritik Rapor
+                </span>
+              )}
             </div>
             <h1 className="text-lg font-bold text-slate-900 leading-tight">{wo.title}</h1>
             {wo.description && (
@@ -339,216 +954,105 @@ export default function WorkOrderDetailPage() {
             )}
           </div>
           <Link
-            href={`/projects/${wo.project_id}?tab=visual_inventory`}
-            className="shrink-0 inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+            href={`/projects/${wo.project_id}`}
+            className="shrink-0 inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
           >
             <Store className="h-3.5 w-3.5" /> Mağaza Kartı
-            <ExternalLink className="h-3 w-3 text-slate-400" />
           </Link>
         </div>
 
-        {/* Bilgi grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-1 border-t border-slate-100">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-slate-100">
           <div>
             <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wide">Mağaza</p>
-            <p className="text-sm font-semibold text-slate-800 mt-0.5">{wo.project_name ?? "—"}</p>
+            <p className="text-sm font-semibold text-slate-800 mt-0.5 truncate">{wo.project_name ?? "—"}</p>
             {wo.project_no && <p className="text-[11px] text-slate-400 font-mono">{wo.project_no}</p>}
           </div>
-          {(wo.assigned_to_name || wo.assigned_to_phone) && (
+          {wo.assigned_to_name && (
             <div>
-              <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wide">Sorumlu</p>
+              <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wide">Atanan</p>
               <p className="text-sm text-slate-700 mt-0.5 flex items-center gap-1">
-                <User className="h-3.5 w-3.5 text-slate-400" />
-                {wo.assigned_to_name ?? wo.assigned_to_phone}
+                <User className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                {wo.assigned_to_name}
               </p>
-              {wo.assigned_to_name && wo.assigned_to_phone && (
-                <p className="text-[11px] text-slate-400">{wo.assigned_to_phone}</p>
-              )}
-            </div>
-          )}
-          {wo.completed_at && (
-            <div>
-              <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wide">Tamamlanma</p>
-              <p className="text-sm text-slate-700 mt-0.5">{new Date(wo.completed_at).toLocaleDateString("tr-TR")}</p>
             </div>
           )}
           <div>
-            <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wide">Oluşturulma</p>
-            <p className="text-sm text-slate-700 mt-0.5">{new Date(wo.created_at).toLocaleDateString("tr-TR")}</p>
-            {wo.created_by_name && <p className="text-[11px] text-slate-400">{wo.created_by_name}</p>}
+            <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wide">Termin</p>
+            <p className="text-sm text-slate-700 mt-0.5">{fmtDate(wo.due_date)}</p>
           </div>
-        </div>
-
-        {/* Tamamlama notu */}
-        {wo.completion_notes && (
-          <div className="rounded-xl bg-amber-50 border border-amber-100 px-4 py-3">
-            <p className="text-[10px] font-semibold text-amber-600 uppercase tracking-wide mb-1">Saha Notu</p>
-            <p className="text-sm text-amber-900 leading-relaxed">{wo.completion_notes}</p>
+          <div>
+            <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wide">Genel Durum</p>
+            <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold mt-0.5 ${computedSt.cls}`}>
+              {computedSt.label}
+            </span>
           </div>
-        )}
-      </div>
-
-      {/* Fotoğraflar */}
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-        {/* Fotoğraf başlık + aksiyon barı */}
-        <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
-          <div className="flex items-center gap-3">
-            <Camera className="h-4 w-4 text-slate-400" />
-            <h2 className="text-sm font-bold text-slate-900">
-              Saha Fotoğrafları
-            </h2>
-            {!photoLoading && (
-              <span className="text-[11px] text-slate-400">{photos.length} adet</span>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            {eligiblePhotos.length > 0 && (
-              <button onClick={toggleAll}
-                className="text-xs text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg px-2.5 py-1.5 hover:bg-slate-50">
-                {allEligibleSelected ? "Seçimi Kaldır" : "Tümünü Seç"}
-              </button>
-            )}
-            {selected.size > 0 && (
-              <button
-                onClick={() => setTransferOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-blue-700"
-              >
-                <Store className="h-3.5 w-3.5" />
-                {selected.size} Fotoğrafı Mağaza Kartına Ekle
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="p-5">
-          {photoLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-slate-300" />
-            </div>
-          ) : photos.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 gap-3">
-              <Camera className="h-10 w-10 text-slate-200" />
-              <p className="text-sm text-slate-400">Bu iş emrinde henüz fotoğraf bulunmuyor.</p>
-            </div>
-          ) : (
-            <>
-              {/* Seçim özeti */}
-              {selected.size > 0 && (
-                <div className="mb-4 flex items-center gap-2 rounded-xl bg-blue-50 border border-blue-100 px-4 py-2.5">
-                  <CheckCircle2 className="h-4 w-4 text-blue-600" />
-                  <p className="text-xs font-medium text-blue-800">
-                    {selected.size} fotoğraf seçildi.
-                    {eligiblePhotos.length - selected.size > 0 && (
-                      <span className="text-blue-600 ml-1">
-                        {eligiblePhotos.length - selected.size} daha seçilebilir.
-                      </span>
-                    )}
-                  </p>
-                </div>
-              )}
-
-              {/* Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                {photos.map((photo, idx) => {
-                  const isSelected = selected.has(photo.id);
-                  const isEligible = !photo.is_added_to_inventory;
-                  return (
-                    <div key={photo.id} className="relative group">
-                      {/* Checkbox — sadece henüz eklenmemiş fotoğraflarda */}
-                      {isEligible && (
-                        <button
-                          onClick={() => toggleSelect(photo.id)}
-                          className={`absolute top-2 left-2 z-10 flex h-5 w-5 items-center justify-center rounded border-2 transition-colors shadow-sm ${
-                            isSelected
-                              ? "bg-blue-600 border-blue-600"
-                              : "bg-white/80 border-slate-300 hover:border-blue-400"
-                          }`}
-                        >
-                          {isSelected && (
-                            <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
-                          )}
-                        </button>
-                      )}
-
-                      {/* Eklendi badge */}
-                      {photo.is_added_to_inventory && (
-                        <div className="absolute top-2 left-2 z-10 flex items-center gap-1 rounded-full bg-emerald-600/90 px-2 py-0.5 backdrop-blur-sm">
-                          <CheckCircle2 className="h-3 w-3 text-white" />
-                          <span className="text-[10px] font-semibold text-white">Eklendi</span>
-                        </div>
-                      )}
-
-                      {/* Thumbnail */}
-                      <button
-                        onClick={() => setLightboxIdx(idx)}
-                        className={`w-full aspect-square overflow-hidden rounded-xl border transition-all ${
-                          isSelected
-                            ? "border-blue-500 ring-2 ring-blue-400"
-                            : "border-slate-200 hover:border-slate-300"
-                        }`}
-                      >
-                        {photo.fresh_url ? (
-                          <img
-                            src={photo.fresh_url}
-                            alt={photo.file_name ?? "foto"}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-slate-100 flex items-center justify-center">
-                            <ImageIcon className="h-8 w-8 text-slate-300" />
-                          </div>
-                        )}
-                      </button>
-
-                      {/* Alt bilgi */}
-                      <div className="mt-1.5 px-0.5">
-                        <p className="text-[10px] text-slate-500 truncate">{photo.file_name ?? "—"}</p>
-                        <p className="text-[10px] text-slate-400">
-                          {photo.uploaded_by_name ?? "Saha"} · {new Date(photo.uploaded_at).toLocaleDateString("tr-TR")}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Alt aksiyon */}
-              {selected.size > 0 && (
-                <div className="mt-5 flex justify-end">
-                  <button
-                    onClick={() => setTransferOpen(true)}
-                    className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 shadow-sm"
-                  >
-                    <Store className="h-4 w-4" />
-                    Seçilen {selected.size} Fotoğrafı Mağaza Kartına Ekle
-                  </button>
-                </div>
-              )}
-            </>
-          )}
         </div>
       </div>
 
-      {/* Lightbox */}
-      {lightboxIdx !== null && (
-        <Lightbox
-          photos={photos}
-          index={lightboxIdx}
-          onClose={() => setLightboxIdx(null)}
-          onPrev={() => setLightboxIdx((i) => (i !== null && i > 0 ? i - 1 : i))}
-          onNext={() => setLightboxIdx((i) => (i !== null && i < photos.length - 1 ? i + 1 : i))}
+      {/* Sekmeler */}
+      <div className="flex gap-1 border-b border-slate-200 pb-0">
+        {TABS.map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-xl border-b-2 transition-colors ${
+              activeTab === tab.key
+                ? "border-blue-600 text-blue-700 bg-blue-50/50"
+                : "border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+            }`}
+          >
+            {tab.icon}
+            {tab.label}
+            {tab.count !== null && tab.count > 0 && (
+              <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                tab.badge === "critical" ? "bg-red-100 text-red-600" : "bg-slate-100 text-slate-600"
+              }`}>
+                {tab.count}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Sekme İçeriği */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        {activeTab === "reports" && <ReportsTab />}
+        {activeTab === "stages"  && <StagesTab />}
+        {activeTab === "photos"  && <PhotosTab />}
+      </div>
+
+      {/* Modaller */}
+      {reportModal && (
+        <CreateReportModal
+          woId={wo.id}
+          onClose={() => setReportModal(false)}
+          onDone={() => { setReportModal(false); loadReports(); showSuccess("Rapor kaydedildi."); }}
         />
       )}
-
-      {/* Transfer Modal */}
+      {stageModal && (
+        <StageUpdateModal
+          stage={stageModal}
+          woId={wo.id}
+          onClose={() => setStageModal(null)}
+          onDone={handleStageUpdate}
+        />
+      )}
       {transferOpen && (
         <TransferModal
           woId={wo.id}
           photoIds={Array.from(selected)}
           onClose={() => setTransferOpen(false)}
-          onDone={handleTransferDone}
+          onDone={() => { setTransferOpen(false); setSelected(new Set()); loadPhotos(); showSuccess("Fotoğraflar mağaza kartına eklendi."); }}
+        />
+      )}
+      {lightbox && (
+        <Lightbox
+          urls={lightbox.urls}
+          names={lightbox.names}
+          index={lightbox.idx}
+          onClose={() => setLightbox(null)}
+          onPrev={() => setLightbox(prev => prev && prev.idx > 0 ? { ...prev, idx: prev.idx - 1 } : prev)}
+          onNext={() => setLightbox(prev => prev && prev.idx < prev.urls.length - 1 ? { ...prev, idx: prev.idx + 1 } : prev)}
         />
       )}
     </div>

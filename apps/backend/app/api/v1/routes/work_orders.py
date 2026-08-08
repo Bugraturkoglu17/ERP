@@ -22,9 +22,9 @@ from app.core.dependencies import get_current_user, get_db
 from app.core.storage import storage, sanitize_filename
 from app.db.models import (
     Document, Project, User, WorkOrder, WorkOrderActivity, WorkOrderPhoto,
-    WorkOrderPublicLink, WorkOrderServiceForm, WorkOrderStatus,
-    WorkOrderType, WorkOrderWhatsappMessage, WorkOrderWhatsappStatus,
-    StoreActivity, StoreApprovalRequest, StoreServiceForm,
+    WorkOrderPublicLink, WorkOrderReport, WorkOrderReportPhoto, WorkOrderServiceForm,
+    WorkOrderStage, WorkOrderStatus, WorkOrderType, WorkOrderWhatsappMessage,
+    WorkOrderWhatsappStatus, StoreActivity, StoreApprovalRequest, StoreServiceForm,
 )
 from app.services.whatsapp_service import WorkOrderNotification, whatsapp_service
 
@@ -40,8 +40,21 @@ WORK_TYPE_LABELS = {
     "fault":         "Arıza",
     "repair":        "Onarım",
     "renovation":    "Tadilat",
-    "manufacturing": "İmalat",
+    "manufacturing": "Yeni Yapım",
     "other":         "Diğer",
+}
+
+DEFAULT_STAGES = [
+    (1, "Hazırlık"),
+    (2, "Uygulama / İmalat"),
+    (3, "Kontrol / Test"),
+    (4, "Tamamlama"),
+]
+
+SEVERITY_LABELS = {
+    "normal":    "Normal",
+    "important": "Önemli",
+    "critical":  "Kritik",
 }
 
 STATUS_LABELS = {
@@ -61,46 +74,88 @@ STATUS_LABELS = {
 # ── Schemas ───────────────────────────────────────────────────────────────────
 
 class WorkOrderCreate(BaseModel):
-    project_id:        UUID
-    work_type:         str
-    title:             str
-    description:       Optional[str] = None
-    assigned_to_name:  Optional[str] = None
-    assigned_to_phone: Optional[str] = None
-    priority:          str = "normal"
-    location_url:      Optional[str] = None
-    due_date:          Optional[str] = None
+    project_id:           UUID
+    work_type:            str
+    title:                str
+    description:          Optional[str]  = None
+    assigned_to_name:     Optional[str]  = None
+    assigned_to_phone:    Optional[str]  = None
+    assigned_to_user_id:  Optional[UUID] = None
+    priority:             str = "normal"
+    location_url:         Optional[str]  = None
+    due_date:             Optional[str]  = None
 
 
 class WorkOrderRead(BaseModel):
-    id:                UUID
-    project_id:        UUID
-    project_name:      Optional[str] = None
-    project_no:        Optional[str] = None
-    work_type:         str
-    work_type_label:   str
-    title:             str
-    description:       Optional[str] = None
-    assigned_to_name:  Optional[str] = None
-    assigned_to_phone: Optional[str] = None
-    priority:          str
-    status:            str
-    status_label:      str
-    location_url:      Optional[str] = None
-    due_date:          Optional[datetime] = None
-    created_by_name:   Optional[str] = None
-    sent_at:           Optional[datetime] = None
-    started_at:        Optional[datetime] = None
-    completed_at:      Optional[datetime] = None
-    completion_notes:  Optional[str] = None
-    created_at:        datetime
-    updated_at:        datetime
-    photo_count:       int = 0
-    has_service_form:  bool = False
-    public_token:      Optional[str] = None
+    id:                    UUID
+    project_id:            UUID
+    project_name:          Optional[str] = None
+    project_no:            Optional[str] = None
+    work_type:             str
+    work_type_label:       str
+    title:                 str
+    description:           Optional[str] = None
+    assigned_to_name:      Optional[str] = None
+    assigned_to_phone:     Optional[str] = None
+    assigned_to_user_id:   Optional[UUID] = None
+    priority:              str
+    status:                str
+    status_label:          str
+    location_url:          Optional[str] = None
+    due_date:              Optional[datetime] = None
+    created_by_name:       Optional[str] = None
+    sent_at:               Optional[datetime] = None
+    started_at:            Optional[datetime] = None
+    completed_at:          Optional[datetime] = None
+    completion_notes:      Optional[str] = None
+    created_at:            datetime
+    updated_at:            datetime
+    photo_count:           int = 0
+    has_service_form:      bool = False
+    public_token:          Optional[str] = None
 
     class Config:
         from_attributes = True
+
+
+class WorkOrderReportPhotoRead(BaseModel):
+    id:               UUID
+    report_id:        UUID
+    file_name:        Optional[str]
+    file_size_bytes:  Optional[int]
+    mime_type:        Optional[str]
+    uploaded_by_name: Optional[str]
+    uploaded_at:      datetime
+    fresh_url:        Optional[str] = None
+
+
+class WorkOrderReportRead(BaseModel):
+    id:              UUID
+    work_order_id:   UUID
+    title:           str
+    description:     Optional[str]
+    severity:        str
+    created_by_name: Optional[str]
+    created_at:      datetime
+    photo_count:     int = 0
+    photos:          List[WorkOrderReportPhotoRead] = []
+
+
+class WorkOrderStageRead(BaseModel):
+    id:              UUID
+    work_order_id:   UUID
+    stage_order:     int
+    stage_name:      str
+    status:          str
+    description:     Optional[str]
+    updated_at:      Optional[datetime]
+    updated_by_name: Optional[str]
+    created_at:      datetime
+
+
+class WorkOrderStageUpdate(BaseModel):
+    status:      Optional[str] = None
+    description: Optional[str] = None
 
 
 class WorkOrderUpdate(BaseModel):
@@ -236,6 +291,7 @@ def _enrich(wo: WorkOrder, project: Project, photos: list, service_forms: list, 
         description=wo.description,
         assigned_to_name=wo.assigned_to_name,
         assigned_to_phone=wo.assigned_to_phone,
+        assigned_to_user_id=getattr(wo, "assigned_to_user_id", None),
         priority=wo.priority,
         status=wo.status,
         status_label=STATUS_LABELS.get(wo.status, wo.status),
@@ -268,6 +324,15 @@ async def create_work_order(
     if not proj:
         raise HTTPException(404, "Mağaza bulunamadı.")
 
+    # Kullanıcı ID'sinden isim çek (eğer user_id verilmişse)
+    assigned_name  = payload.assigned_to_name
+    assigned_phone = payload.assigned_to_phone
+    if payload.assigned_to_user_id and not assigned_name:
+        assigned_user = await db.get(User, payload.assigned_to_user_id)
+        if assigned_user:
+            assigned_name  = assigned_user.full_name or assigned_user.email
+            assigned_phone = assigned_user.phone or assigned_phone
+
     wo = WorkOrder(
         id=uuid4(),
         tenant_id=user.tenant_id,
@@ -275,8 +340,9 @@ async def create_work_order(
         work_type=payload.work_type,
         title=payload.title,
         description=payload.description,
-        assigned_to_name=payload.assigned_to_name,
-        assigned_to_phone=payload.assigned_to_phone,
+        assigned_to_name=assigned_name,
+        assigned_to_phone=assigned_phone,
+        assigned_to_user_id=payload.assigned_to_user_id,
         priority=payload.priority or "normal",
         status=WorkOrderStatus.DRAFT,
         location_url=payload.location_url,
@@ -295,6 +361,16 @@ async def create_work_order(
         is_active=True, created_at=utc_now(),
     )
     db.add(link)
+
+    await db.flush()  # wo.id kesinleşsin
+
+    # 4 aşama otomatik oluştur
+    for order, name in DEFAULT_STAGES:
+        db.add(WorkOrderStage(
+            id=uuid4(), work_order_id=wo.id,
+            stage_order=order, stage_name=name,
+            status="planned", created_at=utc_now(),
+        ))
 
     await db.commit()
     await db.refresh(wo)
@@ -402,9 +478,19 @@ async def delete_work_order(
     ))
 
     # Child tabloları FK kısıtı oluşturmadan önce sil
+    # Report photos önce silinmeli (report'lara FK var)
+    reports_r = await db.execute(select(WorkOrderReport).where(WorkOrderReport.work_order_id == work_order_id))
+    for rep in reports_r.scalars().all():
+        rp_r = await db.execute(select(WorkOrderReportPhoto).where(WorkOrderReportPhoto.report_id == rep.id))
+        for rp in rp_r.scalars().all():
+            await db.delete(rp)
+        await db.flush()
+        await db.delete(rep)
+    await db.flush()
+
     for child_model in [
         WorkOrderActivity, WorkOrderPhoto, WorkOrderServiceForm,
-        WorkOrderWhatsappMessage, WorkOrderPublicLink,
+        WorkOrderWhatsappMessage, WorkOrderPublicLink, WorkOrderStage,
     ]:
         rows = await db.execute(
             select(child_model).where(child_model.work_order_id == work_order_id)
@@ -415,6 +501,215 @@ async def delete_work_order(
     await db.flush()
     await db.delete(wo)
     await db.commit()
+
+
+# ── Raporlar ─────────────────────────────────────────────────────────────────
+
+@router.post("/{work_order_id}/reports", response_model=WorkOrderReportRead, status_code=201)
+async def create_report(
+    work_order_id: UUID,
+    title:        str         = Form(...),
+    description:  str         = Form(""),
+    severity:     str         = Form("normal"),
+    files:        List[UploadFile] = File(default=[]),
+    db:   AsyncSession = Depends(get_db),
+    user: User         = Depends(get_current_user),
+):
+    wo = await db.get(WorkOrder, work_order_id)
+    if not wo:
+        raise HTTPException(404, "İş emri bulunamadı.")
+
+    report = WorkOrderReport(
+        id=uuid4(), work_order_id=wo.id,
+        title=title.strip(),
+        description=description.strip() or None,
+        severity=severity,
+        created_by_name=user.full_name,
+        created_by=user.id,
+        created_at=utc_now(),
+    )
+    db.add(report)
+    await db.flush()
+
+    report_photos: list[WorkOrderReportPhotoRead] = []
+    for upload in (files or []):
+        if not upload.filename:
+            continue
+        content = await upload.read()
+        if not content:
+            continue
+        safe_name = sanitize_filename(upload.filename)
+        file_key  = f"work-orders/{work_order_id}/reports/{report.id}/{int(time.time())}_{safe_name}"
+        uploaded_key = await storage.upload_file(
+            file_content=content, file_key=file_key, content_type=upload.content_type,
+        )
+        file_url = await storage.generate_presigned_url(uploaded_key)
+        rp = WorkOrderReportPhoto(
+            id=uuid4(), report_id=report.id, work_order_id=wo.id,
+            file_key=uploaded_key, file_url=file_url,
+            file_name=upload.filename, file_size_bytes=len(content),
+            mime_type=upload.content_type,
+            uploaded_by_name=user.full_name, uploaded_at=utc_now(),
+        )
+        db.add(rp)
+        report_photos.append(WorkOrderReportPhotoRead(
+            id=rp.id, report_id=rp.report_id,
+            file_name=rp.file_name, file_size_bytes=rp.file_size_bytes,
+            mime_type=rp.mime_type, uploaded_by_name=rp.uploaded_by_name,
+            uploaded_at=rp.uploaded_at, fresh_url=file_url,
+        ))
+
+    await _log_activity(db, wo.id, wo.project_id, "report_created", f"Rapor eklendi: {title}")
+    await db.commit()
+
+    return WorkOrderReportRead(
+        id=report.id, work_order_id=report.work_order_id,
+        title=report.title, description=report.description,
+        severity=report.severity, created_by_name=report.created_by_name,
+        created_at=report.created_at,
+        photo_count=len(report_photos), photos=report_photos,
+    )
+
+
+@router.get("/{work_order_id}/reports", response_model=List[WorkOrderReportRead])
+async def list_reports(
+    work_order_id: UUID,
+    db:   AsyncSession = Depends(get_db),
+    user: User         = Depends(get_current_user),
+):
+    wo = await db.get(WorkOrder, work_order_id)
+    if not wo:
+        raise HTTPException(404, "İş emri bulunamadı.")
+
+    reports_r = await db.execute(
+        select(WorkOrderReport)
+        .where(WorkOrderReport.work_order_id == work_order_id)
+        .order_by(desc(WorkOrderReport.created_at))
+    )
+    reports = reports_r.scalars().all()
+
+    out = []
+    for rep in reports:
+        photos_r = await db.execute(
+            select(WorkOrderReportPhoto).where(WorkOrderReportPhoto.report_id == rep.id)
+        )
+        photos = photos_r.scalars().all()
+        photo_reads = []
+        for p in photos:
+            try:
+                url = await storage.generate_presigned_url(p.file_key)
+            except Exception:
+                url = p.file_url
+            photo_reads.append(WorkOrderReportPhotoRead(
+                id=p.id, report_id=p.report_id,
+                file_name=p.file_name, file_size_bytes=p.file_size_bytes,
+                mime_type=p.mime_type, uploaded_by_name=p.uploaded_by_name,
+                uploaded_at=p.uploaded_at, fresh_url=url,
+            ))
+        out.append(WorkOrderReportRead(
+            id=rep.id, work_order_id=rep.work_order_id,
+            title=rep.title, description=rep.description,
+            severity=rep.severity, created_by_name=rep.created_by_name,
+            created_at=rep.created_at,
+            photo_count=len(photo_reads), photos=photo_reads,
+        ))
+    return out
+
+
+@router.delete("/{work_order_id}/reports/{report_id}", status_code=204)
+async def delete_report(
+    work_order_id: UUID,
+    report_id:     UUID,
+    db:   AsyncSession = Depends(get_db),
+    user: User         = Depends(get_current_user),
+):
+    rep = await db.get(WorkOrderReport, report_id)
+    if not rep or rep.work_order_id != work_order_id:
+        raise HTTPException(404, "Rapor bulunamadı.")
+    photos_r = await db.execute(
+        select(WorkOrderReportPhoto).where(WorkOrderReportPhoto.report_id == report_id)
+    )
+    for p in photos_r.scalars().all():
+        await db.delete(p)
+    await db.flush()
+    await db.delete(rep)
+    await db.commit()
+
+
+# ── Aşamalar ──────────────────────────────────────────────────────────────────
+
+@router.get("/{work_order_id}/stages", response_model=List[WorkOrderStageRead])
+async def list_stages(
+    work_order_id: UUID,
+    db:   AsyncSession = Depends(get_db),
+    user: User         = Depends(get_current_user),
+):
+    wo = await db.get(WorkOrder, work_order_id)
+    if not wo:
+        raise HTTPException(404, "İş emri bulunamadı.")
+
+    stages_r = await db.execute(
+        select(WorkOrderStage)
+        .where(WorkOrderStage.work_order_id == work_order_id)
+        .order_by(WorkOrderStage.stage_order)
+    )
+    stages = stages_r.scalars().all()
+
+    # Eski iş emirleri için aşama yoksa otomatik oluştur
+    if not stages:
+        for order, name in DEFAULT_STAGES:
+            s = WorkOrderStage(
+                id=uuid4(), work_order_id=wo.id,
+                stage_order=order, stage_name=name,
+                status="planned", created_at=utc_now(),
+            )
+            db.add(s)
+        await db.commit()
+        stages_r2 = await db.execute(
+            select(WorkOrderStage)
+            .where(WorkOrderStage.work_order_id == work_order_id)
+            .order_by(WorkOrderStage.stage_order)
+        )
+        stages = stages_r2.scalars().all()
+
+    return [WorkOrderStageRead(
+        id=s.id, work_order_id=s.work_order_id,
+        stage_order=s.stage_order, stage_name=s.stage_name,
+        status=s.status, description=s.description,
+        updated_at=s.updated_at, updated_by_name=s.updated_by_name,
+        created_at=s.created_at,
+    ) for s in stages]
+
+
+@router.patch("/{work_order_id}/stages/{stage_id}", response_model=WorkOrderStageRead)
+async def update_stage(
+    work_order_id: UUID,
+    stage_id:      UUID,
+    payload: WorkOrderStageUpdate,
+    db:   AsyncSession = Depends(get_db),
+    user: User         = Depends(get_current_user),
+):
+    stage = await db.get(WorkOrderStage, stage_id)
+    if not stage or stage.work_order_id != work_order_id:
+        raise HTTPException(404, "Aşama bulunamadı.")
+
+    if payload.status is not None:
+        stage.status = payload.status
+    if payload.description is not None:
+        stage.description = payload.description or None
+    stage.updated_at       = utc_now()
+    stage.updated_by_name  = user.full_name
+
+    await db.commit()
+    await db.refresh(stage)
+
+    return WorkOrderStageRead(
+        id=stage.id, work_order_id=stage.work_order_id,
+        stage_order=stage.stage_order, stage_name=stage.stage_name,
+        status=stage.status, description=stage.description,
+        updated_at=stage.updated_at, updated_by_name=stage.updated_by_name,
+        created_at=stage.created_at,
+    )
 
 
 # ── WhatsApp Gönder ───────────────────────────────────────────────────────────

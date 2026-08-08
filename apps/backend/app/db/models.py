@@ -1225,11 +1225,15 @@ class WorkOrder(SQLModel, table=True):
     created_at:           datetime            = Field(default_factory=utc_now, nullable=False)
     updated_at:           datetime            = Field(default_factory=utc_now, sa_column_kwargs={"onupdate": utc_now})
 
+    assigned_to_user_id:  Optional[UUID]      = Field(foreign_key="users.id", default=None, index=True)
+
     public_links:         List["WorkOrderPublicLink"]      = Relationship(back_populates="work_order")
     photos:               List["WorkOrderPhoto"]           = Relationship(back_populates="work_order")
     service_forms:        List["WorkOrderServiceForm"]     = Relationship(back_populates="work_order")
     whatsapp_messages:    List["WorkOrderWhatsappMessage"] = Relationship(back_populates="work_order")
     activities:           List["WorkOrderActivity"]        = Relationship(back_populates="work_order")
+    reports:              List["WorkOrderReport"]          = Relationship(back_populates="work_order")
+    stages:               List["WorkOrderStage"]           = Relationship(back_populates="work_order")
 
 
 class WorkOrderPublicLink(SQLModel, table=True):
@@ -1321,6 +1325,61 @@ class WorkOrderActivity(SQLModel, table=True):
     created_at:     datetime       = Field(default_factory=utc_now, nullable=False, index=True)
 
     work_order: Mapped["WorkOrder"] = Relationship(back_populates="activities")
+
+
+class WorkOrderReport(SQLModel, table=True):
+    """İş emri sahadan rapor kaydı."""
+
+    __tablename__ = "work_order_reports"
+
+    id:              UUID           = Field(default_factory=uuid4, primary_key=True)
+    work_order_id:   UUID           = Field(foreign_key="work_orders.id", index=True)
+    title:           str            = Field(max_length=255)
+    description:     Optional[str]  = Field(default=None)
+    severity:        str            = Field(default="normal", max_length=20)  # normal | important | critical
+    created_by_name: Optional[str]  = Field(default=None, max_length=255)
+    created_by:      Optional[UUID] = Field(foreign_key="users.id", default=None)
+    created_at:      datetime       = Field(default_factory=utc_now, nullable=False)
+
+    work_order: Mapped["WorkOrder"]          = Relationship(back_populates="reports")
+    photos:     List["WorkOrderReportPhoto"] = Relationship(back_populates="report")
+
+
+class WorkOrderReportPhoto(SQLModel, table=True):
+    """İş emri raporuna bağlı görsel/dosya."""
+
+    __tablename__ = "work_order_report_photos"
+
+    id:               UUID           = Field(default_factory=uuid4, primary_key=True)
+    report_id:        UUID           = Field(foreign_key="work_order_reports.id", index=True)
+    work_order_id:    UUID           = Field(foreign_key="work_orders.id", index=True)
+    file_key:         str            = Field(max_length=512)
+    file_url:         Optional[str]  = Field(default=None, max_length=1000)
+    file_name:        Optional[str]  = Field(default=None, max_length=255)
+    file_size_bytes:  Optional[int]  = Field(default=None)
+    mime_type:        Optional[str]  = Field(default=None, max_length=128)
+    uploaded_by_name: Optional[str]  = Field(default=None, max_length=255)
+    uploaded_at:      datetime       = Field(default_factory=utc_now, nullable=False)
+
+    report: Mapped["WorkOrderReport"] = Relationship(back_populates="photos")
+
+
+class WorkOrderStage(SQLModel, table=True):
+    """İş emri 4 aşamalı takip çizelgesi."""
+
+    __tablename__ = "work_order_stages"
+
+    id:               UUID           = Field(default_factory=uuid4, primary_key=True)
+    work_order_id:    UUID           = Field(foreign_key="work_orders.id", index=True)
+    stage_order:      int            = Field(index=True)  # 1-4
+    stage_name:       str            = Field(max_length=100)
+    status:           str            = Field(default="planned", max_length=20)  # planned | in_progress | completed | cancelled
+    description:      Optional[str]  = Field(default=None)
+    updated_at:       Optional[datetime] = Field(default=None)
+    updated_by_name:  Optional[str]  = Field(default=None, max_length=255)
+    created_at:       datetime       = Field(default_factory=utc_now, nullable=False)
+
+    work_order: Mapped["WorkOrder"] = Relationship(back_populates="stages")
 
 
 class StoreApprovalRequest(SQLModel, table=True):
