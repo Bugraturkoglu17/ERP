@@ -9,7 +9,7 @@ import { fetchTenantContext } from "@/lib/tenant-context";
 
 function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [title, setTitle] = useState("Sismik Proje Arşivi");
+  const [title, setTitle] = useState("Sismik Mağaza Kartı");
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
 
@@ -43,7 +43,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
     (async () => {
       const ctx = await fetchTenantContext();
       if (ctx?.tenant_name) {
-        setTitle(`${ctx.tenant_name} — Proje Arşivi`);
+        setTitle(`${ctx.tenant_name} — Mağaza Kartı`);
       }
     })();
   }, [pathname, hasToken]);

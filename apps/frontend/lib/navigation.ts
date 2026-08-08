@@ -1,14 +1,8 @@
 import {
   LayoutDashboard,
   Store,
-  Wrench,
-  HardHat,
-  Building2,
-  CheckCircle,
-  GitCommit,
-  Receipt,
+  Archive,
   Users,
-  FileText,
   ClipboardList,
   type LucideIcon,
 } from "lucide-react";
@@ -43,83 +37,21 @@ export const NAV_ENTRIES: NavEntry[] = [
     allowedRoles: ["admin", "saha_muhendisi", "musteri_kullanici"],
   },
   {
-    label: "Mağaza Arşivi",
+    label: "Mağaza Kartı",
     href: "/projects",
     icon: Store,
     allowedRoles: ["admin", "saha_muhendisi", "musteri_kullanici"],
   },
-
-  // ── İş Emirleri ────────────────────────────────────────────────────────────
+  {
+    label: "Genel Arşiv",
+    href: "/genel-arsiv",
+    icon: Archive,
+    allowedRoles: ["admin", "saha_muhendisi"],
+  },
   {
     label: "İş Emirleri",
     href: "/is-emirleri",
     icon: ClipboardList,
-    allowedRoles: ["admin", "saha_muhendisi"],
-  },
-
-  // ── Bakım & Onarım ─────────────────────────────────────────────────────────
-  {
-    label: "Bakım & Onarım",
-    href: "/bakim",
-    icon: Wrench,
-    allowedRoles: ["admin", "saha_muhendisi"],
-    items: [
-      { label: "Bakım Mağazaları",   href: "/bakim",                  icon: Store,         allowedRoles: ["admin", "saha_muhendisi"] },
-      { label: "Servis Formları",    href: "/bakim/servis-formlari",  icon: FileText,      allowedRoles: ["admin", "saha_muhendisi"] },
-      { label: "Bakım Hakkedişleri", href: "/bakim/hakkedisler",      icon: Receipt,       allowedRoles: ["admin", "saha_muhendisi"] },
-    ],
-  },
-
-  // ── Tadilat ────────────────────────────────────────────────────────────────
-  {
-    label: "Tadilat",
-    href: "/tadilat",
-    icon: HardHat,
-    allowedRoles: ["admin", "saha_muhendisi"],
-    items: [
-      { label: "Aktif Tadilatlar",      href: "/tadilat",                        icon: HardHat,     allowedRoles: ["admin", "saha_muhendisi"] },
-      { label: "Tamamlanan Tadilatlar", href: "/tadilat/tamamlanan",             icon: CheckCircle, allowedRoles: ["admin", "saha_muhendisi"] },
-      { label: "Tadilat Süreçleri",     href: "/tadilat/surecleri",              icon: GitCommit,   allowedRoles: ["admin", "saha_muhendisi"] },
-      { label: "Tadilat Dosyaları",     href: "/tadilat/dosyalar",               icon: FileText,    allowedRoles: ["admin", "saha_muhendisi"] },
-      { label: "Tadilat Hakedişleri",   href: "/tadilat/hakkedisler",            icon: Receipt,     allowedRoles: ["admin", "saha_muhendisi"] },
-    ],
-  },
-
-  // ── Yeni Yapım ─────────────────────────────────────────────────────────────
-  {
-    label: "Yeni Yapım",
-    href: "/yeni-yapim",
-    icon: Building2,
-    allowedRoles: ["admin", "saha_muhendisi"],
-    items: [
-      { label: "Yeni Yapım İşleri",      href: "/yeni-yapim",                      icon: Building2,   allowedRoles: ["admin", "saha_muhendisi"] },
-      { label: "Yeni Yapım Süreçleri",   href: "/yeni-yapim/surecleri",             icon: GitCommit,   allowedRoles: ["admin", "saha_muhendisi"] },
-      { label: "Tamamlanan İşler",       href: "/yeni-yapim/tamamlanan",            icon: CheckCircle, allowedRoles: ["admin", "saha_muhendisi"] },
-      { label: "Yeni Yapım Hakedişleri", href: "/yeni-yapim/hakkedisler",           icon: Receipt,     allowedRoles: ["admin", "saha_muhendisi"] },
-    ],
-  },
-
-  // ── Onay Süreçleri ─────────────────────────────────────────────────────────
-  {
-    label: "Onay Süreçleri",
-    href: "/onay-surecleri",
-    icon: CheckCircle,
-    allowedRoles: ["admin", "saha_muhendisi"],
-    items: [
-      { label: "Tümü",                  href: "/onay-surecleri",                       icon: CheckCircle, allowedRoles: ["admin", "saha_muhendisi"] },
-      { label: "Hakkediş Onayı",        href: "/onay-surecleri?tip=hakkediş",          icon: Receipt,     allowedRoles: ["admin", "saha_muhendisi"] },
-      { label: "Fatura Onayı",          href: "/onay-surecleri?tip=fatura",            icon: Receipt,     allowedRoles: ["admin", "saha_muhendisi"] },
-      { label: "Proje Onayı",           href: "/onay-surecleri?tip=proje",             icon: FileText,    allowedRoles: ["admin", "saha_muhendisi"] },
-      { label: "Teklif Onayı",          href: "/onay-surecleri?tip=teklif",            icon: FileText,    allowedRoles: ["admin", "saha_muhendisi"] },
-      { label: "İş Tamamlandı Onayı",   href: "/onay-surecleri?tip=is_tamamlandi",    icon: CheckCircle, allowedRoles: ["admin", "saha_muhendisi"] },
-    ],
-  },
-
-  // ── Düz linkler ────────────────────────────────────────────────────────────
-  {
-    label: "Faturalar / Hakkedişler",
-    href: "/hakkedisler",
-    icon: Receipt,
     allowedRoles: ["admin", "saha_muhendisi"],
   },
   {

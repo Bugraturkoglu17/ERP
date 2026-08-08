@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
-  AlertTriangle, Building2, CheckCircle2, ChevronDown, ClipboardList,
-  ExternalLink, Loader2, MessageSquare, Plus, Search, Trash2, User, X, Zap,
+  AlertTriangle, Building2, Camera, CheckCircle2, ChevronDown, ClipboardList,
+  ExternalLink, Eye, Loader2, MessageSquare, Plus, Search, Trash2, User, X, Zap,
 } from "lucide-react";
 import { apiDelete, apiGet, apiPost } from "@/lib/api";
 
@@ -419,7 +419,7 @@ export default function IsEmirleriPage() {
           </div>
           <div>
             <h1 className="text-lg font-bold text-slate-900">İş Emirleri</h1>
-            <p className="text-xs text-slate-500">WhatsApp ile yönlendirilen iş emirleri</p>
+            <p className="text-xs text-slate-500">Bakım, arıza, onarım, tadilat ve yeni yapım görevlerini tek ekrandan yönetin.</p>
           </div>
         </div>
         <button onClick={() => setShowCreate(true)}
@@ -539,6 +539,16 @@ export default function IsEmirleriPage() {
 
                 {/* Sağ: aksiyonlar */}
                 <div className="flex flex-col items-end gap-2 shrink-0">
+                  <Link href={`/is-emirleri/${wo.id}`}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-700">
+                    <Eye className="h-3.5 w-3.5" /> Detayı Gör
+                  </Link>
+                  {wo.photo_count > 0 && (
+                    <Link href={`/is-emirleri/${wo.id}`}
+                      className="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:underline">
+                      <Camera className="h-3 w-3" /> {wo.photo_count} fotoğraf
+                    </Link>
+                  )}
                   <SendWhatsAppBtn wo={wo} onRefresh={load} />
                   {wo.public_token && (
                     <a href={`${baseUrl}/is-emri/${wo.public_token}`} target="_blank" rel="noreferrer"
