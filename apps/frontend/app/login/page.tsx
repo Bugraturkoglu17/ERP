@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { Building2, ShieldCheck, ArrowRight, Loader2 } from "lucide-react";
+import { Building2, ShieldCheck, ArrowRight, Loader2, LayoutDashboard, Users, User } from "lucide-react";
 import axios from "axios";
 import { DEMO_MODE, demoLogin } from "@/lib/demo-auth";
 import { buildApiUrl } from "@/lib/api";
@@ -9,11 +9,12 @@ import { getTokenPayloadFromStorage, isPlatformAdmin } from "@/lib/auth";
 
 function redirectByRole() {
   const payload = getTokenPayloadFromStorage();
-  if (isPlatformAdmin(payload)) {
-    window.location.href = "/platform";
-  } else {
-    window.location.href = "/";
-  }
+  if (!payload) { window.location.href = "/login"; return; }
+  if (isPlatformAdmin(payload)) { window.location.href = "/platform"; return; }
+  const roles: string[] = payload.roles ?? [];
+  if (roles.includes("admin")) { window.location.href = "/admin/dashboard"; return; }
+  if (roles.includes("manager")) { window.location.href = "/manager/dashboard"; return; }
+  window.location.href = "/user/dashboard";
 }
 
 export default function LoginPage() {
@@ -165,6 +166,38 @@ export default function LoginPage() {
         <p className="mt-8 text-xs text-slate-400">
           Demo mod aktif — Yönetici paneli tek tıkla açılır. Firma paneli için giriş bilgisi gerekir.
         </p>
+      )}
+
+      {/* DEV ONLY — Panel hızlı erişim */}
+      {process.env.NODE_ENV === "development" && (
+        <div className="mt-8 w-full max-w-2xl rounded-2xl border border-dashed border-amber-300 bg-amber-50 p-4">
+          <p className="mb-3 text-center text-xs font-bold text-amber-700 uppercase tracking-widest">
+            DEV — Panel Test Erişimi (Token Gerektirmez)
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            <a
+              href="/admin/dashboard"
+              className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900 px-3 py-3 text-center hover:bg-slate-800 transition-colors"
+            >
+              <LayoutDashboard className="h-4 w-4 text-indigo-400" />
+              <span className="text-xs font-semibold text-slate-200">Admin Paneli</span>
+            </a>
+            <a
+              href="/manager/dashboard"
+              className="flex flex-col items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-950 px-3 py-3 text-center hover:bg-blue-900 transition-colors"
+            >
+              <Users className="h-4 w-4 text-blue-400" />
+              <span className="text-xs font-semibold text-blue-200">Yönetici Paneli</span>
+            </a>
+            <a
+              href="/user/dashboard"
+              className="flex flex-col items-center gap-1.5 rounded-xl border border-teal-200 bg-white px-3 py-3 text-center hover:bg-teal-50 transition-colors"
+            >
+              <User className="h-4 w-4 text-teal-600" />
+              <span className="text-xs font-semibold text-teal-700">Kullanıcı Paneli</span>
+            </a>
+          </div>
+        </div>
       )}
     </div>
   );

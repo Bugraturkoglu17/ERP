@@ -22,7 +22,13 @@ function AppShell({ children }: { children: React.ReactNode }) {
     pathname === "/password-reset" ||
     pathname === "/platform" ||
     pathname.startsWith("/platform/") ||
-    pathname.startsWith("/is-emri/");
+    pathname.startsWith("/is-emri/") ||
+    pathname === "/admin" ||
+    pathname.startsWith("/admin/") ||
+    pathname === "/manager" ||
+    pathname.startsWith("/manager/") ||
+    pathname === "/user" ||
+    pathname.startsWith("/user/");
   const hasToken = typeof window !== "undefined" && !!localStorage.getItem("token");
 
   useEffect(() => {
