@@ -2,26 +2,21 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 import {
   AlertCircle,
   Archive,
   ChevronRight,
   Download,
   Edit2,
-  ExternalLink,
   FileText,
   Folder,
-  History,
   Loader2,
-  MapPin,
-  Phone,
   Save,
   Store,
-  Tag,
   X,
 } from "lucide-react";
-import { apiGet, apiPatch, apiDelete, buildApiUrl } from "@/lib/api";
+import { apiGet, apiPatch } from "@/lib/api";
 import ServisFormTab from "./ServisFormTab";
 import WorkOrdersTab from "./WorkOrdersTab";
 import VisualInventoryTab from "./VisualInventoryTab";
@@ -57,16 +52,6 @@ type Document = {
   created_at: string;
   process_id?: string;
   is_archive?: boolean;
-};
-
-type DocVersion = {
-  id: string;
-  version: number;
-  original_name: string;
-  revision_note?: string;
-  uploaded_by_name?: string;
-  file_size_bytes?: number;
-  created_at: string;
 };
 
 // ── Tab Config ─────────────────────────────────────────────────────────────────
@@ -132,12 +117,6 @@ const DOC_TYPES: Record<string, { label: string; category: "project_file" | "rev
   visual_inventory: { label: "Görsel Envanter", category: "visual_inventory" },
 };
 
-// Upload modalında sadece Proje Dosyaları kategorisindeki tipler gösterilir
-const DOC_TYPE_OPTS = Object.entries(DOC_TYPES)
-  .filter(([, d]) => d.category === "project_file")
-  .map(([v, d]) => ({ value: v, label: d.label }));
-
-
 const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
   inquiry:      { label: "Keşif",         cls: "bg-purple-50 text-purple-700 border-purple-100" },
   INQUIRY:      { label: "Keşif",         cls: "bg-purple-50 text-purple-700 border-purple-100" },
@@ -198,214 +177,9 @@ function writeTabToUrl(tab: TabKey) {
   window.history.replaceState({}, "", url.toString());
 }
 
-// ── Upload Modal ───────────────────────────────────────────────────────────────
-
-function UploadModal({
-  projectId, onClose, onDone, forRevision = false,
-}: { projectId: string; onClose: () => void; onDone: () => void; forRevision?: boolean }) {
-  const [file, setFile]       = useState<File | null>(null);
-  const [docType, setDocType] = useState(forRevision ? "revision" : "project_file");
-  const [revNote, setRevNote] = useState("");
-  const [busy, setBusy]       = useState(false);
-  const [err, setErr]         = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!file) { setErr("Dosya seçin."); return; }
-    setBusy(true); setErr("");
-    try {
-      const fd = new FormData();
-      fd.append("project_id", projectId);
-      fd.append("doc_type", docType);
-      fd.append("revision_note", revNote);
-      fd.append("file", file);
-      const token = localStorage.getItem("token") ?? "";
-      const res = await fetch(buildApiUrl("/documents/upload"), {
-        method: "POST", headers: { Authorization: `Bearer ${token}` }, body: fd,
-      });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Yükleme başarısız.");
-      onDone(); onClose();
-    } catch (ex: any) { setErr(ex.message ?? "Yükleme başarısız."); }
-    finally { setBusy(false); }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-          <h2 className="text-sm font-bold text-slate-900">Dosya Yükle</h2>
-          <button onClick={onClose}><X className="h-5 w-5 text-slate-400 hover:text-slate-700" /></button>
-        </div>
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Dosya Türü</label>
-            {forRevision ? (
-              <div className="w-full rounded-lg border px-3 py-2 text-sm bg-slate-50 text-slate-600">Revizyon</div>
-            ) : (
-              <select value={docType} onChange={(e) => setDocType(e.target.value)}
-                className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
-                {DOC_TYPE_OPTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            )}
-          </div>
-          <div>
-            <input ref={inputRef} type="file" required onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="hidden" />
-            <button type="button" onClick={() => inputRef.current?.click()}
-              className="w-full rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center hover:border-blue-300 hover:bg-blue-50 transition-colors">
-              {file ? <span className="text-sm font-medium text-slate-700">{file.name}</span>
-                    : <span className="text-sm text-slate-400">Dosya seçmek için tıklayın</span>}
-            </button>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Revizyon Notu</label>
-            <input value={revNote} onChange={(e) => setRevNote(e.target.value)}
-              className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-              placeholder="İsteğe bağlı..." />
-          </div>
-          {err && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{err}</p>}
-          <div className="flex justify-end gap-2 pt-1">
-            <button type="button" onClick={onClose}
-              className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50">Vazgeç</button>
-            <button type="submit" disabled={busy}
-              className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50">
-              {busy && <Loader2 className="h-4 w-4 animate-spin" />} Yükle
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-// ── Revise Modal ───────────────────────────────────────────────────────────────
-
-function ReviseModal({ doc, onClose, onDone }: { doc: Document; onClose: () => void; onDone: () => void }) {
-  const [file, setFile]       = useState<File | null>(null);
-  const [revNote, setRevNote] = useState("");
-  const [busy, setBusy]       = useState(false);
-  const [err, setErr]         = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!file) { setErr("Dosya seçin."); return; }
-    setBusy(true); setErr("");
-    try {
-      const fd = new FormData();
-      fd.append("revision_note", revNote);
-      fd.append("file", file);
-      const token = localStorage.getItem("token") ?? "";
-      const res = await fetch(buildApiUrl(`/documents/${doc.id}/version`), {
-        method: "POST", headers: { Authorization: `Bearer ${token}` }, body: fd,
-      });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Revizyon başarısız.");
-      onDone(); onClose();
-    } catch (ex: any) { setErr(ex.message ?? "Revizyon başarısız."); }
-    finally { setBusy(false); }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-          <div>
-            <h2 className="text-sm font-bold text-slate-900">Yeni Revizyon</h2>
-            <p className="text-[11px] text-slate-400 mt-0.5">{doc.original_name} · v{doc.version} → v{doc.version + 1}</p>
-          </div>
-          <button onClick={onClose}><X className="h-5 w-5 text-slate-400" /></button>
-        </div>
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-          <div>
-            <input ref={inputRef} type="file" required onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="hidden" />
-            <button type="button" onClick={() => inputRef.current?.click()}
-              className="w-full rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center hover:border-blue-300 hover:bg-blue-50 transition-colors">
-              {file ? <span className="text-sm font-medium text-slate-700">{file.name}</span>
-                    : <span className="text-sm text-slate-400">Güncel dosyayı seçin</span>}
-            </button>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Revizyon Notu</label>
-            <input value={revNote} onChange={(e) => setRevNote(e.target.value)}
-              className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-              placeholder="Ne değişti?" />
-          </div>
-          {err && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{err}</p>}
-          <div className="flex justify-end gap-2 pt-1">
-            <button type="button" onClick={onClose}
-              className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50">Vazgeç</button>
-            <button type="submit" disabled={busy}
-              className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
-              {busy && <Loader2 className="h-4 w-4 animate-spin" />} Yükle
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-// ── History Drawer ─────────────────────────────────────────────────────────────
-
-function HistoryDrawer({ doc, onClose }: { doc: Document; onClose: () => void }) {
-  const [versions, setVersions] = useState<DocVersion[]>([]);
-  const [loading, setLoading]   = useState(true);
-
-  useEffect(() => {
-    apiGet<DocVersion[]>(`/documents/${doc.id}/versions`)
-      .then((d) => setVersions(Array.isArray(d) ? d : []))
-      .catch(() => setVersions([]))
-      .finally(() => setLoading(false));
-  }, [doc.id]);
-
-  const download = async (ver: DocVersion) => {
-    try {
-      const data = await apiGet<{ url: string }>(`/documents/${ver.id}/download`);
-      if (data?.url) window.open(data.url, "_blank");
-    } catch { alert("İndirme bağlantısı alınamadı."); }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
-      <div className="w-full max-w-sm bg-white border-l border-slate-200 shadow-2xl flex flex-col h-full" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-start justify-between border-b border-slate-100 px-5 py-4 shrink-0">
-          <div>
-            <h2 className="text-sm font-bold text-slate-900">Revizyon Geçmişi</h2>
-            <p className="text-[11px] text-slate-400 mt-0.5 truncate max-w-[220px]">{doc.original_name}</p>
-          </div>
-          <button onClick={onClose}><X className="h-5 w-5 text-slate-400 hover:text-slate-700" /></button>
-        </div>
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-2">
-          {loading ? <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-slate-400" /></div>
-            : versions.length === 0 ? <p className="text-sm text-slate-400 text-center py-8">Revizyon bulunamadı.</p>
-            : [...versions].sort((a, b) => b.version - a.version).map((v) => (
-              <div key={v.id} className="flex items-start gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">v{v.version}</div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-slate-800 truncate">{v.original_name}</p>
-                  {v.revision_note && <p className="text-[11px] text-slate-500 mt-0.5 italic">{v.revision_note}</p>}
-                  <p className="text-[11px] text-slate-400 mt-0.5">{v.uploaded_by_name ?? "—"} · {new Date(v.created_at).toLocaleDateString("tr-TR")} · {fmtBytes(v.file_size_bytes)}</p>
-                </div>
-                <button onClick={() => download(v)} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-green-50 hover:text-green-600">
-                  <Download className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ── Doc List ───────────────────────────────────────────────────────────────────
 
-function DocList({
-  docs, onHistory, projectId,
-}: {
-  docs: Document[];
-  onHistory: (d: Document) => void;
-  projectId?: string;
-}) {
+function DocList({ docs, projectId }: { docs: Document[]; projectId?: string }) {
   const handleDownload = async (doc: Document) => {
     try {
       const data = await apiGet<{ url: string }>(`/documents/${doc.id}/download`);
@@ -417,7 +191,7 @@ function DocList({
     return (
       <div className="flex flex-col items-center justify-center py-12 gap-3">
         <Folder className="h-8 w-8 text-slate-200" />
-        <p className="text-sm text-slate-400">Bu klasörde henüz dosya yok.</p>
+        <p className="text-sm text-slate-400">Bu mağazaya ait dosya bulunmuyor.</p>
       </div>
     );
   }
@@ -456,26 +230,15 @@ function DocList({
               </div>
             </div>
             <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button onClick={() => onHistory(doc)} title="Revizyon Geçmişi"
-                className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700"><History className="h-3.5 w-3.5" /></button>
               <button onClick={() => handleDownload(doc)} title="İndir"
                 className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-green-50 hover:text-green-600"><Download className="h-3.5 w-3.5" /></button>
               {doc.is_archive && (
                 <Link
                   href="/genel-arsiv"
-                  title="Genel Arşiv Kaynağını Göster"
+                  title="Genel Arşivde Göster"
                   className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-purple-50 hover:text-purple-600"
                 >
                   <Archive className="h-3.5 w-3.5" />
-                </Link>
-              )}
-              {doc.doc_type.startsWith("tadilat_") && doc.process_id && projectId && (
-                <Link
-                  href={`/tadilat/surecleri/${doc.process_id}?p=${projectId}&tab=dosyalar`}
-                  title="Tadilat Klasörüne Git"
-                  className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-amber-50 hover:text-amber-600"
-                >
-                  <ExternalLink className="h-3.5 w-3.5" />
                 </Link>
               )}
             </div>
@@ -608,9 +371,8 @@ export default function MagazaDetailPage() {
   const [loading, setLoading] = useState(true);
   const [tab,     setTab]     = useState<TabKey>("identity");
 
-  const [editOpen,   setEditOpen]   = useState(false);
-  const [historyDoc, setHistoryDoc] = useState<Document | null>(null);
-  const [projFileFilter,    setProjFileFilter]    = useState<string>("all");
+  const [editOpen,         setEditOpen]         = useState(false);
+  const [projFileFilter,   setProjFileFilter]   = useState<string>("all");
 
   // Read initial tab from URL on mount
   useEffect(() => { setTab(readTabFromUrl()); }, []);
@@ -677,13 +439,14 @@ export default function MagazaDetailPage() {
   const phones = [extra.tel1, extra.tel2, extra.tel3, extra.tel4].filter((t) => t && t.trim());
 
   const visualInventoryDocs = docs.filter((d) => getDocCategory(d.doc_type) === "visual_inventory");
+  const fieldReportDocs     = docs.filter((d) => d.doc_type === "field_report");
 
   const tabCounts: Record<TabKey, number | null> = {
     identity:          null,
     "work-orders":     null,
     project_files:     allProjectDocs.length       || null,
     visual_inventory:  visualInventoryDocs.length  || null,
-    servisform:        null,
+    servisform:        fieldReportDocs.length       || null,
     other:             otherDocs.length            || null,
   };
 
@@ -805,7 +568,7 @@ export default function MagazaDetailPage() {
             <div className="space-y-4">
               <div className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
                 <AlertCircle className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" />
-                <p className="text-xs text-slate-500">Bu alan sadece görüntüleme içindir. Dosya yükleme ve düzenleme işlemleri ilgili modülden yapılır.</p>
+                <p className="text-xs text-slate-500">Bu alan mağazaya bağlanmış dosyaları görüntülemek içindir. Dosya ekleme işlemleri Genel Arşiv üzerinden yapılır.</p>
               </div>
               {/* Filtre Chipleri */}
               {allProjectDocs.length > 0 && (
@@ -830,7 +593,7 @@ export default function MagazaDetailPage() {
                   ))}
                 </div>
               )}
-              <DocList docs={filteredProjectDocs} onHistory={setHistoryDoc} projectId={id} />
+              <DocList docs={filteredProjectDocs} projectId={id} />
             </div>
           )}
 
@@ -845,8 +608,8 @@ export default function MagazaDetailPage() {
           )}
 
           {/* ── Servis Formları ── */}
-          {tab === "servisform" && project && (
-            <ServisFormTab projectId={project.id} />
+          {tab === "servisform" && (
+            <ServisFormTab docs={fieldReportDocs} />
           )}
 
           {/* ── Diğer Dosyalar ── */}
@@ -854,17 +617,16 @@ export default function MagazaDetailPage() {
             <div className="space-y-4">
               <div className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
                 <AlertCircle className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" />
-                <p className="text-xs text-slate-500">Bu alan sadece görüntüleme içindir.</p>
+                <p className="text-xs text-slate-500">Bu alan mağazaya bağlanmış dosyaları görüntülemek içindir. Dosya ekleme işlemleri Genel Arşiv üzerinden yapılır.</p>
               </div>
-              <DocList docs={otherDocs} onHistory={setHistoryDoc} projectId={id} />
+              <DocList docs={otherDocs} projectId={id} />
             </div>
           )}
         </div>
       </div>
 
       {/* Modals */}
-      {editOpen   && project && <EditModal project={project} onClose={() => setEditOpen(false)} onDone={(p) => setProject(p)} />}
-      {historyDoc && <HistoryDrawer doc={historyDoc} onClose={() => setHistoryDoc(null)} />}
+      {editOpen && project && <EditModal project={project} onClose={() => setEditOpen(false)} onDone={(p) => setProject(p)} />}
     </div>
   );
 }
