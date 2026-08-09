@@ -817,6 +817,26 @@ class OutboundEmailDeadLetter(SQLModel, table=True):
     created_at: datetime = Field(default_factory=utc_now, nullable=False, index=True)
 
 
+class OutboundWhatsAppAudit(SQLModel, table=True):
+    __tablename__ = "outbound_whatsapp_audits"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    tenant_id: UUID = Field(foreign_key="tenants.id", index=True)
+    phone_number: str = Field(max_length=50, index=True)
+    template_name: str = Field(max_length=120, index=True)
+    provider_message_id: Optional[str] = Field(default=None, max_length=255, index=True)
+    conversation_id: Optional[str] = Field(default=None, max_length=255, index=True)
+    pricing_category: Optional[str] = Field(default=None, max_length=100)
+    status: str = Field(default="queued", max_length=40, index=True)
+    error_message: Optional[str] = Field(default=None, max_length=2000)
+    payload_json: Optional[str] = Field(default=None)
+    created_at: datetime = Field(default_factory=utc_now, nullable=False)
+    updated_at: Optional[datetime] = Field(default=None, sa_column_kwargs={"onupdate": utc_now})
+    delivered_at: Optional[datetime] = None
+    read_at: Optional[datetime] = None
+
+
+
 class PlatformPlan(SQLModel, table=True):
     __tablename__ = "platform_plans"
 
