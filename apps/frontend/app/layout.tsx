@@ -6,6 +6,7 @@ import { Suspense, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { fetchTenantContext } from "@/lib/tenant-context";
+import { AuthProvider } from "@/contexts/auth-context";
 
 function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -19,6 +20,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
 
   const isPublicRoute =
     pathname === "/login" ||
+    pathname === "/403" ||
     pathname === "/password-reset" ||
     pathname === "/platform" ||
     pathname.startsWith("/platform/") ||
@@ -115,7 +117,9 @@ export default function RootLayout({
   return (
     <html lang="tr" suppressHydrationWarning>
       <body className="min-h-screen bg-slate-50 text-slate-900">
-        <AppShell>{children}</AppShell>
+        <AuthProvider>
+          <AppShell>{children}</AppShell>
+        </AuthProvider>
       </body>
     </html>
   );

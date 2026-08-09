@@ -8,6 +8,38 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 ## [Unreleased]
 
 ### Added
+- Role-based panel architecture for frontend: Admin, Manager, and User panels each with isolated layouts, sidebars, and navigation (`apps/frontend/app/admin/`, `apps/frontend/app/manager/`, `apps/frontend/app/user/`).
+- `AuthProvider` / `useAuth` context for centralized mock authentication with localStorage persistence (`apps/frontend/contexts/auth-context.tsx`).
+- `RoleGuard` client component for route-level access control with automatic redirect to `/login` or `/403` (`apps/frontend/components/auth/role-guard.tsx`).
+- `DevAccountSwitcher` sidebar widget for instant switching between ADMIN, MANAGER, and USER mock accounts without returning to the login page (`apps/frontend/components/dev/account-switcher.tsx`).
+- `switchAccount()` helper in `AuthContext` that writes to localStorage without updating React state, preventing the current panel's RoleGuard from triggering a false `/403` redirect during panel switches.
+- `/403` page for unauthorized access attempts (`apps/frontend/app/403/`).
+- `adminUsers` service layer with full CRUD, mock seed data, and role-filtered access for Manager panel (`apps/frontend/services/adminUsers.ts`).
+- `getManagerUsers()` service function returning only USER-role accounts for Manager panel user management.
+- Manager panel user management page with create, edit, enable/disable, and delete flows (`apps/frontend/app/manager/kullanicilar/page.tsx`).
+- `generateTempPassword()` utility and `resetUserPassword()` service function.
+- Axios instance with base URL and 401 interceptor that skips redirect when mock auth is active (`apps/frontend/lib/api.ts`).
+- Permission constants and `ROLE_LABEL` map (`apps/frontend/lib/permissions.ts`).
+
+### Changed
+- Login page now accepts phone number **or** e-mail address (input type changed from `email` to `text`).
+- User data model simplified for small-team use: removed `username`, `department`, `company`, and `manager_id` / `manager_name` fields across all user management pages and the service layer.
+- Admin panel user table headers and edit/create modals updated to reflect simplified field set.
+- Admin user detail page (`/admin/users/[id]`) cleaned of removed fields.
+- New user page (`/admin/users/new`) form reduced to: first name, last name, e-mail (optional), phone, role, active flag, and temporary password.
+- All three panel sidebars (Admin/Manager/User) now render only `DevAccountSwitcher` at the bottom — duplicate user-info sections and standalone logout buttons removed.
+- `DevAccountSwitcher` displays only the **other** two accounts (not the currently active one) with ArrowRight switch buttons; active account shown with a green-dot indicator.
+
+### Fixed
+- False `/403` redirect when switching panels: replaced `loginAs()` + `router.push()` with `switchAccount()` (localStorage-only write) + `window.location.href` full reload, eliminating the race between React state propagation and Next.js client-side navigation.
+- TypeScript errors across `admin/users/[id]/page.tsx`, `admin/users/page.tsx`, `admin/users/new/page.tsx`, and `manager/kullanicilar/page.tsx` caused by stale references to removed model fields.
+- `redirectByRole()` in login page referenced `isPlatformAdmin` which was removed in a prior refactor; call removed.
+
+---
+
+## [Unreleased — prior]
+
+### Added
 - Multi-tenant platform administration backend route group (`/api/v1/platform/*`).
 - Tenant baseline migration (`apps/backend/alembic/versions/20260518_01_tenant_baseline.py`).
 - Platform bootstrap utility for admin setup (`apps/backend/app/bootstrap_admin.py`).
