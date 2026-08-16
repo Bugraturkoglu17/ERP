@@ -60,14 +60,11 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401 && typeof window !== 'undefined') {
-      // Mock auth aktifken redirect yapma (token olmadan çalışan dev paneli)
-      const hasMockAuth = !!localStorage.getItem('auth_store');
-      if (!hasMockAuth) {
-        localStorage.removeItem('token');
-        const pathname = window.location.pathname;
-        if (pathname !== '/login' && pathname !== '/password-reset') {
-          window.location.href = '/login';
-        }
+      localStorage.removeItem('token');
+      localStorage.removeItem('auth_store');
+      const pathname = window.location.pathname;
+      if (pathname !== '/login' && pathname !== '/password-reset') {
+        window.location.href = '/login';
       }
     }
     return Promise.reject(error);

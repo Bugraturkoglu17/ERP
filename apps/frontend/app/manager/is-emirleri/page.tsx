@@ -4,12 +4,11 @@ import { Fragment, useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import {
   Plus, Search, X, ChevronRight, CalendarDays, User,
-  Building2, Loader2, AlertTriangle, Paperclip,
+  Building2, Loader2, AlertTriangle,
 } from "lucide-react";
 import {
   getManagerWorkOrders,
   createWorkOrder,
-  MOCK_STORES,
   CATEGORY_LABEL,
   PRIORITY_LABEL,
   STATUS_LABEL,
@@ -19,6 +18,7 @@ import {
   type WorkOrderStatus,
 } from "@/services/managerWorkOrders";
 import { getUsers } from "@/services/adminUsers";
+import { StorePicker, useStoreDirectory, type StoreOption } from "@/components/store/store-picker";
 
 const CATEGORY_STYLE: Record<WorkOrderCategory, string> = {
   ariza: "bg-red-100 text-red-700",
@@ -91,6 +91,8 @@ export default function ManagerIsEmirleriPage() {
     () => getUsers().filter((u) => u.role === "USER" && u.status === "active"),
     []
   );
+  const { stores } = useStoreDirectory();
+  const [selectedStore, setSelectedStore] = useState<StoreOption | null>(null);
 
   useEffect(() => { setOrders(getManagerWorkOrders()); }, []);
 
@@ -114,6 +116,7 @@ export default function ManagerIsEmirleriPage() {
 
   function resetForm() {
     setForm({ category: "", store_id: "", title: "", description: "", priority: "normal", assigned_to: "", due_date: "" });
+    setSelectedStore(null);
     setFormErrors({});
   }
 
@@ -130,16 +133,15 @@ export default function ManagerIsEmirleriPage() {
     const e = validate();
     if (Object.keys(e).length > 0) { setFormErrors(e); return; }
     setSaving(true);
-    const store = MOCK_STORES.find((s) => s.id === form.store_id);
     const user = users.find((u) => u.id === form.assigned_to);
     createWorkOrder({
       title: form.title.trim(),
       description: form.description.trim(),
       category: form.category as WorkOrderCategory,
       priority: form.priority,
-      store_id: store?.id ?? "",
-      store_name: store?.name ?? "—",
-      store_code: store?.code ?? "—",
+      store_id: selectedStore?.id ?? "",
+      store_name: selectedStore?.name ?? "—",
+      store_code: selectedStore?.project_no ?? "—",
       assigned_to: user?.id ?? "",
       assigned_to_name: user ? `${user.first_name} ${user.last_name}` : "—",
       due_date: form.due_date || null,
@@ -305,7 +307,7 @@ export default function ManagerIsEmirleriPage() {
                     <button
                       key={cat}
                       type="button"
-                      onClick={() => setForm((f) => ({ ...f, category: cat, store_id: "" }))}
+                      onClick={() => { setForm((f) => ({ ...f, category: cat, store_id: "" })); setSelectedStore(null); }}
                       className={`rounded-lg border py-2.5 text-sm font-medium transition-colors ${
                         form.category === cat
                           ? cat === "ariza"
@@ -331,23 +333,18 @@ export default function ManagerIsEmirleriPage() {
                     <span className="ml-1 text-slate-400">(opsiyonel — yeni şube ise boş bırakın)</span>
                   )}
                 </label>
-                <select
-                  value={form.store_id}
-                  onChange={(e) => setForm((f) => ({ ...f, store_id: e.target.value }))}
-                  className={inputCls}
-                >
-                  <option value="">— Seçiniz —</option>
-                  {MOCK_STORES.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name} ({s.code})</option>
-                  ))}
-                </select>
+                <StorePicker
+                  stores={stores}
+                  value={selectedStore}
+                  onChange={(s) => { setSelectedStore(s); setForm((f) => ({ ...f, store_id: s?.id ?? "" })); }}
+                />
                 {formErrors.store_id && <p className="mt-1 text-xs text-red-500">{formErrors.store_id}</p>}
                 {form.category === "yeni_yapim" && !form.store_id && (
                   <div className="mt-2 flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2">
                     <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-500" />
                     <p className="text-xs text-blue-700">
                       Yeni şube ise{" "}
-                      <Link href="/manager/magaza-karti/new" className="font-semibold underline hover:text-blue-900">
+                      <Link href="/manager/magaza-karti" className="font-semibold underline hover:text-blue-900">
                         önce mağaza kartı oluşturun
                       </Link>
                       {" "}ve ardından buradan seçin.
@@ -435,15 +432,6 @@ export default function ManagerIsEmirleriPage() {
                   onChange={(e) => setForm((f) => ({ ...f, due_date: e.target.value }))}
                   className={inputCls}
                 />
-              </div>
-
-              {/* File upload (mock placeholder) */}
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-slate-500">Dosya Ekle</label>
-                <div className="flex items-center gap-2 rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-400">
-                  <Paperclip className="h-4 w-4 shrink-0" />
-                  <span>Dosya yükleme sonraki aşamada aktif edilecek.</span>
-                </div>
               </div>
             </div>
 

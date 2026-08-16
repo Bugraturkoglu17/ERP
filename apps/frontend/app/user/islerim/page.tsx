@@ -2,36 +2,45 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { Search } from "lucide-react";
-import { useAuth } from "@/contexts/auth-context";
-import {
-  getUserWorkOrders,
-  CATEGORY_LABEL,
-  STATUS_LABEL,
-  type WorkOrder,
-  type WorkOrderStatus,
-} from "@/services/managerWorkOrders";
+import { apiGet } from "@/lib/api";
 
-const STATUS_COLOR: Record<WorkOrderStatus, string> = {
-  planned:    "bg-blue-100 text-blue-700",
-  in_progress:"bg-orange-100 text-orange-700",
-  completed:  "bg-emerald-100 text-emerald-700",
-  cancelled:  "bg-slate-100 text-slate-500",
+type WorkOrder = {
+  id: string;
+  title: string;
+  project_name?: string;
+  project_no?: string;
+  work_type_label: string;
+  status: string;
+  status_label: string;
+  priority: string;
+  due_date?: string;
+};
+
+const STATUS_COLOR: Record<string, string> = {
+  draft:     "bg-slate-100 text-slate-600",
+  sent:      "bg-blue-100 text-blue-700",
+  started:   "bg-orange-100 text-orange-700",
+  completed: "bg-emerald-100 text-emerald-700",
+  failed:    "bg-red-100 text-red-700",
 };
 
 const PRIORITY_DOT: Record<string, string> = {
-  normal:    "bg-slate-400",
-  important: "bg-amber-400",
-  critical:  "bg-red-500",
+  normal:   "bg-slate-400",
+  urgent:   "bg-amber-400",
+  critical: "bg-red-500",
 };
 
 export default function UserIslerimPage() {
-  const { user } = useAuth();
-  const [orders, setOrders] = useState<WorkOrder[]>([]);
+  const [orders,  setOrders]  = useState<WorkOrder[]>([]);
+  const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
 
   useEffect(() => {
-    if (user?.id) setOrders(getUserWorkOrders(user.id));
-  }, [user?.id]);
+    apiGet<WorkOrder[]>("/work-orders")
+      .then((d) => setOrders(Array.isArray(d) ? d : []))
+      .catch(() => setOrders([]))
+      .finally(() => setLoading(false));
+  }, []);
 
   const filtered = useMemo(
     () => orders.filter((wo) => wo.title.toLowerCase().includes(q.toLowerCase())),
@@ -42,7 +51,9 @@ export default function UserIslerimPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">İşlerim</h1>
-        <p className="mt-1 text-sm text-slate-500">{orders.length} iş emri atanmış</p>
+        <p className="mt-1 text-sm text-slate-500">
+          {loading ? "Yükleniyor..." : `${orders.length} iş emri atanmış`}
+        </p>
       </div>
 
       <div className="relative">
@@ -56,7 +67,13 @@ export default function UserIslerimPage() {
         />
       </div>
 
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="space-y-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-16 animate-pulse rounded-xl border border-slate-200 bg-slate-50" />
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="rounded-xl border border-slate-200 bg-white py-20 text-center">
           <p className="text-sm text-slate-400">
             {q ? "Aramayla eşleşen iş emri bulunamadı." : "Henüz atanmış iş emri yok."}
@@ -73,11 +90,11 @@ export default function UserIslerimPage() {
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-slate-800">{wo.title}</p>
                 <p className="mt-0.5 text-xs text-slate-400">
-                  {wo.store_name} · {CATEGORY_LABEL[wo.category]}
+                  {wo.project_name ?? "—"} · {wo.work_type_label}
                 </p>
               </div>
-              <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_COLOR[wo.status]}`}>
-                {STATUS_LABEL[wo.status]}
+              <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_COLOR[wo.status] ?? "bg-slate-100 text-slate-500"}`}>
+                {wo.status_label}
               </span>
             </div>
           ))}

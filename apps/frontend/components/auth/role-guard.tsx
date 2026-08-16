@@ -25,19 +25,22 @@ export function RoleGuard({
 }: RoleGuardProps) {
   const { user, isLoading, isAuthenticated } = useAuth();
 
+  // ADMIN her panele erişebilir (superuser)
+  const hasAccess = !!user && (user.role === "ADMIN" || allowedRoles.includes(user.role));
+
   useEffect(() => {
     if (isLoading) return;
     if (!isAuthenticated) {
       window.location.href = "/login";
       return;
     }
-    if (!allowedRoles.includes(user!.role)) {
+    if (!hasAccess) {
       window.location.href = "/403";
     }
-  }, [isLoading, isAuthenticated, user, allowedRoles]);
+  }, [isLoading, isAuthenticated, hasAccess]);
 
   if (isLoading) return <Spinner bg={spinnerBg} />;
-  if (!isAuthenticated || !user || !allowedRoles.includes(user.role)) {
+  if (!isAuthenticated || !user || !hasAccess) {
     return <Spinner bg={spinnerBg} />;
   }
 

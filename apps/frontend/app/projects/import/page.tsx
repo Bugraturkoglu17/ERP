@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
@@ -19,7 +19,8 @@ import {
   XCircle,
 } from "lucide-react";
 import * as XLSX from "xlsx";
-import { apiGet, apiPost, apiPatch } from "@/lib/api";
+import { apiGet } from "@/lib/api";
+import { createStore, updateStore } from "@/services/stores";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -98,8 +99,14 @@ function normalizeKey(s: string): string {
 
 function autoMapColumn(colName: string): string {
   const norm = normalizeKey(colName);
+  // Pas 1: tam eşleşme önceliklidir — "adres" gibi kısa alias'ların ("ad")
+  // başka bir alanın adının içinde alt-string olarak yanlış eşleşmesini önler.
   for (const field of SYSTEM_FIELDS) {
-    if (field.aliases.some((a) => norm === a || norm.includes(a))) return field.key;
+    if (field.aliases.some((a) => norm === a)) return field.key;
+  }
+  // Pas 2: tam eşleşme yoksa alt-string eşleşmesine düş.
+  for (const field of SYSTEM_FIELDS) {
+    if (field.aliases.some((a) => norm.includes(a))) return field.key;
   }
   return SKIP_FIELD;
 }
@@ -149,6 +156,10 @@ function StepBar({ current }: { current: number }) {
 
 export default function ImportPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const isManager = pathname?.startsWith("/manager");
+  const isAdmin = pathname?.startsWith("/admin");
+  const backHref = isManager ? "/manager/magaza-karti" : isAdmin ? "/admin/stores" : "/projects";
   const [step, setStep]         = useState(1);
 
   // Step 1
@@ -178,10 +189,15 @@ export default function ImportPage() {
   const [importResult,  setImportResult]  = useState<ImportResult | null>(null);
   const [importLog,     setImportLog]     = useState<string[]>([]);
 
-  // Load customers on mount
+  // Load customers on mount — otomatik olarak ilk (tek) zinciri varsayılan seç
   useEffect(() => {
-    apiGet<Customer[]>("/projects/customers").then((d) => setCustomers(Array.isArray(d) ? d : [])).catch(() => {});
-    apiGet<{ id: string; project_no?: string; description?: string }[]>("/projects").then((d) => setExistingProjs(Array.isArray(d) ? d : [])).catch(() => {});
+    apiGet<Customer[]>("/projects/customers").then((d) => {
+      const list = Array.isArray(d) ? d : [];
+      setCustomers(list);
+      if (list.length > 0) onCustomerChange(list[0].id);
+    }).catch(() => {});
+    apiGet<{ id: string; project_no?: string; description?: string }[]>("/projects?limit=5000").then((d) => setExistingProjs(Array.isArray(d) ? d : [])).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const onCustomerChange = async (id: string) => {
@@ -318,7 +334,7 @@ export default function ImportPage() {
           if (row.acilis_tarihi && !base.acilis_tarihi) base.acilis_tarihi = row.acilis_tarihi;
           description = JSON.stringify(base);
 
-          await apiPatch(`/projects/${row.existingId}`, {
+          await updateStore(row.existingId, {
             name:        row.name,
             project_no:  row.project_no || null,
             description,
@@ -338,7 +354,7 @@ export default function ImportPage() {
           if (row.acilis_tarihi) descObj.acilis_tarihi = row.acilis_tarihi;
           description = JSON.stringify(descObj);
 
-          await apiPost("/projects", {
+          await createStore({
             name:           row.name,
             project_no:     row.project_no || null,
             description,
@@ -376,7 +392,7 @@ export default function ImportPage() {
 
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Link href="/projects" className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 transition-colors">
+        <Link href={backHref} className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 transition-colors">
           <ArrowLeft className="h-4 w-4" />
         </Link>
         <div>
@@ -486,15 +502,7 @@ export default function ImportPage() {
               <h2 className="text-sm font-bold text-slate-900 mb-1">Varsayılan Konum</h2>
               <p className="text-xs text-slate-500">İçe aktarılacak mağazalar bu konuma bağlanacak. Zorunludur.</p>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Mağaza Zinciri *</label>
-                <select value={defaultCustomerId} onChange={(e) => onCustomerChange(e.target.value)}
-                  className="w-full rounded-lg border px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
-                  <option value="">Zincir seçin...</option>
-                  {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-              </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">Şehir / Bölge *</label>
                 <select value={defaultRegionId} onChange={(e) => onRegionChange(e.target.value)}
@@ -691,7 +699,7 @@ export default function ImportPage() {
               </div>
 
               <div className="flex gap-2">
-                <Link href="/projects"
+                <Link href={backHref}
                   className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 transition-colors">
                   Mağazalar Listesine Git
                 </Link>

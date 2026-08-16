@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, usePathname } from "next/navigation";
 import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 import {
   AlertCircle,
@@ -365,6 +365,10 @@ function EditModal({ project, onClose, onDone }: { project: Project; onClose: ()
 
 export default function MagazaDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const pathname = usePathname();
+  const backHref = pathname?.startsWith("/manager") ? "/manager/magaza-karti"
+    : pathname?.startsWith("/admin") ? "/admin/stores"
+    : "/projects";
 
   const [project, setProject] = useState<Project | null>(null);
   const [docs,    setDocs]    = useState<Document[]>([]);
@@ -407,7 +411,7 @@ export default function MagazaDetailPage() {
       <div className="flex flex-col items-center justify-center py-20 gap-4">
         <Store className="h-10 w-10 text-slate-200" />
         <p className="text-sm text-slate-500">Mağaza bulunamadı veya erişim yetkiniz yok.</p>
-        <Link href="/projects" className="text-sm text-blue-600 hover:underline">← Mağazalar Listesine Dön</Link>
+        <Link href={backHref} className="text-sm text-blue-600 hover:underline">← Mağazalar Listesine Dön</Link>
       </div>
     );
   }
@@ -455,7 +459,7 @@ export default function MagazaDetailPage() {
 
       {/* Breadcrumb */}
       <div className="flex items-center gap-1.5 text-xs text-slate-400">
-        <Link href="/projects" className="hover:text-slate-700 transition-colors">Mağazalar</Link>
+        <Link href={backHref} className="hover:text-slate-700 transition-colors">Mağazalar</Link>
         <ChevronRight className="h-3 w-3" />
         <span className="text-slate-700 font-medium truncate max-w-[280px]">{project.name}</span>
       </div>

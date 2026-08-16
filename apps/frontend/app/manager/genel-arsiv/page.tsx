@@ -1,5 +1,1 @@
-import { redirect } from "next/navigation";
-
-export default function ManagerGenelArsivPage() {
-  redirect("/genel-arsiv");
-}
+export { default } from "@/app/genel-arsiv/page";

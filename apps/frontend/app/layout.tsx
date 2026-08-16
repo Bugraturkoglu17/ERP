@@ -31,7 +31,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
     pathname.startsWith("/manager/") ||
     pathname === "/user" ||
     pathname.startsWith("/user/");
-  const hasToken = typeof window !== "undefined" && !!localStorage.getItem("token");
+  const hasToken = typeof window !== "undefined" && (!!localStorage.getItem("token") || !!localStorage.getItem("auth_store"));
 
   useEffect(() => {
     if (!mounted) return;

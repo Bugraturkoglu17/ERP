@@ -36,7 +36,6 @@ export default function AdminDashboardPage() {
   const shortcuts = [
     { label: "Yeni Kullanıcı Ekle", href: "/admin/users/new" },
     { label: "Rol Yönetimi", href: "/admin/roles" },
-    { label: "Audit Log", href: "/admin/audit-logs" },
     { label: "Sistem Ayarları", href: "/admin/settings" },
   ];
 

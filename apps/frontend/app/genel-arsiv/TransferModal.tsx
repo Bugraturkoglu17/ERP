@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import {
   ArrowRight, Check, ChevronRight, Loader2, Search, Store, X, AlertCircle, Info,
 } from "lucide-react";
-import { apiGet, buildApiUrl } from "@/lib/api";
+import { buildApiUrl } from "@/lib/api";
+import { getStores } from "@/services/stores";
 
 // ── Sabitler ─────────────────────────────────────────────────────────────────
 
@@ -55,23 +56,30 @@ export default function TransferModal({
   const [step,       setStep]       = useState<1 | 2 | 3>(1);
   const [projects,   setProjects]   = useState<Project[]>([]);
   const [projSearch, setProjSearch] = useState("");
+  const [projSearchDebounced, setProjSearchDebounced] = useState("");
   const [selected,   setSelected]   = useState<Project | null>(null);
   const [category,   setCategory]   = useState<string>(allDwg ? "project_file" : "");
   const [busy,       setBusy]       = useState(false);
   const [err,        setErr]        = useState<string | null>(null);
 
-  // Proje listesini yükle
+  // Mağaza listesini yükle
   useEffect(() => {
-    apiGet<Project[]>("/projects").then(setProjects).catch(() => setProjects([]));
+    getStores().then(setProjects).catch(() => setProjects([]));
   }, []);
 
+  useEffect(() => {
+    const t = setTimeout(() => setProjSearchDebounced(projSearch), 200);
+    return () => clearTimeout(t);
+  }, [projSearch]);
+
   const filteredProjects = projects.filter((p) => {
-    const q = projSearch.toLowerCase();
+    const q = projSearchDebounced.toLowerCase();
+    if (!q) return true;
     return (
       p.name.toLowerCase().includes(q) ||
       (p.project_no ?? "").toLowerCase().includes(q)
     );
-  });
+  }).slice(0, 50);
 
   const canNext = step === 1
     ? true

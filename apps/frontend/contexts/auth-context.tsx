@@ -23,10 +23,6 @@ interface AuthState {
   user: AuthUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  /** TODO: Backend auth bağlanınca mock login kaldırılacak. */
-  loginAs: (role: UserRole) => void;
-  /** Panel geçişi için: sadece localStorage yazar, React state güncellemez (RoleGuard yarışı önler). */
-  switchAccount: (role: UserRole) => void;
   logout: () => void;
   hasRole: (role: UserRole | UserRole[]) => boolean;
   /** Gerçek güvenlik backend permission kontrolü ile sağlanacak. */
@@ -36,34 +32,6 @@ interface AuthState {
 const AuthContext = createContext<AuthState | null>(null);
 
 export const AUTH_STORE_KEY = "auth_store";
-
-// Mock users for development — TODO: Backend auth bağlanınca kaldırılacak.
-const MOCK_USERS: Record<UserRole, AuthUser> = {
-  ADMIN: {
-    id: "admin-1",
-    first_name: "Admin",
-    last_name: "Kullanıcı",
-    email: "admin@golabs.com",
-    role: "ADMIN",
-    permissions: [...ROLE_PERMISSIONS.ADMIN],
-  },
-  MANAGER: {
-    id: "manager-1",
-    first_name: "Bilal",
-    last_name: "Yönetici",
-    email: "yonetici@golabs.com",
-    role: "MANAGER",
-    permissions: [...ROLE_PERMISSIONS.MANAGER],
-  },
-  USER: {
-    id: "user-1",
-    first_name: "Buğra",
-    last_name: "Türkoğlu",
-    email: "user@golabs.com",
-    role: "USER",
-    permissions: [...ROLE_PERMISSIONS.USER],
-  },
-};
 
 function mapJwtToRole(roles: string[]): UserRole {
   if (roles.includes("admin")) return "ADMIN";
@@ -75,32 +43,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // TODO: Gerçek auth sistemi geldiğinde HttpOnly cookie/session yapısına geçilecek.
   useEffect(() => {
     try {
-      // 1. Check mock auth store (DEV mode)
-      const raw = localStorage.getItem(AUTH_STORE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as { user: AuthUser };
-        if (parsed?.user?.role) {
-          setUser(parsed.user);
-          setIsLoading(false);
-          return;
-        }
-      }
-      // 2. Fall back to real JWT
       const payload = getTokenPayloadFromStorage();
-      if (payload) {
+      if (payload && payload.exp && payload.exp * 1000 > Date.now()) {
         const roles: string[] = payload.roles ?? [];
         const role = mapJwtToRole(roles);
-        setUser({
+        const jwtUser: AuthUser = {
           id: payload.sub ?? "",
           first_name: "Kullanıcı",
           last_name: "",
           email: "",
           role,
           permissions: [...ROLE_PERMISSIONS[role]],
-        });
+        };
+        setUser(jwtUser);
+        // AUTH_STORE_KEY'e de kaydet — sayfa geçişlerinde tutarlı okuma sağlar
+        localStorage.setItem(AUTH_STORE_KEY, JSON.stringify({ user: jwtUser, source: "jwt" }));
+      } else {
+        // Geçerli bir JWT yoksa oturum yok — eski/yarım kalmış auth_store girdisi
+        // kullanıcıyı yanlışlıkla oturum açmış göstermesin.
+        localStorage.removeItem(AUTH_STORE_KEY);
       }
     } catch {
       // ignore parse errors
@@ -108,24 +71,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
     }
   }, []);
-
-  // TODO: Backend auth bağlanınca mock login kaldırılacak.
-  const loginAs = (role: UserRole) => {
-    const mockUser = MOCK_USERS[role];
-    setUser(mockUser);
-    localStorage.setItem(
-      AUTH_STORE_KEY,
-      JSON.stringify({ user: mockUser, source: "mock" })
-    );
-    localStorage.removeItem("token");
-  };
-
-  const switchAccount = (role: UserRole) => {
-    const mockUser = MOCK_USERS[role];
-    localStorage.setItem(AUTH_STORE_KEY, JSON.stringify({ user: mockUser, source: "mock" }));
-    localStorage.removeItem("token");
-    // setUser intentionally omitted — prevents current panel's RoleGuard from firing /403
-  };
 
   const logout = () => {
     setUser(null);
@@ -151,8 +96,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         isLoading,
         isAuthenticated: !!user,
-        loginAs,
-        switchAccount,
         logout,
         hasRole,
         hasPermission,

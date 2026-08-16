@@ -18,7 +18,7 @@ from pydantic import BaseModel
 from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import get_current_user, get_db
+from app.core.dependencies import get_current_user, get_db, is_platform_admin
 from app.core.storage import storage, sanitize_filename
 from app.db.models import (
     Document, Project, User, WorkOrder, WorkOrderActivity, WorkOrderPhoto,
@@ -33,6 +33,12 @@ router = APIRouter()
 
 def utc_now() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def _can_view_all_work_orders(user: User) -> bool:
+    """Admin ve yönetici tüm tenant'ın iş emirlerini görür; diğerleri sadece kendine atananları."""
+    role = user.default_role or ""
+    return is_platform_admin(user) or "admin" in role or "manager" in role
 
 
 WORK_TYPE_LABELS = {
@@ -392,6 +398,8 @@ async def list_work_orders(
     filters = []
     if user.tenant_id:
         filters.append(WorkOrder.tenant_id == user.tenant_id)
+    if not _can_view_all_work_orders(user):
+        filters.append(WorkOrder.assigned_to_user_id == user.id)
     if project_id:
         filters.append(WorkOrder.project_id == project_id)
     if status:

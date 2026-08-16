@@ -1,0 +1,13 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "mekanik-erp-frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "apps/frontend"],
+      "port": 3000,
+      "url": "http://localhost:3000",
+      "autoPort": true
+    }
+  ]
+}
