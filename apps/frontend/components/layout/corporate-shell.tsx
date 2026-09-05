@@ -3,10 +3,10 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogOut, Menu, X, type LucideIcon } from "lucide-react";
+import { Menu, X, type LucideIcon } from "lucide-react";
 import { RoleGuard } from "@/components/auth/role-guard";
-import { useAuth } from "@/contexts/auth-context";
-import { ROLE_LABEL, type UserRole } from "@/lib/permissions";
+import { QuickSwitch } from "@/components/layout/quick-switch";
+import type { UserRole } from "@/lib/permissions";
 
 export type CorporateNavItem = { href: string; label: string; icon: LucideIcon };
 
@@ -24,9 +24,6 @@ function CorporateSidebar({
   navItems: CorporateNavItem[];
 }) {
   const pathname = usePathname();
-  const { user, logout } = useAuth();
-  const fullName = user ? `${user.first_name} ${user.last_name}`.trim() : "Kullanıcı";
-  const initials = fullName.slice(0, 2).toUpperCase();
 
   const inner = (
     <div className="flex h-full flex-col border-t-[3px] border-t-amber-400" style={{ background: "#0c1520" }}>
@@ -66,24 +63,7 @@ function CorporateSidebar({
         })}
       </nav>
 
-      <div className="border-t border-white/[0.06] p-3">
-        <div className="flex items-center gap-2.5 rounded-lg px-2 py-2">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-500 text-[11px] font-semibold text-white">
-            {initials}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-medium text-white">{fullName}</p>
-            <p className="text-[10px] text-white/40">{user ? ROLE_LABEL[user.role] : ""}</p>
-          </div>
-          <button
-            onClick={logout}
-            title="Çıkış Yap"
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-white/[0.06] hover:text-white transition-colors"
-          >
-            <LogOut className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      </div>
+      <QuickSwitch />
     </div>
   );
 
