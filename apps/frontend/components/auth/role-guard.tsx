@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useAuth } from "@/contexts/auth-context";
 import type { UserRole } from "@/lib/permissions";
+import { getTokenPayloadFromStorage } from "@/lib/auth";
 
 interface RoleGuardProps {
   allowedRoles: UserRole[];
@@ -32,6 +33,10 @@ export function RoleGuard({
     if (isLoading) return;
     if (!isAuthenticated) {
       window.location.href = "/login";
+      return;
+    }
+    if (getTokenPayloadFromStorage()?.force_password_change) {
+      window.location.href = "/password-reset";
       return;
     }
     if (!hasAccess) {

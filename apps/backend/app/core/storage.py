@@ -51,8 +51,10 @@ class StorageService:
         self.bucket_name = settings.OCI_BUCKET_NAME
         self.endpoint_url = str(settings.OCI_ENDPOINT) if settings.OCI_ENDPOINT else None
         
-        # OCI kimlik bilgileri eksikse otomatik local fallback modunu aktif et
-        self.local_mode = not settings.AWS_ACCESS_KEY_ID or settings.AWS_ACCESS_KEY_ID == ""
+        # Development her zaman yerel depolama kullanir. Boylece gelistirme
+        # makinesinde kalmis bulut anahtarlari test dosyalarini production
+        # kovasina yonlendiremez. Production ise gecerli kimlik bilgileri ister.
+        self.local_mode = settings.is_development or not settings.AWS_ACCESS_KEY_ID
 
         if self.local_mode and settings.is_production:
             raise RuntimeError("Object storage credentials are required in production.")

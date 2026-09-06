@@ -1950,6 +1950,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/work-orders/{work_order_id}/photos/{photo_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Work Order Photo */
+        delete: operations["delete_work_order_photo_api_v1_work_orders__work_order_id__photos__photo_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/work-orders/{work_order_id}/add-photos-to-inventory": {
         parameters: {
             query?: never;
@@ -2515,10 +2532,7 @@ export interface components {
         };
         /** CompletePasswordResetRequest */
         CompletePasswordResetRequest: {
-            /**
-             * Email
-             * Format: email
-             */
+            /** Email */
             email: string;
             /** Temporary Password */
             temporary_password: string;
@@ -4439,6 +4453,11 @@ export interface components {
              * @default false
              */
             force_password_change: boolean;
+            /**
+             * Onboarding Complete
+             * @default true
+             */
+            onboarding_complete: boolean;
         };
         /** TenantAdminResetRequest */
         TenantAdminResetRequest: {
@@ -4705,6 +4724,11 @@ export interface components {
              * @default bearer
              */
             token_type: string;
+            /**
+             * Force Password Change
+             * @default false
+             */
+            force_password_change: boolean;
         };
         /** TokenRefresh */
         TokenRefresh: {
@@ -4741,17 +4765,14 @@ export interface components {
         };
         /** UserCreate */
         UserCreate: {
-            /**
-             * Email
-             * Format: email
-             */
-            email: string;
+            /** Email */
+            email?: string | null;
             /** Password */
             password: string;
             /** Full Name */
             full_name: string;
             /** Phone */
-            phone?: string | null;
+            phone: string;
             /** Roles */
             roles: string[];
             /** Discipline */
@@ -4761,6 +4782,13 @@ export interface components {
              * @default false
              */
             discipline_only: boolean;
+            /**
+             * Is Active
+             * @default true
+             */
+            is_active: boolean;
+            /** Tenant Id */
+            tenant_id?: string | null;
         };
         /** UserRead */
         UserRead: {
@@ -4785,6 +4813,16 @@ export interface components {
             is_active: boolean;
             /** Default Role */
             default_role: string | null;
+            /**
+             * Force Password Change
+             * @default false
+             */
+            force_password_change: boolean;
+            /**
+             * Onboarding Complete
+             * @default true
+             */
+            onboarding_complete: boolean;
         };
         /** UserUpdate */
         UserUpdate: {
@@ -4796,6 +4834,8 @@ export interface components {
             discipline?: string | null;
             /** Is Active */
             is_active?: boolean | null;
+            /** Roles */
+            roles?: string[] | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -9898,6 +9938,36 @@ export interface operations {
                 content: {
                     "application/json": unknown;
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_work_order_photo_api_v1_work_orders__work_order_id__photos__photo_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                work_order_id: string;
+                photo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

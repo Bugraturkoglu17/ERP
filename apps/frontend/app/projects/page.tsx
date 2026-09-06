@@ -81,9 +81,10 @@ function isCancelled(s: string) { return s === "cancelled" || s === "CANCELLED";
 
 // ── Mağaza Kartı ───────────────────────────────────────────────────────────────
 
-function MagazaKart({ p, regionName, detailHrefBase, onEdit, onDeactivate }: {
+function MagazaKart({ p, regionName, detailHrefBase, onEdit, onDeactivate, canManage }: {
   p: Project; regionName?: string; detailHrefBase: string;
   onEdit: (p: Project) => void; onDeactivate: (p: Project) => void;
+  canManage: boolean;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const extra    = parseDesc(p.description);
@@ -96,7 +97,7 @@ function MagazaKart({ p, regionName, detailHrefBase, onEdit, onDeactivate }: {
       isCancl ? "border-slate-100 opacity-50" : "border-slate-200 hover:border-blue-200 hover:shadow-md hover:-translate-y-0.5"
     }`}>
       {/* Context menu */}
-      <div className="absolute top-3 right-3">
+      {canManage && <div className="absolute top-3 right-3">
         <button onClick={() => setMenuOpen(v => !v)}
           className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-300 hover:bg-slate-100 hover:text-slate-600 transition-colors">
           <MoreVertical className="h-4 w-4" />
@@ -116,7 +117,7 @@ function MagazaKart({ p, regionName, detailHrefBase, onEdit, onDeactivate }: {
             </div>
           </>
         )}
-      </div>
+      </div>}
 
       {/* Header */}
       <div className="flex items-start gap-2.5 mb-3 pr-6">
@@ -415,7 +416,9 @@ export default function MagazalarPage() {
   const pathname = usePathname();
   const isManager = pathname?.startsWith("/manager");
   const isAdmin = pathname?.startsWith("/admin");
-  const basePath = isManager ? "/manager/magaza-karti" : isAdmin ? "/admin/stores" : "/projects";
+  const isUser = pathname?.startsWith("/user");
+  const canManage = !isUser;
+  const basePath = isManager ? "/manager/magaza-karti" : isAdmin ? "/admin/stores" : isUser ? "/user/magaza-karti" : "/projects";
   const importHref = `${basePath}/import`;
 
   const [projects,   setProjects]   = useState<Project[]>([]);
@@ -506,16 +509,16 @@ export default function MagazalarPage() {
               : loading ? "Yükleniyor..." : `${projects.length} mağaza · ${allRegions.length} bölge`}
           </p>
         </div>
-        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+        {canManage && <div className="flex items-center gap-2 shrink-0 flex-wrap">
           <Link href={importHref}
             className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
-            <FileUp className="h-4 w-4" /> Excel'den İçe Aktar
+            <FileUp className="h-4 w-4" /> Excel&apos;den İçe Aktar
           </Link>
           <button onClick={() => setCreateOpen(true)}
             className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 transition-colors">
             <Plus className="h-4 w-4" /> Yeni Mağaza Ekle
           </button>
-        </div>
+        </div>}
       </div>
 
       {/* Filtreler */}
@@ -572,7 +575,7 @@ export default function MagazalarPage() {
           <p className="mt-1 text-sm text-slate-500">
             Mağaza listesinin sisteme aktarılması gerekiyor.
           </p>
-          <div className="mt-5 flex items-center justify-center gap-2">
+          {canManage && <div className="mt-5 flex items-center justify-center gap-2">
             <Link href={importHref}
               className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
               <FileUp className="h-4 w-4" /> Excel&apos;den İçe Aktar
@@ -581,7 +584,7 @@ export default function MagazalarPage() {
               className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800">
               <Plus className="h-4 w-4" /> Yeni Mağaza Ekle
             </button>
-          </div>
+          </div>}
         </div>
       ) : filtered.length === 0 ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center">
@@ -594,7 +597,7 @@ export default function MagazalarPage() {
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {pageItems.map(p => (
               <MagazaKart key={p.id} p={p} regionName={regionMap[p.region_id ?? ""]} detailHrefBase={basePath}
-                onEdit={setEditProject} onDeactivate={setDeactivateProj} />
+                onEdit={setEditProject} onDeactivate={setDeactivateProj} canManage={canManage} />
             ))}
           </div>
 
@@ -630,16 +633,16 @@ export default function MagazalarPage() {
         </>
       )}
 
-      {createOpen && (
+      {canManage && createOpen && (
         <StoreFormModal mode="create" initial={defaultForm()} customers={customers}
           onClose={() => setCreateOpen(false)} onDone={load} />
       )}
-      {editProject && (
+      {canManage && editProject && (
         <StoreFormModal mode="edit" initial={editForm(editProject)} projectId={editProject.id}
           existingDescription={editProject.description} existingScopeCodes={editProject.scope_codes}
           customers={customers} onClose={() => setEditProject(null)} onDone={load} />
       )}
-      {deactivateProj && (
+      {canManage && deactivateProj && (
         <DeactivateModal project={deactivateProj} onClose={() => setDeactivateProj(null)} onDone={load} />
       )}
     </div>

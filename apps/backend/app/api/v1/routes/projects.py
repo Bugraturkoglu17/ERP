@@ -58,8 +58,8 @@ crud_project    = CRUDBase(Project)
 crud_assignment = CRUDBase(ProjectAssignment)
 
 
-def _has_admin_role(user: User) -> bool:
-    return "admin" in (user.default_role or "")
+def _has_manager_role(user: User) -> bool:
+    return is_platform_admin(user) or (user.default_role or "") in {"admin", "manager"}
 
 
 def _tenant_mismatch(user: User, tenant_id: object) -> bool:
@@ -324,14 +324,7 @@ async def list_projects(
     else:
         query = select(Project)
 
-    if not _has_admin_role(user):
-        # Saha mühendisi / müşteri kullanıcısı → sadece atanmış projeler
-        assignment_subq = (
-            select(ProjectAssignment.project_id)
-            .where(ProjectAssignment.user_id == user.id)
-            .subquery()
-        )
-        query = query.where(Project.id.in_(assignment_subq))
+    # Mağaza kartları tenant içindeki tüm aktif kullanıcılara açıktır.
 
     if status:
         query = query.where(Project.status == status)
@@ -431,17 +424,6 @@ async def get_project(
 
     if _tenant_mismatch(user, project.tenant_id):
         raise HTTPException(status_code=403, detail="Bu projeye erişim yetkiniz yok.")
-
-    if not _has_admin_role(user):
-        assignment = await db.execute(
-            select(ProjectAssignment)
-            .where(
-                ProjectAssignment.project_id == project.id,
-                ProjectAssignment.user_id   == user.id,
-            )
-        )
-        if not assignment.scalar_one_or_none():
-            raise HTTPException(status_code=403, detail="Bu projeye erişim yetkiniz yok.")
 
     return _to_project_read(project)
 
@@ -559,7 +541,7 @@ async def list_assignments(
     if _tenant_mismatch(user, project.tenant_id):
         raise HTTPException(status_code=403, detail="Bu projeye erişim yetkiniz yok.")
 
-    if not _has_admin_role(user):
+    if not _has_manager_role(user):
         # Kendi atanıp atanmadığını doğrula
         own_assignment = await db.execute(
             select(ProjectAssignment)

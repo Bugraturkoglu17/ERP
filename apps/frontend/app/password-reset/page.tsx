@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, Suspense, useMemo, useState } from "react";
+import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import axios from "axios";
 import { buildApiUrl } from "@/lib/api";
@@ -16,6 +16,13 @@ function PasswordResetPageContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  useEffect(() => {
+    const storedLogin = sessionStorage.getItem("initial_login_id");
+    const storedPassword = sessionStorage.getItem("initial_temporary_password");
+    if (!email && storedLogin) setEmail(storedLogin);
+    if (storedPassword) setTemporaryPassword(storedPassword);
+  }, [email]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -44,6 +51,10 @@ function PasswordResetPageContent() {
       );
 
       setSuccess(response.data.message || "Parola güncellendi. Giriş yapabilirsiniz.");
+      sessionStorage.removeItem("initial_login_id");
+      sessionStorage.removeItem("initial_temporary_password");
+      localStorage.removeItem("token");
+      localStorage.removeItem("refresh_token");
       setTemporaryPassword("");
       setNewPassword("");
       setConfirmPassword("");
@@ -70,9 +81,9 @@ function PasswordResetPageContent() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">E-posta</label>
+            <label className="text-sm font-medium text-slate-700">E-posta / Telefon</label>
             <input
-              type="email"
+              type="text"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
@@ -80,7 +91,7 @@ function PasswordResetPageContent() {
             />
           </div>
 
-          <div className="space-y-2">
+          {!temporaryPassword && <div className="space-y-2">
             <label className="text-sm font-medium text-slate-700">Geçici Şifre</label>
             <input
               type="password"
@@ -89,7 +100,7 @@ function PasswordResetPageContent() {
               className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
               required
             />
-          </div>
+          </div>}
 
           <div className="space-y-2">
             <label className="text-sm font-medium text-slate-700">Yeni Şifre</label>

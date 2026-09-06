@@ -8,6 +8,7 @@ import {
 import { apiGet, buildApiUrl } from "@/lib/api";
 import UploadModal   from "./UploadModal";
 import TransferModal from "./TransferModal";
+import { useAuth } from "@/contexts/auth-context";
 
 // ── Sabitler / Yardımcılar ───────────────────────────────────────────────────
 
@@ -103,6 +104,8 @@ type ArchiveDoc = {
 // ── Ana Bileşen ───────────────────────────────────────────────────────────────
 
 export default function GenelArsivPage() {
+  const { user } = useAuth();
+  const canDelete = user?.role === "MANAGER" || user?.role === "ADMIN";
   const [docs,        setDocs]        = useState<ArchiveDoc[]>([]);
   const [loading,     setLoading]     = useState(true);
   const [search,      setSearch]      = useState("");
@@ -389,13 +392,13 @@ export default function GenelArsivPage() {
                             <span className="text-[11px] font-medium hidden lg:inline">Aktar</span>
                           </button>
                         )}
-                        <button
+                        {canDelete && <button
                           onClick={() => handleDelete(doc.id)}
                           title="Sil"
                           className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-500"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                        </button>}
                       </div>
                     </td>
                   </tr>

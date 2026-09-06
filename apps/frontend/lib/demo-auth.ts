@@ -44,7 +44,7 @@ export async function demoLogin(target: LoginTarget): Promise<{ ok: boolean; err
     params.append("username", creds.email);
     params.append("password", creds.password);
 
-    const res = await axios.post<{ access_token: string; refresh_token?: string }>(
+    const res = await axios.post<{ access_token: string; refresh_token?: string; force_password_change?: boolean }>(
       buildApiUrl("/auth/login"),
       params,
       { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
@@ -52,8 +52,14 @@ export async function demoLogin(target: LoginTarget): Promise<{ ok: boolean; err
 
     if (typeof window !== "undefined") {
       localStorage.setItem("token", res.data.access_token);
+      sessionStorage.removeItem("initial_login_id");
+      sessionStorage.removeItem("initial_temporary_password");
       if (res.data.refresh_token) {
         localStorage.setItem("refresh_token", res.data.refresh_token);
+      }
+      if (res.data.force_password_change) {
+        sessionStorage.setItem("initial_login_id", creds.email);
+        sessionStorage.setItem("initial_temporary_password", creds.password);
       }
     }
 

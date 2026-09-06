@@ -2,6 +2,8 @@
 
 import { Archive, Download, Eye, FileText, Folder } from "lucide-react";
 import { apiGet } from "@/lib/api";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 type Document = {
   id: string;
@@ -27,6 +29,8 @@ async function openDoc(docId: string) {
 }
 
 export default function ServisFormTab({ docs }: { docs: Document[] }) {
+  const pathname = usePathname();
+  const archiveHref = pathname.startsWith("/manager") ? "/manager/genel-arsiv" : pathname.startsWith("/user") ? "/user/genel-arsiv" : "/genel-arsiv";
   if (docs.length === 0) {
     return (
       <div className="space-y-4">
@@ -90,10 +94,10 @@ export default function ServisFormTab({ docs }: { docs: Document[] }) {
                   <Download className="h-3.5 w-3.5" />
                 </button>
                 {doc.is_archive && (
-                  <a href="/genel-arsiv" title="Genel Arşivde Göster"
+                  <Link href={archiveHref} title="Genel Arşivde Göster"
                     className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-purple-50 hover:text-purple-600">
                     <Archive className="h-3.5 w-3.5" />
-                  </a>
+                  </Link>
                 )}
               </div>
             </div>

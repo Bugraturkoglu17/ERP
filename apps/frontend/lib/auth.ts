@@ -4,6 +4,7 @@ export type JwtPayload = {
   permissions?: string[];
   tenant_id?: string | null;
   discipline?: string | null;
+  force_password_change?: boolean;
   exp?: number;
   iat?: number;
 };

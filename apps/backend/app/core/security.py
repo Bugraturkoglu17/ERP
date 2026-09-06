@@ -53,6 +53,7 @@ def create_access_token(
     permissions: list[str],
     tenant_id:   str | None = None,
     discipline:  str | None  = None,
+    force_password_change: bool = False,
 ) -> str:
     payload: dict[str, Any] = {
         "sub":         sub,
@@ -60,6 +61,7 @@ def create_access_token(
         "permissions": permissions,
         "tenant_id":   tenant_id,
         "discipline":  discipline,
+        "force_password_change": force_password_change,
     }
     return _create_token(payload, ACCESS_EXPIRES)
 

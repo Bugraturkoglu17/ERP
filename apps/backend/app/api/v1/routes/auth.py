@@ -10,7 +10,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -20,6 +20,33 @@ from app.db.models import PlatformTenantSettings, Role, Tenant, TenantEmailMode,
 from app.db.schemas import CompletePasswordResetRequest, MessageResponse, TenantContextRead, TenantProfileUpdate, TenantSettingsUpsert, Token, TokenRefresh, UserRead
 
 router = APIRouter()
+
+MANAGER_ROLES = {"admin", "manager"}
+CREATABLE_ROLE_MAP = {
+    "user": "saha_muhendisi",
+    "saha_muhendisi": "saha_muhendisi",
+    "manager": "admin",
+}
+
+
+def _is_manager(user: User) -> bool:
+    return is_platform_admin(user) or (user.default_role or "") in MANAGER_ROLES
+
+
+async def _password_change_required(db: AsyncSession, user_id) -> bool:
+    policy = await db.get(UserSecurityPolicy, user_id)
+    return bool(policy and policy.force_password_change)
+
+
+async def _user_read(db: AsyncSession, user: User) -> UserRead:
+    force_change = await _password_change_required(db, user.id)
+    return UserRead(
+        **UserRead.model_validate(user).model_dump(exclude={"force_password_change", "onboarding_complete"}),
+        force_password_change=force_change,
+        # Eski hesaplarda is_verified alanı doldurulmamış olabilir; zorunlu
+        # parola politikası yoksa hesap kurulumunu tamamlanmış kabul ederiz.
+        onboarding_complete=not force_change,
+    )
 
 
 def _parse_opt_out_templates(raw: str | None) -> list[str]:
@@ -40,8 +67,11 @@ async def login(
     form_data:   OAuth2PasswordRequestForm = Depends(),
 ) -> Token:
     """E-posta ve parola ile güvenli kullanıcı girişi."""
-    normalized_email = form_data.username.strip().lower()
-    result  = await db.execute(select(User).where(User.email == normalized_email))
+    login_id = form_data.username.strip()
+    normalized_email = login_id.lower()
+    result  = await db.execute(
+        select(User).where(or_(func.lower(User.email) == normalized_email, User.phone == login_id))
+    )
     user    = result.scalar_one_or_none()
 
     if not user or not verify_password(form_data.password, user.hashed_password):
@@ -54,9 +84,12 @@ async def login(
 
     roles       = await get_user_roles(db, user.id)
     permissions = await get_user_permissions(db, user.id)
+    force_change = await _password_change_required(db, user.id)
 
     access_token  = create_access_token(
-        sub=str(user.id), roles=roles, permissions=permissions, tenant_id=str(user.tenant_id) if user.tenant_id else None
+        sub=str(user.id), roles=roles, permissions=permissions,
+        tenant_id=str(user.tenant_id) if user.tenant_id else None,
+        force_password_change=force_change,
     )
     refresh_token = create_refresh_token(sub=str(user.id))
 
@@ -64,6 +97,7 @@ async def login(
         access_token  = access_token,
         refresh_token = refresh_token,
         token_type    = "bearer",
+        force_password_change=force_change,
     )
 
 
@@ -87,12 +121,14 @@ async def refresh_token(
 
     roles       = await get_user_roles(db, user.id)
     permissions = await get_user_permissions(db, user.id)
+    force_change = await _password_change_required(db, user.id)
 
     access_token  = create_access_token(
         sub=str(user.id),
         roles=roles,
         permissions=permissions,
         tenant_id=str(user.tenant_id) if user.tenant_id else None,
+        force_password_change=force_change,
     )
     refresh_token = create_refresh_token(sub=str(user.id))
 
@@ -100,6 +136,7 @@ async def refresh_token(
         access_token  = access_token,
         refresh_token = refresh_token,
         token_type    = "bearer",
+        force_password_change=force_change,
     )
 
 
@@ -108,7 +145,8 @@ async def complete_password_reset(
     payload: CompletePasswordResetRequest,
     db: AsyncSession = Depends(get_db),
 ) -> MessageResponse:
-    result = await db.execute(select(User).where(User.email == payload.email))
+    login_id = payload.email.strip()
+    result = await db.execute(select(User).where(or_(func.lower(User.email) == login_id.lower(), User.phone == login_id)))
     user = result.scalar_one_or_none()
     if not user or not verify_password(payload.temporary_password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Geçersiz e-posta veya geçici parola.")
@@ -118,6 +156,7 @@ async def complete_password_reset(
         raise HTTPException(status_code=400, detail="Bu kullanıcı için parola yenileme gerekli değil.")
 
     user.hashed_password = hash_password(payload.new_password)
+    user.is_verified = True
     policy.force_password_change = False
     db.add(user)
     db.add(policy)
@@ -128,10 +167,11 @@ async def complete_password_reset(
 
 @router.get("/me", response_model=UserRead, tags=["auth"])
 async def get_me(
+    db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> UserRead:
     """Token'ındaki kullanıcı profilini döner."""
-    return UserRead.model_validate(user)
+    return await _user_read(db, user)
 
 
 @router.get("/tenant-context", response_model=TenantContextRead, tags=["auth"])
@@ -283,9 +323,9 @@ from app.db.schemas import UserCreate, UserUpdate
 async def list_users(
     db:   AsyncSession = Depends(get_db),
     user: User         = Depends(get_current_user),
-) -> list[User]:
+) -> list[UserRead]:
     """Tüm kullanıcıları listele."""
-    if "admin" not in (user.default_role or ""):
+    if not _is_manager(user):
         raise HTTPException(status_code=403, detail="Kullanıcıları listeleme yetkiniz yok.")
         
     query = select(User).order_by(User.created_at.desc())
@@ -293,7 +333,7 @@ async def list_users(
         query = query.where(User.tenant_id == user.tenant_id)
 
     result = await db.execute(query)
-    return list(result.scalars())
+    return [await _user_read(db, item) for item in result.scalars()]
 
 
 @router.post("/users", response_model=UserRead, status_code=status.HTTP_201_CREATED, tags=["auth"])
@@ -301,42 +341,59 @@ async def create_user(
     user_in: UserCreate,
     db:      AsyncSession = Depends(get_db),
     admin:   User         = Depends(get_current_user),
-) -> User:
+) -> UserRead:
     """Yeni kullanıcı oluştur."""
-    if "admin" not in (admin.default_role or ""):
+    if not _is_manager(admin):
         raise HTTPException(status_code=403, detail="Kullanıcı oluşturma yetkiniz yok.")
 
-    requested_roles = user_in.roles or ["saha_muhendisi"]
-    if "platform_admin" in requested_roles and not is_platform_admin(admin):
-        raise HTTPException(status_code=403, detail="platform_admin rolü yalnızca platform yöneticisi tarafından atanabilir.")
+    raw_role = (user_in.roles or ["saha_muhendisi"])[0].strip().lower()
+    if raw_role not in CREATABLE_ROLE_MAP:
+        raise HTTPException(status_code=403, detail="Yalnızca Kullanıcı veya Yönetici rolü atanabilir. Admin yetkisi verilemez.")
+    requested_role = CREATABLE_ROLE_MAP[raw_role]
 
-    existing = await db.execute(select(User).where(User.email == user_in.email))
+    target_tenant_id = admin.tenant_id
+    if is_platform_admin(admin):
+        target_tenant_id = user_in.tenant_id
+        if target_tenant_id is None:
+            tenant_result = await db.execute(select(Tenant.id).where(Tenant.is_active.is_(True)).limit(2))
+            tenant_ids = list(tenant_result.scalars())
+            if len(tenant_ids) != 1:
+                raise HTTPException(status_code=400, detail="Admin kullanıcı oluştururken firma seçmelidir.")
+            target_tenant_id = tenant_ids[0]
+    if target_tenant_id is None:
+        raise HTTPException(status_code=400, detail="Kullanıcı için firma bağlamı bulunamadı.")
+
+    normalized_phone = user_in.phone.strip()
+    normalized_email = str(user_in.email).lower() if user_in.email else f"hesap-{''.join(c for c in normalized_phone if c.isdigit())}-{str(target_tenant_id)[:8]}@sismik.local"
+    existing = await db.execute(select(User).where(or_(func.lower(User.email) == normalized_email, User.phone == normalized_phone)))
     if existing.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="Bu e-posta adresiyle kayıtlı bir kullanıcı zaten var.")
+        raise HTTPException(status_code=400, detail="Bu e-posta veya telefonla kayıtlı bir kullanıcı zaten var.")
+
+    role_result = await db.execute(select(Role).where(Role.name == requested_role))
+    role = role_result.scalar_one_or_none()
+    if not role:
+        raise HTTPException(status_code=500, detail=f"{requested_role} rolü sistemde tanımlı değil.")
 
     db_user = User(
-        email=user_in.email,
-        tenant_id=admin.tenant_id,
+        email=normalized_email,
+        tenant_id=target_tenant_id,
         hashed_password=hash_password(user_in.password),
         full_name=user_in.full_name,
-        phone=user_in.phone,
-        default_role=requested_roles[0],
+        phone=normalized_phone,
+        default_role=requested_role,
         discipline=user_in.discipline,
         discipline_only=user_in.discipline_only,
-        is_active=True,
+        is_active=user_in.is_active,
+        is_verified=False,
     )
     db.add(db_user)
     await db.flush()
-
-    for role_name in requested_roles:
-        role_result = await db.execute(select(Role).where(Role.name == role_name))
-        role = role_result.scalar_one_or_none()
-        if role:
-            db.add(UserRole(user_id=db_user.id, role_id=role.id))
+    db.add(UserRole(user_id=db_user.id, role_id=role.id))
+    db.add(UserSecurityPolicy(user_id=db_user.id, force_password_change=True))
 
     await db.commit()
     await db.refresh(db_user)
-    return db_user
+    return await _user_read(db, db_user)
 
 
 @router.patch("/users/{user_id}", response_model=UserRead, tags=["auth"])
@@ -345,9 +402,9 @@ async def update_user_details(
     user_in: UserUpdate,
     db:      AsyncSession = Depends(get_db),
     admin:   User         = Depends(get_current_user),
-) -> User:
+) -> UserRead:
     """Kullanıcı bilgilerini ve yetkilerini güncelle."""
-    if "admin" not in (admin.default_role or ""):
+    if not _is_manager(admin):
         raise HTTPException(status_code=403, detail="Kullanıcı güncelleme yetkiniz yok.")
 
     user = await db.get(User, user_id)
@@ -355,6 +412,8 @@ async def update_user_details(
         raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı.")
     if not is_platform_admin(admin) and user.tenant_id != admin.tenant_id:
         raise HTTPException(status_code=403, detail="Bu kullanıcı tenant kapsamınız dışında.")
+    if is_platform_admin(user):
+        raise HTTPException(status_code=403, detail="Geliştirici admin hesabı bu ekrandan değiştirilemez.")
 
     if user_in.full_name is not None:
         user.full_name = user_in.full_name
@@ -364,11 +423,23 @@ async def update_user_details(
         user.discipline = user_in.discipline
     if user_in.is_active is not None:
         user.is_active = user_in.is_active
+    if user_in.roles is not None:
+        raw_role = user_in.roles[0].strip().lower() if user_in.roles else ""
+        if raw_role not in CREATABLE_ROLE_MAP:
+            raise HTTPException(status_code=403, detail="Admin yetkisi atanamaz.")
+        role_name = CREATABLE_ROLE_MAP[raw_role]
+        role_result = await db.execute(select(Role).where(Role.name == role_name))
+        role = role_result.scalar_one_or_none()
+        if not role:
+            raise HTTPException(status_code=500, detail=f"{role_name} rolü sistemde tanımlı değil.")
+        await db.execute(UserRole.__table__.delete().where(UserRole.user_id == user.id))
+        db.add(UserRole(user_id=user.id, role_id=role.id))
+        user.default_role = role_name
 
     db.add(user)
     await db.commit()
     await db.refresh(user)
-    return user
+    return await _user_read(db, user)
 
 
 @router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["auth"])
@@ -378,7 +449,7 @@ async def delete_user_account(
     admin:   User         = Depends(get_current_user),
 ):
     """Kullanıcı hesabını sil (soft veya hard)."""
-    if "admin" not in (admin.default_role or ""):
+    if not _is_manager(admin):
         raise HTTPException(status_code=403, detail="Kullanıcı silme yetkiniz yok.")
 
     user = await db.get(User, user_id)
@@ -386,6 +457,10 @@ async def delete_user_account(
         raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı.")
     if not is_platform_admin(admin) and user.tenant_id != admin.tenant_id:
         raise HTTPException(status_code=403, detail="Bu kullanıcı tenant kapsamınız dışında.")
+    if user.id == admin.id:
+        raise HTTPException(status_code=403, detail="Kendi hesabınızı silemezsiniz.")
+    if is_platform_admin(user):
+        raise HTTPException(status_code=403, detail="Geliştirici admin hesabı silinemez.")
     
     user.is_active = False
     db.add(user)

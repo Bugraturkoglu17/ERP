@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { CheckCircle2, ClipboardList, ExternalLink, Plus } from "lucide-react";
 import { apiGet } from "@/lib/api";
+import { usePathname } from "next/navigation";
 
 type WorkOrder = {
   id: string; project_id: string;
@@ -30,6 +31,9 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 export default function WorkOrdersTab({ projectId }: { projectId: string }) {
+  const pathname = usePathname();
+  const isUser = pathname.startsWith("/user");
+  const listHref = pathname.startsWith("/manager") ? "/manager/is-emirleri" : isUser ? "/user/islerim" : "/is-emirleri";
   const [orders, setOrders] = useState<WorkOrder[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -60,7 +64,7 @@ export default function WorkOrdersTab({ projectId }: { projectId: string }) {
             </span>
           )}
         </div>
-        <Link href="/is-emirleri" className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:underline">
+        <Link href={listHref} className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:underline">
           <ExternalLink className="h-3.5 w-3.5" /> İş Emirleri Modülüne Git
         </Link>
       </div>
@@ -69,10 +73,10 @@ export default function WorkOrdersTab({ projectId }: { projectId: string }) {
         <div className="flex flex-col items-center justify-center py-12 gap-3 rounded-2xl border border-dashed border-slate-200">
           <ClipboardList className="h-9 w-9 text-slate-200" />
           <p className="text-sm text-slate-400">Bu mağazaya henüz iş emri açılmamış.</p>
-          <Link href="/is-emirleri"
+          {!isUser && <Link href={listHref}
             className="inline-flex items-center gap-1.5 text-xs text-blue-600 border border-blue-200 rounded-lg px-3 py-1.5 hover:bg-blue-50">
             <Plus className="h-3.5 w-3.5" /> İş Emri Oluştur
-          </Link>
+          </Link>}
         </div>
       ) : (
         <div className="space-y-3">
@@ -102,7 +106,7 @@ export default function WorkOrdersTab({ projectId }: { projectId: string }) {
                     <span>{new Date(wo.created_at).toLocaleDateString("tr-TR")}</span>
                   </div>
                 </div>
-                <Link href={`/is-emirleri/${wo.id}`}
+                <Link href={`${listHref}/${wo.id}`}
                   className="shrink-0 inline-flex items-center gap-1 text-xs text-slate-600 border border-slate-200 rounded-lg px-2.5 py-1 hover:bg-slate-50">
                   Detaya Git
                 </Link>

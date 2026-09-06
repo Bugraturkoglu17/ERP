@@ -15,7 +15,7 @@ from app.core.database import get_db
 from app.core.storage import storage, sanitize_filename
 from app.core.exceptions import NotFoundError, ConflictError
 from app.db.models import Document, User
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, is_platform_admin
 from app.db.models import Project
 from app.db.schemas import (
     ArchiveTransferRequest,
@@ -27,6 +27,28 @@ from app.db.schemas import (
 )
 
 router = APIRouter()
+
+
+def _is_manager(user: User) -> bool:
+    return is_platform_admin(user) or (user.default_role or "") in {"admin", "manager"}
+
+
+def _ensure_project_scope(user: User, project: Project) -> None:
+    if not is_platform_admin(user) and (not user.tenant_id or project.tenant_id != user.tenant_id):
+        raise HTTPException(status_code=403, detail="Bu mağaza şirket kapsamınız dışında.")
+
+
+async def _ensure_document_scope(user: User, doc: Document, db: AsyncSession) -> None:
+    if is_platform_admin(user):
+        return
+    if doc.project_id:
+        project = await db.get(Project, doc.project_id)
+        if project:
+            _ensure_project_scope(user, project)
+            return
+    uploader = await db.get(User, doc.uploaded_by) if doc.uploaded_by else None
+    if not uploader or uploader.tenant_id != user.tenant_id:
+        raise HTTPException(status_code=403, detail="Bu dosya şirket kapsamınız dışında.")
 
 
 async def populate_uploader_details(docs: list[Document] | Document, db: AsyncSession) -> list[Document] | Document:
@@ -70,6 +92,10 @@ async def upload_document(
     db:           AsyncSession = Depends(get_db),
     current_user: User         = Depends(get_current_user),
 ) -> Document:
+    project = await db.get(Project, project_id)
+    if not project:
+        raise NotFoundError(detail="Mağaza bulunamadı.")
+    _ensure_project_scope(current_user, project)
     # ── 1 · Dosyayı oku ve S3/OCI'ya yükle ───────────────────────────────────────
     content = await file.read()
     safe_name = sanitize_filename(file.filename or "file")
@@ -125,6 +151,10 @@ async def list_project_documents(
     db:         AsyncSession = Depends(get_db),
     current_user: User         = Depends(get_current_user),
 ) -> list[Document]:
+    project = await db.get(Project, project_id)
+    if not project:
+        raise NotFoundError(detail="Mağaza bulunamadı.")
+    _ensure_project_scope(current_user, project)
     # Only return the latest version of each document group (parent_id is None or current)
     # A simpler way: just list all and let frontend handle or list only archived=False
     query = select(Document).where(
@@ -155,10 +185,12 @@ async def list_project_documents(
 async def download_document(
     doc_id: uuid.UUID,
     db:     AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> DocumentDownloadResponse:
     doc = await db.get(Document, doc_id)
     if not doc:
         raise NotFoundError(detail="Döküman bulunamadı.")
+    await _ensure_document_scope(current_user, doc, db)
     
     url = await storage.generate_presigned_url(doc.file_key)
     return DocumentDownloadResponse(url=url, expires_in=3600)
@@ -265,10 +297,14 @@ async def update_document(
 async def delete_document(
     doc_id: uuid.UUID,
     db:     AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> Document:
+    if not _is_manager(current_user):
+        raise HTTPException(status_code=403, detail="Dosya silme yetkiniz yok.")
     doc = await db.get(Document, doc_id)
     if not doc:
         raise NotFoundError(detail="Döküman bulunamadı.")
+    await _ensure_document_scope(current_user, doc, db)
     
     doc.archived = True
     await db.commit()
@@ -385,6 +421,8 @@ async def list_archive_documents(
         Document.is_archive == True,
         Document.archived   == False,
     )
+    if not is_platform_admin(current_user):
+        query = query.join(User, Document.uploaded_by == User.id).where(User.tenant_id == current_user.tenant_id)
     if q:
         like = f"%{q.lower()}%"
         from sqlalchemy import func as sa_func
@@ -419,6 +457,12 @@ async def transfer_archive_document(
     project = await db.get(Project, body.project_id)
     if not project:
         raise NotFoundError(detail="Proje bulunamadı.")
+    _ensure_project_scope(current_user, project)
+
+    if not is_platform_admin(current_user):
+        uploader = await db.get(User, doc.uploaded_by) if doc.uploaded_by else None
+        if not uploader or uploader.tenant_id != current_user.tenant_id:
+            raise HTTPException(status_code=403, detail="Bu dosya şirket kapsamınız dışında.")
 
     from app.db.models import utc_now as _utc_now
     doc.project_id              = body.project_id

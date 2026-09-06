@@ -111,6 +111,13 @@ const STAGE_STATUS_OPTS = [
   { value: "cancelled",   label: "İptal Edildi"  },
 ];
 
+const STAGE_PHOTO_TYPE: Record<number, string> = {
+  1: "before",
+  2: "after",
+  3: "issue",
+  4: "completion",
+};
+
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 function fmtDate(s?: string | null) {
@@ -368,17 +375,41 @@ function CreateReportModal({ woId, onClose, onDone }: {
 
 // ── Aşama Güncelle Modal ───────────────────────────────────────────────────────
 
-function StageUpdateModal({ stage, woId, onClose, onDone }: {
-  stage: Stage; woId: string; onClose: () => void; onDone: (s: Stage) => void;
+function StageUpdateModal({ stage, woId, hasCompletionPhoto, onClose, onDone }: {
+  stage: Stage; woId: string; hasCompletionPhoto: boolean;
+  onClose: () => void; onDone: (s: Stage) => void;
 }) {
   const [status,      setStatus]      = useState(stage.status);
   const [description, setDescription] = useState(stage.description ?? "");
+  const [files,       setFiles]       = useState<File[]>([]);
   const [busy,        setBusy]        = useState(false);
   const [err,         setErr]         = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const addFiles = (incoming: FileList | null) => {
+    const accepted = Array.from(incoming ?? []).filter(file => file.type.startsWith("image/"));
+    setFiles(prev => [...prev, ...accepted]);
+    if (fileRef.current) fileRef.current.value = "";
+  };
 
   const handleSave = async () => {
+    if (stage.stage_order === 4 && status === "completed" && files.length === 0 && !hasCompletionPhoto) {
+      setErr("Tamamlandı aşaması için en az bir saha fotoğrafı eklemelisiniz.");
+      return;
+    }
     setBusy(true); setErr("");
     try {
+      for (const file of files) {
+        const body = new FormData();
+        body.append("photo_type", STAGE_PHOTO_TYPE[stage.stage_order] ?? "issue");
+        body.append("file", file);
+        const response = await fetch(buildApiUrl(`/work-orders/${woId}/photos`), {
+          method: "POST",
+          headers: { Authorization: `Bearer ${localStorage.getItem("token") ?? ""}` },
+          body,
+        });
+        if (!response.ok) throw new Error("Fotoğraf yüklenemedi.");
+      }
       const updated = await apiPatch<Stage>(
         `/work-orders/${woId}/stages/${stage.id}`,
         { status, description: description.trim() || null },
@@ -432,6 +463,52 @@ function StageUpdateModal({ stage, woId, onClose, onDone }: {
               placeholder="Bu aşamada yapılan işlemler veya notlar..."
               className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none resize-none"
             />
+          </div>
+          <div>
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <label className="block text-xs font-medium text-slate-600">
+                {stage.stage_order === 4 ? "Tamamlama Fotoğrafı" : "Aşama Fotoğrafı (İsteğe Bağlı)"}
+                {stage.stage_order === 4 && status === "completed" && <span className="text-red-500"> *</span>}
+              </label>
+              {stage.stage_order === 4 && hasCompletionPhoto && (
+                <span className="text-[10px] font-medium text-emerald-600">Mevcut fotoğraf var</span>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 px-4 py-4 text-xs font-medium text-slate-500 hover:border-blue-300 hover:bg-blue-50/40 hover:text-blue-600"
+            >
+              <Camera className="h-4 w-4" /> Fotoğraf Ekle
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              multiple
+              accept="image/jpeg,image/png,image/webp"
+              capture="environment"
+              className="hidden"
+              onChange={event => addFiles(event.target.files)}
+            />
+            {files.length > 0 && (
+              <div className="mt-2 space-y-1.5">
+                {files.map((file, index) => (
+                  <div key={`${file.name}-${index}`} className="flex items-center gap-2 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+                    <ImageIcon className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                    <span className="flex-1 truncate text-xs text-slate-700">{file.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => setFiles(prev => prev.filter((_, itemIndex) => itemIndex !== index))}
+                      className="text-slate-400 hover:text-red-500"
+                      aria-label={`${file.name} dosyasını kaldır`}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <p className="mt-1.5 text-[10px] text-slate-400">Yüklenen görseller Saha Fotoğrafları bölümünde görünür.</p>
           </div>
           {err && <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{err}</p>}
         </div>
@@ -532,6 +609,7 @@ export default function WorkOrderDetailPage() {
   const isManager = pathname.startsWith("/manager/");
   const isUser = pathname.startsWith("/user/");
   const backHref = isManager ? "/manager/is-emirleri" : isUser ? "/user/islerim" : "/is-emirleri";
+  const storeBase = isManager ? "/manager/magaza-karti" : isUser ? "/user/magaza-karti" : "/projects";
 
   const [wo,           setWo]           = useState<WorkOrder | null>(null);
   const [photos,       setPhotos]       = useState<WOPhoto[]>([]);
@@ -580,6 +658,12 @@ export default function WorkOrderDetailPage() {
     setPhotos(Array.isArray(d) ? d : []);
   }, [id]);
 
+  const loadWorkOrder = useCallback(async () => {
+    if (!id) return;
+    const data = await apiGet<WorkOrder>(`/work-orders/${id}`);
+    setWo(data);
+  }, [id]);
+
   useEffect(() => {
     if (!id) return;
     setLoading(true);
@@ -607,9 +691,28 @@ export default function WorkOrderDetailPage() {
     } catch { /* ignore */ }
   };
 
+  const handleDeletePhoto = async (photoId: string) => {
+    if (!confirm("Bu saha görselini kalıcı olarak silmek istediğinize emin misiniz?")) return;
+    try {
+      await apiDelete(`/work-orders/${id}/photos/${photoId}`);
+      setPhotos(prev => prev.filter(photo => photo.id !== photoId));
+      setSelected(prev => {
+        const next = new Set(prev);
+        next.delete(`work:${photoId}`);
+        return next;
+      });
+      showSuccess("Saha görseli silindi.");
+    } catch {
+      showError("Görsel silinemedi. Mağaza kartına eklenmiş görseller önce envanterden kaldırılmalıdır.");
+    }
+  };
+
   const handleStageUpdate = (updated: Stage) => {
-    setStages(prev => prev.map(s => s.id === updated.id ? updated : s));
+    setStages(prev => updated.stage_order === 4 && updated.status === "completed"
+      ? prev.map(stage => ({ ...stage, status: "completed", updated_at: updated.updated_at, updated_by_name: updated.updated_by_name }))
+      : prev.map(stage => stage.id === updated.id ? updated : stage));
     setStageModal(null);
+    void Promise.all([loadStages(), loadPhotos(), loadWorkOrder()]);
     showSuccess("Aşama güncellendi.");
   };
 
@@ -673,22 +776,13 @@ export default function WorkOrderDetailPage() {
     before: "Hazırlık", after: "Uygulama / İmalat",
     issue: "Kontrol / Test", completion: "Tamamlandı",
   };
-  const allPhotoItems = [
-    ...photos.map((photo) => ({
+  const allPhotoItems = photos.map((photo) => ({
       key: `work:${photo.id}`, id: photo.id, kind: "work" as const,
       name: photo.file_name, url: photo.fresh_url, mime: photo.mime_type,
       uploadedBy: photo.uploaded_by_name, uploadedAt: photo.uploaded_at,
       isAdded: photo.is_added_to_inventory,
       source: photoSourceLabel[photo.photo_type] ?? "İş Emri",
-    })),
-    ...reports.flatMap((report) => report.photos.map((photo) => ({
-      key: `report:${photo.id}`, id: photo.id, kind: "report" as const,
-      name: photo.file_name, url: photo.fresh_url, mime: photo.mime_type,
-      uploadedBy: photo.uploaded_by_name, uploadedAt: photo.uploaded_at,
-      isAdded: photo.is_added_to_inventory,
-      source: "Rapor",
-    }))),
-  ];
+    }));
   const eligiblePhotos = allPhotoItems.filter((photo) => !photo.isAdded && photo.mime?.startsWith("image/"));
   const hasCriticalReport = reports.some(r => r.severity === "critical");
 
@@ -761,23 +855,42 @@ export default function WorkOrderDetailPage() {
               {rep.photos.length > 0 && (
                 <div className="flex gap-2 overflow-x-auto pb-1">
                   {rep.photos.map((rp, idx) => (
-                    <button
-                      key={rp.id}
-                      onClick={() => setLightbox({
-                        urls: rep.photos.map(p => p.fresh_url ?? ""),
-                        names: rep.photos.map(p => p.file_name ?? ""),
-                        idx,
-                      })}
-                      className="shrink-0 h-16 w-16 overflow-hidden rounded-lg border border-slate-200 hover:border-blue-300 transition-colors"
-                    >
-                      {rp.fresh_url && rp.mime_type?.startsWith("image/") ? (
-                        <img src={rp.fresh_url} alt={rp.file_name ?? ""} className="h-full w-full object-cover" />
-                      ) : (
-                        <div className="h-full w-full bg-slate-100 flex items-center justify-center">
-                          <FileText className="h-5 w-5 text-slate-300" />
-                        </div>
+                    <div key={rp.id} className="relative h-16 w-16 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setLightbox({
+                          urls: rep.photos.map(p => p.fresh_url ?? ""),
+                          names: rep.photos.map(p => p.file_name ?? ""),
+                          idx,
+                        })}
+                        className="h-16 w-16 overflow-hidden rounded-lg border border-slate-200 transition-colors hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        {rp.fresh_url && rp.mime_type?.startsWith("image/") ? (
+                          <img src={rp.fresh_url} alt={rp.file_name ?? "Rapor görseli"} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center bg-slate-100">
+                            <FileText className="h-5 w-5 text-slate-300" />
+                          </div>
+                        )}
+                      </button>
+                      {isManager && rp.mime_type?.startsWith("image/") && (
+                        rp.is_added_to_inventory ? (
+                          <span className="absolute bottom-1 right-1 flex h-6 w-6 items-center justify-center rounded-md bg-emerald-600 text-white shadow-sm" title="Görsel envantere eklendi">
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => { setSelected(new Set([`report:${rp.id}`])); setTransferOpen(true); }}
+                            className="absolute bottom-1 right-1 flex h-6 w-6 items-center justify-center rounded-md bg-blue-600 text-white shadow-sm transition hover:bg-blue-700 active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+                            aria-label={`${rp.file_name ?? "Rapor görseli"} görsel envantere ekle`}
+                            title="Görsel envantere ekle"
+                          >
+                            <Store className="h-3.5 w-3.5" />
+                          </button>
+                        )
                       )}
-                    </button>
+                    </div>
                   ))}
                 </div>
               )}
@@ -792,7 +905,8 @@ export default function WorkOrderDetailPage() {
 
   const StagesTab = () => {
     const completed = stages.filter(s => s.status === "completed").length;
-    const progressPct = stages.length > 0 ? Math.round((completed / stages.length) * 100) : 0;
+    const finalStageCompleted = stages.some(stage => stage.stage_order === 4 && stage.status === "completed");
+    const progressPct = finalStageCompleted ? 100 : stages.length > 0 ? Math.round((completed / stages.length) * 100) : 0;
 
     return (
       <div className="space-y-4">
@@ -964,6 +1078,17 @@ export default function WorkOrderDetailPage() {
                       <span className="text-[10px] font-semibold text-white">Eklendi</span>
                     </div>
                   )}
+                  {!photo.isAdded && (isUser || isManager) && (
+                    <button
+                      type="button"
+                      onClick={() => handleDeletePhoto(photo.id)}
+                      className="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-lg bg-white/90 text-slate-400 shadow-sm hover:bg-red-50 hover:text-red-600"
+                      aria-label={`${photo.name ?? "Saha görseli"} sil`}
+                      title="Sil"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                   <button
                     onClick={() => setLightbox({
                       urls: allPhotoItems.map((item) => item.url ?? ""),
@@ -1004,7 +1129,7 @@ export default function WorkOrderDetailPage() {
     { key: "reports" as const, label: "Raporlar", count: reports.length,
       icon: <FileText className="h-4 w-4" />,
       badge: hasCriticalReport ? "critical" : undefined },
-    { key: "photos"  as const, label: "Fotoğraflar", count: allPhotoItems.length,
+    { key: "photos"  as const, label: "Saha Fotoğrafları", count: allPhotoItems.length,
       icon: <Camera className="h-4 w-4" /> },
   ];
 
@@ -1059,9 +1184,9 @@ export default function WorkOrderDetailPage() {
             )}
           </div>
           <div className="flex shrink-0 flex-col gap-2">
-            {isManager && (
+            {(isManager || isUser) && (
               <Link
-                href={`/manager/magaza-karti/${wo.project_id}`}
+                href={`${storeBase}/${wo.project_id}`}
                 className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
               >
                 <Store className="h-3.5 w-3.5" /> Mağaza Kartı
@@ -1155,6 +1280,7 @@ export default function WorkOrderDetailPage() {
         <StageUpdateModal
           stage={stageModal}
           woId={wo.id}
+          hasCompletionPhoto={photos.some(photo => photo.photo_type === "completion")}
           onClose={() => setStageModal(null)}
           onDone={handleStageUpdate}
         />
@@ -1164,7 +1290,7 @@ export default function WorkOrderDetailPage() {
           woId={wo.id}
           photoIds={Array.from(selected).filter((key) => key.startsWith("work:")).map((key) => key.slice(5))}
           reportPhotoIds={Array.from(selected).filter((key) => key.startsWith("report:")).map((key) => key.slice(7))}
-          onClose={() => setTransferOpen(false)}
+          onClose={() => { setTransferOpen(false); setSelected(new Set()); }}
           onDone={() => { setTransferOpen(false); setSelected(new Set()); void Promise.all([loadPhotos(), loadReports()]); showSuccess("Fotoğraflar mağaza kartına eklendi."); }}
         />
       )}

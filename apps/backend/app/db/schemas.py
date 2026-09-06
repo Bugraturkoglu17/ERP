@@ -23,6 +23,7 @@ class Token(BaseModel):
     access_token:  str
     refresh_token: str
     token_type:    str = "bearer"
+    force_password_change: bool = False
 
 
 class TokenRefresh(BaseModel):
@@ -35,9 +36,9 @@ class LoginRequest(BaseModel):
 
 
 class CompletePasswordResetRequest(BaseModel):
-    email: EmailStr
+    email: str
     temporary_password: str
-    new_password: str
+    new_password: str = Field(min_length=8)
 
 
 class MessageResponse(BaseModel):
@@ -75,13 +76,15 @@ class TenantProfileUpdate(BaseModel):
 # ── User ──────────────────────────────────────────────────────────────────────
 
 class UserCreate(BaseModel):
-    email:       EmailStr
-    password:    str
+    email:       EmailStr | None = None
+    password:    str = Field(min_length=8)
     full_name:   str
-    phone:       str | None         = None
+    phone:       str
     roles:       list[str]
     discipline:  str | None         = None
     discipline_only: bool = False
+    is_active:   bool = True
+    tenant_id:   UUID | None = None
 
 
 class UserRead(BaseModel):
@@ -94,6 +97,8 @@ class UserRead(BaseModel):
     discipline_only:bool
     is_active:      bool
     default_role:   str | None
+    force_password_change: bool = False
+    onboarding_complete: bool = True
     model_config   = ConfigDict(from_attributes=True)
 
 
@@ -102,6 +107,7 @@ class UserUpdate(BaseModel):
     phone:      str | None         = None
     discipline: str | None         = None
     is_active:  bool | None        = None
+    roles:      list[str] | None   = None
 
 
 class TenantCreate(BaseModel):

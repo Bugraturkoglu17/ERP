@@ -38,6 +38,10 @@ function dateLabel(value: string | null) {
   return new Date(value).toLocaleDateString("tr-TR", { day: "2-digit", month: "short", year: "numeric" });
 }
 
+function isOverdueOrder(order: WorkOrder) {
+  return Boolean(order.due_date && !["completed", "cancelled"].includes(order.status) && new Date(order.due_date).getTime() < Date.now());
+}
+
 function getWarnings(order: WorkOrder) {
   if (order.status === "completed" || order.status === "cancelled") return [];
   const warnings: { label: string; tone: string }[] = [];
@@ -60,6 +64,7 @@ export default function ManagerWorkOrdersPage() {
   const [priority, setPriority] = useState<WorkOrderPriority | "">("");
   const [assignee, setAssignee] = useState("");
   const [statusFilter, setStatusFilter] = useState<"current" | "cancelled">("current");
+  const [overdueOnly, setOverdueOnly] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -68,6 +73,19 @@ export default function ManagerWorkOrdersPage() {
       .then(([workOrders, team]) => { setOrders(workOrders); setUsers(team); })
       .catch(() => setError("İş emirleri yüklenemedi. Lütfen tekrar deneyin."))
       .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requestedTab = params.get("tab");
+    if (requestedTab === "planned" || requestedTab === "in_progress" || requestedTab === "completed") {
+      setActiveTab(requestedTab);
+      setStatusFilter("current");
+      setOverdueOnly(false);
+    } else if (params.get("filter") === "overdue") {
+      setStatusFilter("current");
+      setOverdueOnly(true);
+    }
   }, []);
 
   const counts = useMemo(() => ({
@@ -79,14 +97,16 @@ export default function ManagerWorkOrdersPage() {
   const filtered = useMemo(() => {
     const search = query.trim().toLocaleLowerCase("tr-TR");
     return orders.filter((item) => {
-      if (statusFilter === "cancelled" ? item.status !== "cancelled" : item.status !== activeTab) return false;
+      if (overdueOnly) {
+        if (!isOverdueOrder(item)) return false;
+      } else if (statusFilter === "cancelled" ? item.status !== "cancelled" : item.status !== activeTab) return false;
       if (search && !`${item.title} ${item.store_name} ${item.store_code} ${item.assigned_to_name}`.toLocaleLowerCase("tr-TR").includes(search)) return false;
       if (category && item.category !== category) return false;
       if (priority && item.priority !== priority) return false;
       if (assignee && item.assigned_to !== assignee) return false;
       return true;
     });
-  }, [orders, statusFilter, activeTab, query, category, priority, assignee]);
+  }, [orders, statusFilter, overdueOnly, activeTab, query, category, priority, assignee]);
 
   return (
     <div className="mx-auto max-w-7xl space-y-5">
@@ -102,7 +122,7 @@ export default function ManagerWorkOrdersPage() {
 
       <nav className="grid grid-cols-3 overflow-hidden rounded-xl border border-slate-200 bg-white" aria-label="İş emri durumları">
         {TABS.map((tab) => (
-          <button key={tab.key} onClick={() => { setActiveTab(tab.key); setStatusFilter("current"); }} className={`border-r border-slate-100 px-3 py-3 text-sm font-medium transition last:border-r-0 ${activeTab === tab.key && statusFilter === "current" ? "bg-slate-950 text-white" : "text-slate-500 hover:bg-slate-50"}`}>
+          <button key={tab.key} onClick={() => { setActiveTab(tab.key); setStatusFilter("current"); setOverdueOnly(false); }} className={`border-r border-slate-100 px-3 py-3 text-sm font-medium transition last:border-r-0 ${activeTab === tab.key && statusFilter === "current" && !overdueOnly ? "bg-slate-950 text-white" : "text-slate-500 hover:bg-slate-50"}`}>
             {tab.label} <span className="ml-1 tabular-nums opacity-70">{counts[tab.key]}</span>
           </button>
         ))}
@@ -126,12 +146,14 @@ export default function ManagerWorkOrdersPage() {
             <option value="">Tüm Çalışanlar</option>
             {users.map((user) => <option key={user.id} value={user.id}>{user.full_name}</option>)}
           </select>
-          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as "current" | "cancelled")} className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 outline-none focus:border-blue-500">
+          <select value={statusFilter} onChange={(event) => { setStatusFilter(event.target.value as "current" | "cancelled"); setOverdueOnly(false); }} className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 outline-none focus:border-blue-500">
             <option value="current">Sekme Durumu</option>
             <option value="cancelled">İptal Edilenler</option>
           </select>
         </div>
       </section>
+
+      {overdueOnly && <div className="flex items-center justify-between rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700"><span className="font-semibold">Yalnızca termini geçmiş işler gösteriliyor.</span><button type="button" onClick={() => { setOverdueOnly(false); setActiveTab("in_progress"); }} className="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold shadow-sm hover:bg-red-100">Filtreyi kaldır</button></div>}
 
       {error && <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"><AlertCircle className="h-4 w-4" />{error}</div>}
 

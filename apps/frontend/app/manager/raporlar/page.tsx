@@ -6,7 +6,9 @@ import { AlertTriangle, ArrowRight, FileText, Loader2, Search } from "lucide-rea
 import { apiGet } from "@/lib/api";
 import { getManagerWorkOrders, type WorkOrder } from "@/services/managerWorkOrders";
 
-type ReportPhoto = { id: string };
+type ReportPhoto = {
+  id: string; file_name?: string; mime_type?: string; fresh_url?: string;
+};
 type Report = {
   id: string; work_order_id: string; title: string; description?: string;
   severity: "normal" | "important" | "critical"; created_by_name?: string;
@@ -87,12 +89,19 @@ export default function ManagerReportsPage() {
           : error ? <p className="px-5 py-14 text-center text-sm text-red-600">{error}</p>
           : filtered.length === 0 ? <div className="px-5 py-16 text-center"><FileText className="mx-auto h-8 w-8 text-slate-300" /><p className="mt-3 text-sm text-slate-500">Eşleşen rapor bulunamadı.</p></div>
           : <div className="divide-y divide-slate-100">{filtered.map((row) => (
-            <Link key={row.id} href={`/manager/is-emirleri/${row.work_order_id}`} className="grid gap-3 px-5 py-4 hover:bg-slate-50 sm:grid-cols-[140px_1fr_220px_auto] sm:items-center">
+            <article key={row.id} className="grid gap-3 px-5 py-4 transition-colors hover:bg-slate-50 sm:grid-cols-[120px_1fr_190px_minmax(120px,auto)_auto] sm:items-center">
               <div><span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${severityClass[row.severity]}`}>{row.severity === "critical" && <AlertTriangle className="h-3 w-3" />}{severityLabel[row.severity]}</span></div>
-              <div className="min-w-0"><p className="truncate text-sm font-semibold text-slate-900">{row.title}</p><p className="mt-0.5 truncate text-xs text-slate-500">{row.description || "Açıklama eklenmedi"}</p></div>
+              <div className="min-w-0"><Link href={`/manager/is-emirleri/${row.work_order_id}`} className="truncate text-sm font-semibold text-slate-900 hover:text-blue-700">{row.title}</Link><p className="mt-0.5 truncate text-xs text-slate-500">{row.description || "Açıklama eklenmedi"}</p></div>
               <div className="min-w-0"><p className="truncate text-xs font-medium text-slate-700">{row.order?.store_name ?? "Mağaza bilgisi yok"}</p><p className="truncate text-xs text-slate-400">{row.order?.title ?? "İş emri"} | {row.created_by_name ?? "Kullanıcı"}</p></div>
-              <div className="flex items-center justify-between gap-3 sm:justify-end"><time className="text-xs text-slate-400">{new Date(row.created_at).toLocaleDateString("tr-TR")}</time><ArrowRight className="h-4 w-4 text-slate-300" /></div>
-            </Link>
+              <div className="flex gap-2 overflow-x-auto" aria-label="Rapor görselleri">
+                {(row.photos ?? []).filter(photo => photo.mime_type?.startsWith("image/")).map(photo => (
+                  <div key={photo.id} className="h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-slate-100" title={photo.file_name}>
+                    {photo.fresh_url ? <img src={photo.fresh_url} alt={photo.file_name ?? "Rapor görseli"} className="h-full w-full object-cover" /> : <FileText className="m-4 h-5 w-5 text-slate-300" />}
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center justify-between gap-3 sm:justify-end"><time className="text-xs text-slate-400">{new Date(row.created_at).toLocaleDateString("tr-TR")}</time><Link href={`/manager/is-emirleri/${row.work_order_id}`} aria-label="İş emri detayını aç"><ArrowRight className="h-4 w-4 text-slate-300" /></Link></div>
+            </article>
           ))}</div>}
       </div>
     </div>

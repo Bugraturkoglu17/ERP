@@ -8,7 +8,9 @@
  * <QuickSwitch /> çağrısı kaldırılır.
  */
 import { useState } from "react";
-import { ArrowRight, Loader2, LogOut } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { ArrowRight, LayoutDashboard, Loader2, LogOut, UserRound } from "lucide-react";
 import { useAuth, AUTH_STORE_KEY } from "@/contexts/auth-context";
 import { ROLE_LABEL, type UserRole } from "@/lib/permissions";
 import { DEMO_MODE, demoLogin, type LoginTarget } from "@/lib/demo-auth";
@@ -16,21 +18,37 @@ import { DEMO_MODE, demoLogin, type LoginTarget } from "@/lib/demo-auth";
 const QUICK_ACCOUNTS: {
   role: UserRole;
   label: string;
-  email: string;
   target: LoginTarget;
   home: string;
-  avatarCls: string;
 }[] = [
-  { role: "ADMIN",   target: "admin",   label: "Admin",     email: "admin@sismik.com",    home: "/admin/dashboard",   avatarCls: "bg-indigo-500" },
-  { role: "MANAGER", target: "manager", label: "Yönetici",  email: "yonetici@sismik.com", home: "/manager/dashboard", avatarCls: "bg-blue-500"   },
-  { role: "USER",    target: "user",    label: "Kullanıcı", email: "saha@sismik.com",     home: "/user/dashboard",    avatarCls: "bg-teal-500"   },
+  { role: "ADMIN", target: "admin", label: "Admin", home: "/admin/dashboard" },
+  { role: "MANAGER", target: "manager", label: "Yönetici", home: "/manager/dashboard" },
+  { role: "USER", target: "user", label: "Kullanıcı", home: "/user/dashboard" },
 ];
 
 export function QuickSwitch() {
   const { user, logout } = useAuth();
+  const pathname = usePathname();
   const [switching, setSwitching] = useState<UserRole | null>(null);
 
-  if (!DEMO_MODE || !user) return null;
+  if (!user) return null;
+
+  if (user.role === "ADMIN") {
+    const views = [
+      { label: "Admin Görünümü", href: "/admin/dashboard" },
+      { label: "Yönetici Görünümü", href: "/manager/dashboard" },
+      { label: "Kullanıcı Görünümü", href: "/user/dashboard" },
+    ];
+    return (
+      <div className="border-t border-white/[0.06] px-3 py-3">
+        <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-white/30">Panel Görünümü</p>
+        <div className="space-y-0.5">{views.map((view) => <Link key={view.href} href={view.href} className={`flex items-center gap-2.5 rounded-lg px-2 py-2 text-xs transition-colors ${pathname.startsWith(view.href.split("/dashboard")[0]) ? "bg-white/[0.08] text-white" : "text-slate-400 hover:bg-white/[0.06] hover:text-white"}`}><LayoutDashboard className="h-3.5 w-3.5" />{view.label}</Link>)}</div>
+        <button onClick={logout} className="mt-3 flex w-full items-center gap-2 border-t border-white/[0.06] px-2 pt-3 text-xs text-slate-400 hover:text-white"><LogOut className="h-3.5 w-3.5" />Çıkış Yap</button>
+      </div>
+    );
+  }
+
+  if (!DEMO_MODE) return null;
 
   const others = QUICK_ACCOUNTS.filter((a) => a.role !== user.role);
 
@@ -62,9 +80,7 @@ export function QuickSwitch() {
             disabled={switching !== null}
             className="group flex w-full items-center gap-2.5 rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.06] disabled:opacity-50"
           >
-            <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white ${acc.avatarCls}`}>
-              {acc.label.slice(0, 2).toUpperCase()}
-            </div>
+            <LayoutDashboard className="h-3.5 w-3.5 shrink-0 text-slate-500 group-hover:text-slate-300" />
             <span className="flex-1 truncate text-left text-xs text-slate-300">{acc.label}</span>
             {switching === acc.role ? (
               <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-slate-500" />
@@ -76,9 +92,7 @@ export function QuickSwitch() {
       </div>
 
       <div className="flex items-center gap-2.5 border-t border-white/[0.06] p-3">
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-400 text-[11px] font-semibold text-slate-900">
-          {ROLE_LABEL[user.role].slice(0, 2).toUpperCase()}
-        </div>
+        <UserRound className="h-4 w-4 shrink-0 text-slate-500" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-xs font-medium text-white">{ROLE_LABEL[user.role]}</p>
           <p className="text-[10px] text-white/40">Aktif hesap</p>

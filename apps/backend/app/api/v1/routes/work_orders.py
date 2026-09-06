@@ -64,9 +64,9 @@ SEVERITY_LABELS = {
 }
 
 STATUS_LABELS = {
-    "draft":            "Taslak",
-    "sent":             "WhatsApp Gönderildi",
-    "started":          "İşe Başlandı",
+    "draft":            "Planlanacak",
+    "sent":             "Planlanacak",
+    "started":          "Devam Ediyor",
     "completed":        "Tamamlandı",
     "failed":           "Tamamlanmadı",
     "cancelled":        "İptal Edildi",
@@ -74,6 +74,13 @@ STATUS_LABELS = {
     "revisit":          "Tekrar Gidilecek",
     "approval_pending": "Onay Bekliyor",
     "approved":         "Onaylandı",
+}
+
+STAGE_STATUS_LABELS = {
+    "planned": "Planlandı",
+    "in_progress": "Devam Ediyor",
+    "completed": "Tamamlandı",
+    "cancelled": "İptal Edildi",
 }
 
 
@@ -554,6 +561,12 @@ async def update_work_order(
     if payload.priority is not None:        wo.priority = payload.priority
     if payload.due_date is not None:        wo.due_date = _parse_date(payload.due_date)
     if payload.status is not None:
+        stages_r = await db.execute(
+            select(WorkOrderStage)
+            .where(WorkOrderStage.work_order_id == wo.id)
+            .order_by(WorkOrderStage.stage_order)
+        )
+        order_stages = list(stages_r.scalars().all())
         if payload.status == "completed":
             completion_photos = await db.execute(
                 select(WorkOrderPhoto).where(
@@ -563,10 +576,23 @@ async def update_work_order(
             )
             if not completion_photos.scalars().first():
                 raise HTTPException(400, "İşi tamamlamak için en az bir nihai fotoğraf yükleyin.")
-            wo.completed_at = utc_now()
+            completed_at = utc_now()
+            wo.completed_at = completed_at
+            for item in order_stages:
+                item.status = "completed"
+                item.updated_at = completed_at
+                item.updated_by_name = user.full_name
         if payload.status == "started" and not wo.started_at:
             wo.started_at = utc_now()
+        if payload.status == "started" and order_stages and all(item.status == "planned" for item in order_stages):
+            order_stages[0].status = "in_progress"
+            order_stages[0].updated_at = utc_now()
+            order_stages[0].updated_by_name = user.full_name
         wo.status = payload.status
+        await _log_activity(
+            db, wo.id, wo.project_id, "status_updated",
+            f"İş emri durumu güncellendi: {STATUS_LABELS.get(payload.status, payload.status)}",
+        )
     wo.updated_at = utc_now()
 
     await db.commit()
@@ -858,16 +884,36 @@ async def update_stage(
     stage.updated_by_name  = user.full_name
 
     stages_r = await db.execute(
-        select(WorkOrderStage).where(WorkOrderStage.work_order_id == work_order_id)
+        select(WorkOrderStage)
+        .where(WorkOrderStage.work_order_id == work_order_id)
+        .order_by(WorkOrderStage.stage_order)
     )
     all_stages = list(stages_r.scalars().all())
-    if all_stages and all(item.status == "completed" for item in all_stages):
+    if stage.stage_order == 4 and stage.status == "completed":
+        completed_at = utc_now()
+        for item in all_stages:
+            item.status = "completed"
+            item.updated_at = completed_at
+            item.updated_by_name = user.full_name
         wo.status = WorkOrderStatus.COMPLETED
-        wo.completed_at = utc_now()
+        wo.completed_at = completed_at
+    elif all_stages and all(item.status == "cancelled" for item in all_stages):
+        wo.status = WorkOrderStatus.CANCELLED
+        wo.completed_at = None
+    elif all_stages and all(item.status == "planned" for item in all_stages):
+        wo.status = WorkOrderStatus.DRAFT
+        wo.completed_at = None
     elif any(item.status in {"in_progress", "completed"} for item in all_stages):
         wo.status = WorkOrderStatus.STARTED
         wo.started_at = wo.started_at or utc_now()
+        wo.completed_at = None
     wo.updated_at = utc_now()
+
+    await _log_activity(
+        db, wo.id, wo.project_id, "stage_updated",
+        f"{stage.stage_name} aşaması: {STAGE_STATUS_LABELS.get(stage.status, stage.status)}",
+        payload.description,
+    )
 
     await db.commit()
     await db.refresh(stage)
@@ -1054,6 +1100,41 @@ async def list_work_order_photos(
             fresh_url=url,
         ))
     return result
+
+
+@router.delete("/{work_order_id}/photos/{photo_id}", status_code=204)
+async def delete_work_order_photo(
+    work_order_id: UUID,
+    photo_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    wo = await db.get(WorkOrder, work_order_id)
+    if not wo:
+        raise HTTPException(404, "İş emri bulunamadı.")
+    _ensure_work_order_access(wo, user)
+
+    photo = await db.get(WorkOrderPhoto, photo_id)
+    if not photo or photo.work_order_id != work_order_id:
+        raise HTTPException(404, "Saha görseli bulunamadı.")
+
+    inventory_refs, _ = await _photo_inventory_refs(wo.project_id, db)
+    if photo.file_key in inventory_refs:
+        raise HTTPException(409, "Mağaza kartına eklenmiş saha görseli silinemez.")
+
+    deleted = await storage.delete_file(photo.file_key)
+    if not deleted:
+        raise HTTPException(500, "Dosya depolamadan silinemedi.")
+
+    await db.delete(photo)
+    await _log_activity(
+        db,
+        wo.id,
+        wo.project_id,
+        "photo_deleted",
+        f"Saha görseli silindi: {photo.file_name or 'Dosya'}",
+    )
+    await db.commit()
 
 
 # ── Fotoğrafları Görsel Envanter'e aktar ─────────────────────────────────────

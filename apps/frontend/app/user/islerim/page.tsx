@@ -98,9 +98,11 @@ export default function UserIslerimPage() {
             >
               <div className={`h-2.5 w-2.5 shrink-0 rounded-full ${PRIORITY_DOT[wo.priority] ?? "bg-slate-400"}`} />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-slate-800">{wo.title}</p>
+                <p className="truncate text-sm font-medium text-slate-800">
+                  {wo.project_name ?? "Mağaza bilgisi yok"} - {wo.title}
+                </p>
                 <p className="mt-0.5 text-xs text-slate-400">
-                  {wo.project_name ?? "Mağaza bilgisi yok"} | {wo.work_type_label}
+                  {wo.project_no ? `Mağaza kodu: ${wo.project_no} | ` : ""}{wo.work_type_label}
                 </p>
               </div>
               <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_COLOR[wo.status] ?? "bg-slate-100 text-slate-500"}`}>

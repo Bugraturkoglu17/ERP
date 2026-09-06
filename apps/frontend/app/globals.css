@@ -6,6 +6,29 @@
   100% { transform: translateX(100%); }
 }
 
+@keyframes brand-stroke-draw {
+  0% { stroke-dashoffset: 140; opacity: 0; }
+  8% { opacity: 1; }
+  100% { stroke-dashoffset: 0; opacity: 1; }
+}
+
+@keyframes brand-light-pass {
+  0%, 32% { stroke-dashoffset: 205; opacity: 0; }
+  38% { opacity: 0.95; }
+  70% { stroke-dashoffset: -205; opacity: 0.95; }
+  76%, 100% { stroke-dashoffset: -205; opacity: 0; }
+}
+
+@keyframes launch-screen-exit {
+  0%, 82% { opacity: 1; visibility: visible; }
+  100% { opacity: 0; visibility: hidden; }
+}
+
+@keyframes launch-wordmark-in {
+  0%, 42% { opacity: 0; transform: translateY(8px); }
+  60%, 100% { opacity: 1; transform: translateY(0); }
+}
+
 :root {
   /* Navy + Warm Gray — Kurumsal ERP Paleti */
   --background: 210 20% 98%;
@@ -66,7 +89,8 @@
 
 @layer base {
   body {
-    @apply bg-slate-50 text-slate-900 antialiased selection:bg-indigo-500/10 selection:text-indigo-900;
+    @apply bg-slate-50 text-slate-900 antialiased selection:bg-blue-500/10 selection:text-blue-950;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 }
 
@@ -138,4 +162,107 @@
   .corp-btn-danger {
     @apply inline-flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white text-xs font-bold px-4 py-2.5 rounded-xl border border-rose-700/80 shadow-sm transition-colors duration-150;
   }
+
+  .erp-spotlight-card {
+    --spot-x: 50%;
+    --spot-y: 50%;
+    --tilt-x: 0deg;
+    --tilt-y: 0deg;
+    @apply relative isolate overflow-hidden bg-white transition-[transform,background-color] duration-200;
+    transform: perspective(900px) rotateX(var(--tilt-x)) rotateY(var(--tilt-y));
+    transform-style: preserve-3d;
+  }
+
+  .erp-workspace {
+    background-color: rgb(248 250 252);
+    background-image:
+      radial-gradient(circle at 9% 2%, rgb(37 99 235 / 0.045), transparent 25rem),
+      linear-gradient(rgb(226 232 240 / 0.3) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(226 232 240 / 0.3) 1px, transparent 1px);
+    background-size: auto, 32px 32px, 32px 32px;
+    background-attachment: local;
+  }
+
+  .erp-section-card {
+    @apply overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-[0_10px_35px_rgba(15,23,42,0.035)];
+  }
+
+  .erp-launch-screen {
+    @apply fixed inset-0 z-[60] flex items-center justify-center overflow-hidden bg-[#09111b];
+    animation: launch-screen-exit 5.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+
+  .erp-launch-ambient {
+    @apply pointer-events-none absolute h-80 w-80 rounded-full opacity-40 blur-3xl;
+    background: radial-gradient(circle, rgb(255 255 255 / 0.08), transparent 68%);
+  }
+
+  .erp-brand-mark--animated {
+    filter: none;
+  }
+
+  .erp-brand-mark--animated .erp-brand-stroke {
+    stroke-dasharray: 140;
+    stroke-dashoffset: 140;
+    animation: brand-stroke-draw 1.15s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+  }
+
+  .erp-brand-mark--animated .erp-brand-stroke--two { animation-delay: 0.16s; }
+  .erp-brand-mark--animated .erp-brand-stroke--three { animation-delay: 0.34s; }
+
+  .erp-brand-shine {
+    stroke-dasharray: 16 189;
+    stroke-dashoffset: 205;
+    opacity: 0;
+    filter: drop-shadow(0 0 4px rgb(255 255 255 / 0.75));
+    animation: brand-light-pass 4.8s ease-in-out 1.05s infinite;
+  }
+
+  .erp-launch-wordmark {
+    opacity: 0;
+    animation: launch-wordmark-in 2.1s ease-out forwards;
+  }
+
+  .erp-spotlight-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    background: radial-gradient(circle at var(--spot-x) var(--spot-y), rgb(37 99 235 / 0.12), transparent 52%);
+    transition: opacity 220ms ease;
+  }
+
+  .erp-spotlight-card:hover::before,
+  .erp-spotlight-card:focus-visible::before {
+    opacity: 1;
+  }
+
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .erp-spotlight-card {
+    transform: none !important;
+    transition: none;
+  }
+
+  .erp-launch-screen {
+    animation-duration: 1.2s;
+  }
+
+  .erp-brand-mark--animated .erp-brand-stroke {
+    stroke-dashoffset: 0;
+    animation: none;
+  }
+
+  .erp-brand-shine {
+    display: none;
+  }
+
+  .erp-launch-wordmark {
+    opacity: 1;
+    transform: none;
+    animation: none;
+  }
+
 }

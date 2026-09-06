@@ -180,7 +180,7 @@ function writeTabToUrl(tab: TabKey) {
 
 // ── Doc List ───────────────────────────────────────────────────────────────────
 
-function DocList({ docs, projectId }: { docs: Document[]; projectId?: string }) {
+function DocList({ docs, archiveHref }: { docs: Document[]; archiveHref: string }) {
   const handleDownload = async (doc: Document) => {
     try {
       const data = await apiGet<{ url: string }>(`/documents/${doc.id}/download`);
@@ -235,7 +235,7 @@ function DocList({ docs, projectId }: { docs: Document[]; projectId?: string }) 
                 className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-green-50 hover:text-green-600"><Download className="h-3.5 w-3.5" /></button>
               {doc.is_archive && (
                 <Link
-                  href="/genel-arsiv"
+                  href={archiveHref}
                   title="Genel Arşivde Göster"
                   className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-purple-50 hover:text-purple-600"
                 >
@@ -368,9 +368,12 @@ export default function MagazaDetailPage() {
   const { id } = useParams<{ id: string }>();
   const pathname = usePathname();
   const isManager = pathname?.startsWith("/manager") ?? false;
+  const isUser = pathname?.startsWith("/user") ?? false;
   const backHref = pathname?.startsWith("/manager") ? "/manager/magaza-karti"
     : pathname?.startsWith("/admin") ? "/admin/stores"
+    : pathname?.startsWith("/user") ? "/user/magaza-karti"
     : "/projects";
+  const archiveHref = isManager ? "/manager/genel-arsiv" : isUser ? "/user/genel-arsiv" : "/genel-arsiv";
 
   const [project, setProject] = useState<Project | null>(null);
   const [docs,    setDocs]    = useState<Document[]>([]);
@@ -490,10 +493,10 @@ export default function MagazaDetailPage() {
                 <ClipboardPlus className="h-3.5 w-3.5" /> İş Emri Oluştur
               </Link>
             )}
-            <button onClick={() => setEditOpen(true)}
+            {!isUser && <button onClick={() => setEditOpen(true)}
               className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
               <Edit2 className="h-3.5 w-3.5" /> Düzenle
-            </button>
+            </button>}
           </div>
         </div>
 
@@ -605,7 +608,7 @@ export default function MagazaDetailPage() {
                   ))}
                 </div>
               )}
-              <DocList docs={filteredProjectDocs} projectId={id} />
+              <DocList docs={filteredProjectDocs} archiveHref={archiveHref} />
             </div>
           )}
 
@@ -631,14 +634,14 @@ export default function MagazaDetailPage() {
                 <AlertCircle className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" />
                 <p className="text-xs text-slate-500">Bu alan mağazaya bağlanmış dosyaları görüntülemek içindir. Dosya ekleme işlemleri Genel Arşiv üzerinden yapılır.</p>
               </div>
-              <DocList docs={otherDocs} projectId={id} />
+              <DocList docs={otherDocs} archiveHref={archiveHref} />
             </div>
           )}
         </div>
       </div>
 
       {/* Modals */}
-      {editOpen && project && <EditModal project={project} onClose={() => setEditOpen(false)} onDone={(p) => setProject(p)} />}
+      {!isUser && editOpen && project && <EditModal project={project} onClose={() => setEditOpen(false)} onDone={(p) => setProject(p)} />}
     </div>
   );
 }

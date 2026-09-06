@@ -7,33 +7,33 @@ import { Menu, X, type LucideIcon } from "lucide-react";
 import { RoleGuard } from "@/components/auth/role-guard";
 import { QuickSwitch } from "@/components/layout/quick-switch";
 import type { UserRole } from "@/lib/permissions";
+import { AppLaunch } from "@/components/brand/app-launch";
+import { BrandMark, type BrandTone } from "@/components/brand/brand-mark";
 
 export type CorporateNavItem = { href: string; label: string; icon: LucideIcon };
 
 function CorporateSidebar({
   mobileOpen,
   onClose,
-  monogram,
+  brandTone,
   title,
   navItems,
 }: {
   mobileOpen: boolean;
   onClose: () => void;
-  monogram: string;
+  brandTone: BrandTone;
   title: string;
   navItems: CorporateNavItem[];
 }) {
   const pathname = usePathname();
 
   const inner = (
-    <div className="flex h-full flex-col border-t-[3px] border-t-amber-400" style={{ background: "#0c1520" }}>
-      <div className="flex h-14 items-center justify-between px-4 border-b border-white/[0.06]">
+    <div className={`flex h-full flex-col border-t-[3px] bg-[#0c1520] ${brandTone === "amber" ? "border-t-amber-400" : "border-t-[#ff3131]"}`}>
+      <div className="flex h-16 items-center justify-between border-b border-white/[0.06] px-4">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-7 w-7 items-center justify-center rounded bg-amber-400 text-slate-900 text-xs font-black shrink-0">
-            {monogram}
-          </div>
+          <BrandMark tone={brandTone} className="h-9 w-9 shrink-0" />
           <div>
-            <span className="text-sm font-semibold text-white leading-none">{title}</span>
+            <span className="text-sm font-semibold tracking-[-0.02em] text-white leading-none">{title}</span>
             <span className="block text-[10px] text-white/40 mt-0.5 uppercase tracking-widest">ERP Sistemi</span>
           </div>
         </div>
@@ -42,7 +42,7 @@ function CorporateSidebar({
         </button>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
+      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-5">
         {navItems.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || pathname.startsWith(href + "/");
           return (
@@ -50,13 +50,14 @@ function CorporateSidebar({
               key={href}
               href={href}
               onClick={onClose}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${
+              className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 ${
                 active
-                  ? "bg-white/[0.08] text-white font-medium"
-                  : "text-slate-400 hover:bg-white/[0.04] hover:text-slate-200"
+                  ? "bg-white/[0.09] text-white font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+                  : "text-slate-400 hover:translate-x-0.5 hover:bg-white/[0.04] hover:text-slate-200"
               }`}
             >
-              <Icon className="h-4 w-4 shrink-0" />
+              {active && <span className={`absolute -left-3 h-5 w-0.5 rounded-r ${brandTone === "amber" ? "bg-amber-400" : "bg-[#ff3131]"}`} />}
+              <Icon className={`h-4 w-4 shrink-0 ${active ? (brandTone === "amber" ? "text-amber-300" : "text-red-400") : "text-slate-500 group-hover:text-slate-300"}`} strokeWidth={1.8} />
               {label}
             </Link>
           );
@@ -87,14 +88,14 @@ function CorporateSidebar({
 export function CorporateShell({
   children,
   allowedRoles,
-  monogram,
+  brandTone = "red",
   title,
   navItems,
   headerLabel,
 }: {
   children: ReactNode;
   allowedRoles: UserRole[];
-  monogram: string;
+  brandTone?: BrandTone;
   title: string;
   navItems: CorporateNavItem[];
   headerLabel: ReactNode;
@@ -103,29 +104,34 @@ export function CorporateShell({
 
   return (
     <RoleGuard allowedRoles={allowedRoles} spinnerBg="bg-slate-50">
-      <div className="flex h-screen overflow-hidden bg-slate-50">
+      <AppLaunch tone={brandTone} scope={allowedRoles.join("-")} />
+      <div className="flex min-h-dvh overflow-hidden bg-slate-50">
         <CorporateSidebar
           mobileOpen={mobileOpen}
           onClose={() => setMobileOpen(false)}
-          monogram={monogram}
+          brandTone={brandTone}
           title={title}
           navItems={navItems}
         />
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-6">
+          <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/90 px-4 backdrop-blur-xl sm:px-6">
             <button
               onClick={() => setMobileOpen(true)}
-              className="lg:hidden flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
+              className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 shadow-sm transition hover:bg-slate-50 active:scale-[0.98] lg:hidden"
+              aria-label="Menüyü aç"
             >
               <Menu className="h-4 w-4" />
             </button>
-            <div className="hidden lg:block" />
+            <div className="hidden lg:block">
+              <p className="text-xs font-semibold tracking-[-0.01em] text-slate-700">Sismik ERP</p>
+              <p className="mt-0.5 text-[10px] text-slate-400">Güvenli operasyon çalışma alanı</p>
+            </div>
             <div className="flex items-center gap-2">
-              <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">{headerLabel}</span>
+              <div className="h-2 w-2 rounded-full bg-emerald-500 ring-4 ring-emerald-50" />
+              <span className="max-w-[11rem] truncate text-[11px] font-semibold tracking-wide text-slate-500 sm:max-w-none">{headerLabel}</span>
             </div>
           </header>
-          <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">{children}</main>
+          <main id="main-content" className="erp-workspace flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">{children}</main>
         </div>
       </div>
     </RoleGuard>

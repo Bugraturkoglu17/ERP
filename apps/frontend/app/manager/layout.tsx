@@ -23,7 +23,7 @@ export default function ManagerLayout({ children }: { children: React.ReactNode 
   return (
     <CorporateShell
       allowedRoles={["MANAGER"]}
-      monogram="Y"
+      brandTone="red"
       title="Yönetici Paneli"
       navItems={NAV}
       headerLabel="Operasyon Yönetimi"
