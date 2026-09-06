@@ -8,6 +8,7 @@ from collections.abc import AsyncGenerator
 from typing import Generator
 
 from sqlalchemy import create_engine
+from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import (
     AsyncAttrs,
     AsyncSession,
@@ -21,9 +22,8 @@ from app.core.config import settings
 
 
 # ── Sync Engine  (migrations, celery, sync crud) ──────────────────────────────
-_sync_url = str(settings.DATABASE_URL).replace("+asyncpg", "+psycopg2")
-if "postgresql://" in _sync_url and "+psycopg2" not in _sync_url:
-    _sync_url = _sync_url.replace("postgresql://", "postgresql+psycopg2://")
+_database_url = make_url(str(settings.DATABASE_URL))
+_sync_url = _database_url.set(drivername="postgresql+psycopg2")
 
 engine = create_engine(
     _sync_url,
@@ -33,15 +33,27 @@ engine = create_engine(
 )
 
 # ── Async Engine  (FastAPI route'ları için) ──────────────────────────────────
-_async_url = str(settings.DATABASE_URL).replace("+psycopg2", "+asyncpg")
-if "postgresql://" in _async_url and "+asyncpg" not in _async_url:
-    _async_url = _async_url.replace("postgresql://", "postgresql+asyncpg://")
+# Neon supplies libpq-only query parameters.  SQLAlchemy forwards URL query
+# parameters to asyncpg as keyword arguments, where ``sslmode`` and
+# ``channel_binding`` are not accepted.  Translate SSL to asyncpg's supported
+# ``ssl`` argument and discard the unsupported channel-binding hint.
+_async_query = dict(_database_url.query)
+_async_ssl_mode = _async_query.pop("sslmode", None)
+_async_query.pop("channel_binding", None)
+_async_url = _database_url.set(
+    drivername="postgresql+asyncpg",
+    query=_async_query,
+)
+_async_connect_args = {}
+if _async_ssl_mode:
+    _async_connect_args["ssl"] = _async_ssl_mode
 
 async_engine = create_async_engine(
     _async_url,
     echo=settings.is_development,
     future=True,
     pool_pre_ping=True,
+    connect_args=_async_connect_args,
 )
 
 # ── Session Maker ─────────────────────────────────────────────────────────────
