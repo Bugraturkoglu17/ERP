@@ -5,7 +5,7 @@ RUN npm ci
 
 FROM node:20-alpine AS builder
 WORKDIR /app
-ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_API_URL=https://p01--erp-backend--bnw4mdxkmbtz.code.run/api/v1
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 ENV NEXT_PUBLIC_DEMO_LOGIN=false
 COPY --from=dependencies /app/node_modules ./node_modules
