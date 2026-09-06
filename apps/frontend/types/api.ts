@@ -32,7 +32,7 @@ export interface paths {
         put?: never;
         /**
          * Login
-         * @description E-posta ile şifresiz login (Şifre kaldırıldı).
+         * @description E-posta ve parola ile güvenli kullanıcı girişi.
          */
         post: operations["login_api_v1_auth_login_post"];
         delete?: never;
@@ -2192,6 +2192,8 @@ export interface components {
         AddPhotosToInventoryPayload: {
             /** Photo Ids */
             photo_ids: string[];
+            /** Report Photo Ids */
+            report_photo_ids?: string[];
             /**
              * Category
              * @default saha_gorseli
@@ -4430,6 +4432,8 @@ export interface components {
             discipline_only: boolean;
             /** Is Active */
             is_active: boolean;
+            /** Default Role */
+            default_role: string | null;
             /**
              * Force Password Change
              * @default false
@@ -4779,6 +4783,8 @@ export interface components {
             discipline_only: boolean;
             /** Is Active */
             is_active: boolean;
+            /** Default Role */
+            default_role: string | null;
         };
         /** UserUpdate */
         UserUpdate: {
@@ -4998,6 +5004,12 @@ export interface components {
             project_name?: string | null;
             /** Project No */
             project_no?: string | null;
+            /** Project Region */
+            project_region?: string | null;
+            /** Project City */
+            project_city?: string | null;
+            /** Project Address */
+            project_address?: string | null;
             /** Work Type */
             work_type: string;
             /** Work Type Label */
@@ -5052,6 +5064,11 @@ export interface components {
              * @default false
              */
             has_service_form: boolean;
+            /**
+             * Has Critical Report
+             * @default false
+             */
+            has_critical_report: boolean;
             /** Public Token */
             public_token?: string | null;
         };
@@ -5082,6 +5099,11 @@ export interface components {
             uploaded_at: string;
             /** Fresh Url */
             fresh_url?: string | null;
+            /**
+             * Is Added To Inventory
+             * @default false
+             */
+            is_added_to_inventory: boolean;
         };
         /** WorkOrderReportRead */
         WorkOrderReportRead: {
@@ -5166,6 +5188,8 @@ export interface components {
             assigned_to_name?: string | null;
             /** Assigned To Phone */
             assigned_to_phone?: string | null;
+            /** Assigned To User Id */
+            assigned_to_user_id?: string | null;
             /** Priority */
             priority?: string | null;
             /** Due Date */
@@ -5902,6 +5926,7 @@ export interface operations {
             query?: {
                 skip?: number;
                 limit?: number;
+                q?: string | null;
                 status?: components["schemas"]["ProjectStatus"] | null;
                 branch_id?: string | null;
                 customer_id?: string | null;

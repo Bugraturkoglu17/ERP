@@ -106,7 +106,7 @@ export default function UserDashboardPage() {
             {active.slice(0, 5).map((wo) => (
               <li key={wo.id}>
                 <Link
-                  href={`/is-emirleri/${wo.id}`}
+                  href={`/user/islerim/${wo.id}`}
                   className="flex items-center gap-4 px-5 py-3 hover:bg-slate-50 transition-colors"
                 >
                   <div className="min-w-0 flex-1">

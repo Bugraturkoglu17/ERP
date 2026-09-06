@@ -127,7 +127,7 @@ export default function TransferModal({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
           <div>
-            <h2 className="text-sm font-bold text-slate-900">Dosyaları Mağaza Kartına Taşı</h2>
+            <h2 className="text-sm font-bold text-slate-900">Dosyaları Mağaza Kartına Aktar</h2>
             <p className="text-xs text-slate-400 mt-0.5">{docs.length} dosya seçildi</p>
           </div>
           <button onClick={onClose} className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100">

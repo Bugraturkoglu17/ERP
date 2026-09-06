@@ -39,14 +39,15 @@ async def login(
     db:          AsyncSession = Depends(get_db),
     form_data:   OAuth2PasswordRequestForm = Depends(),
 ) -> Token:
-    """E-posta ile şifresiz login (Şifre kaldırıldı)."""
-    result  = await db.execute(select(User).where(User.email == form_data.username))
+    """E-posta ve parola ile güvenli kullanıcı girişi."""
+    normalized_email = form_data.username.strip().lower()
+    result  = await db.execute(select(User).where(User.email == normalized_email))
     user    = result.scalar_one_or_none()
 
-    if not user:
+    if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Geçersiz e-posta.",
+            detail="Geçersiz e-posta veya şifre.",
         )
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Hesabınız pasif durumda.")

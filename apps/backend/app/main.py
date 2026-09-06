@@ -19,10 +19,13 @@ app = FastAPI(
     title="Golabs ERP API",
     description="Mekanik Tesisat / Yangın Söndürme Şantiye ERP",
     version="0.1.0",
-    docs_url="/api/docs",
-    openapi_url="/api/v1/openapi.json",
-    redoc_url="/api/redoc",
+    docs_url=None if settings.is_production else "/api/docs",
+    openapi_url=None if settings.is_production else "/api/v1/openapi.json",
+    redoc_url=None if settings.is_production else "/api/redoc",
 )
+
+if settings.is_production and settings.SECRET_KEY.startswith("change-me"):
+    raise RuntimeError("A strong SECRET_KEY is required in production.")
 
 
 # ── Static Files Mount for Local Storage Fallback ──────────────────────────────

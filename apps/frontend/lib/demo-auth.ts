@@ -1,24 +1,40 @@
 import axios from "axios";
 import { buildApiUrl } from "@/lib/api";
 
-export const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_LOGIN === "true";
+// Demo credentials are a local-development convenience and must never be
+// bundled into a production client, even if an environment is misconfigured.
+export const DEMO_MODE =
+  process.env.NODE_ENV !== "production" &&
+  process.env.NEXT_PUBLIC_DEMO_LOGIN === "true";
 
-type LoginTarget = "platform" | "company";
+export type LoginTarget = "admin" | "manager" | "user";
 
-const CREDENTIALS: Record<LoginTarget, { email: string; password: string }> = {
-  platform: {
-    email: process.env.NEXT_PUBLIC_DEMO_PLATFORM_EMAIL ?? "",
-    password: process.env.NEXT_PUBLIC_DEMO_PLATFORM_PASSWORD ?? "",
+export const DEMO_ACCOUNTS: Record<
+  LoginTarget,
+  { label: string; description: string; email: string; password: string }
+> = {
+  admin: {
+    label: "Admin",
+    description: "Tüm firmaları ve kullanıcıları yönetir",
+    email: process.env.NEXT_PUBLIC_DEMO_ADMIN_EMAIL ?? "",
+    password: process.env.NEXT_PUBLIC_DEMO_ADMIN_PASSWORD ?? "",
   },
-  // İleride firma demo hesabı eklendiğinde buraya eklenir
-  company: {
-    email: process.env.NEXT_PUBLIC_DEMO_PLATFORM_EMAIL ?? "",
-    password: process.env.NEXT_PUBLIC_DEMO_PLATFORM_PASSWORD ?? "",
+  manager: {
+    label: "Yönetici",
+    description: "Sismik Mekanik şirketini yönetir",
+    email: process.env.NEXT_PUBLIC_DEMO_MANAGER_EMAIL ?? "",
+    password: process.env.NEXT_PUBLIC_DEMO_MANAGER_PASSWORD ?? "",
+  },
+  user: {
+    label: "Kullanıcı",
+    description: "Kendisine açık operasyon ekranlarını kullanır",
+    email: process.env.NEXT_PUBLIC_DEMO_USER_EMAIL ?? "",
+    password: process.env.NEXT_PUBLIC_DEMO_USER_PASSWORD ?? "",
   },
 };
 
 export async function demoLogin(target: LoginTarget): Promise<{ ok: boolean; error?: string }> {
-  const creds = CREDENTIALS[target];
+  const creds = DEMO_ACCOUNTS[target];
   if (!creds.email || !creds.password) {
     return { ok: false, error: "Demo kimlik bilgileri tanımlanmamış." };
   }
@@ -28,7 +44,7 @@ export async function demoLogin(target: LoginTarget): Promise<{ ok: boolean; err
     params.append("username", creds.email);
     params.append("password", creds.password);
 
-    const res = await axios.post<{ access_token: string }>(
+    const res = await axios.post<{ access_token: string; refresh_token?: string }>(
       buildApiUrl("/auth/login"),
       params,
       { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
@@ -36,6 +52,9 @@ export async function demoLogin(target: LoginTarget): Promise<{ ok: boolean; err
 
     if (typeof window !== "undefined") {
       localStorage.setItem("token", res.data.access_token);
+      if (res.data.refresh_token) {
+        localStorage.setItem("refresh_token", res.data.refresh_token);
+      }
     }
 
     return { ok: true };

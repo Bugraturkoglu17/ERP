@@ -1,7 +1,8 @@
 "use client";
+/* eslint-disable react-hooks/static-components */
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertCircle, AlertTriangle, ArrowLeft, Camera, CheckCircle2,
@@ -15,13 +16,14 @@ import { apiDelete, apiGet, apiPatch, apiPost, buildApiUrl } from "@/lib/api";
 
 type WorkOrder = {
   id: string; project_id: string; project_name?: string; project_no?: string;
+  project_region?: string; project_city?: string; project_address?: string;
   work_type: string; work_type_label: string; title: string; description?: string;
   assigned_to_name?: string;
   priority: string; status: string; status_label: string;
   completion_notes?: string;
   sent_at?: string; started_at?: string; completed_at?: string;
   created_by_name?: string; created_at: string; due_date?: string;
-  photo_count: number;
+  updated_at?: string; photo_count: number;
 };
 
 type WOPhoto = {
@@ -34,6 +36,7 @@ type ReportPhoto = {
   id: string; report_id: string; file_name?: string;
   file_size_bytes?: number; mime_type?: string;
   uploaded_by_name?: string; uploaded_at: string; fresh_url?: string;
+  is_added_to_inventory: boolean;
 };
 
 type Report = {
@@ -128,6 +131,14 @@ function computedStatus(stages: Stage[]): { label: string; cls: string } {
   if (statuses.some(s => s === "in_progress")) return { label: "Devam Ediyor", cls: "bg-amber-100 text-amber-700" };
   if (statuses.some(s => s === "completed")) return { label: "Devam Ediyor", cls: "bg-amber-100 text-amber-700" };
   return { label: "Açık", cls: "bg-slate-100 text-slate-600" };
+}
+
+function workOrderStatusLabel(status: string) {
+  if (["draft", "sent", "approval_pending"].includes(status)) return "Planlanacak";
+  if (["started", "material_waiting", "revisit"].includes(status)) return "Devam Ediyor";
+  if (["completed", "approved"].includes(status)) return "Tamamlandı";
+  if (["cancelled", "failed"].includes(status)) return "İptal Edildi";
+  return status;
 }
 
 // ── Lightbox ───────────────────────────────────────────────────────────────────
@@ -453,8 +464,8 @@ const VI_CATEGORIES = [
   { value: "diger",        label: "Diğer"            },
 ];
 
-function TransferModal({ woId, photoIds, onClose, onDone }: {
-  woId: string; photoIds: string[]; onClose: () => void; onDone: () => void;
+function TransferModal({ woId, photoIds, reportPhotoIds, onClose, onDone }: {
+  woId: string; photoIds: string[]; reportPhotoIds: string[]; onClose: () => void; onDone: () => void;
 }) {
   const [category, setCategory] = useState("saha_gorseli");
   const [busy, setBusy] = useState(false);
@@ -463,7 +474,11 @@ function TransferModal({ woId, photoIds, onClose, onDone }: {
   const handleTransfer = async () => {
     setBusy(true); setErr("");
     try {
-      await apiPost(`/work-orders/${woId}/add-photos-to-inventory`, { photo_ids: photoIds, category });
+      await apiPost(`/work-orders/${woId}/add-photos-to-inventory`, {
+        photo_ids: photoIds,
+        report_photo_ids: reportPhotoIds,
+        category,
+      });
       onDone();
     } catch {
       setErr("Aktarım başarısız.");
@@ -476,7 +491,7 @@ function TransferModal({ woId, photoIds, onClose, onDone }: {
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
           <div>
             <h2 className="text-sm font-bold text-slate-900">Mağaza Kartına Ekle</h2>
-            <p className="text-[11px] text-slate-400 mt-0.5">{photoIds.length} fotoğraf seçildi</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">{photoIds.length + reportPhotoIds.length} fotoğraf seçildi</p>
           </div>
           <button onClick={onClose}><X className="h-5 w-5 text-slate-400 hover:text-slate-700" /></button>
         </div>
@@ -513,13 +528,19 @@ function TransferModal({ woId, photoIds, onClose, onDone }: {
 
 export default function WorkOrderDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const pathname = usePathname();
+  const isManager = pathname.startsWith("/manager/");
+  const isUser = pathname.startsWith("/user/");
+  const backHref = isManager ? "/manager/is-emirleri" : isUser ? "/user/islerim" : "/is-emirleri";
 
   const [wo,           setWo]           = useState<WorkOrder | null>(null);
   const [photos,       setPhotos]       = useState<WOPhoto[]>([]);
   const [reports,      setReports]      = useState<Report[]>([]);
   const [stages,       setStages]       = useState<Stage[]>([]);
   const [loading,      setLoading]      = useState(true);
-  const [activeTab,    setActiveTab]    = useState<"reports" | "stages" | "photos">("reports");
+  const [activeTab,    setActiveTab]    = useState<"reports" | "stages" | "photos">("stages");
+  const [uploading,    setUploading]    = useState(false);
+  const [photoType,    setPhotoType]    = useState("completion");
 
   const [reportModal,  setReportModal]  = useState(false);
   const [stageModal,   setStageModal]   = useState<Stage | null>(null);
@@ -527,10 +548,18 @@ export default function WorkOrderDetailPage() {
   const [selected,     setSelected]     = useState<Set<string>>(new Set());
   const [lightbox,     setLightbox]     = useState<{ urls: string[]; names: string[]; idx: number } | null>(null);
   const [successMsg,   setSuccessMsg]   = useState("");
+  const [errorMsg,     setErrorMsg]     = useState("");
 
   const showSuccess = (msg: string) => {
+    setErrorMsg("");
     setSuccessMsg(msg);
     setTimeout(() => setSuccessMsg(""), 4000);
+  };
+
+  const showError = (msg: string) => {
+    setSuccessMsg("");
+    setErrorMsg(msg);
+    setTimeout(() => setErrorMsg(""), 5000);
   };
 
   const loadReports = useCallback(async () => {
@@ -584,6 +613,42 @@ export default function WorkOrderDetailPage() {
     showSuccess("Aşama güncellendi.");
   };
 
+  const handleStart = async () => {
+    if (!wo) return;
+    try {
+      const updated = await apiPatch<WorkOrder>(`/work-orders/${wo.id}`, { status: "started" });
+      setWo(updated);
+      await loadStages();
+      showSuccess("İş süreci başlatıldı.");
+    } catch {
+      showError("İş süreci başlatılamadı.");
+    }
+  };
+
+  const handlePhotoUpload = async (files: FileList | null) => {
+    if (!wo || !files?.length) return;
+    setUploading(true);
+    try {
+      for (const file of Array.from(files)) {
+        const body = new FormData();
+        body.append("photo_type", photoType);
+        body.append("file", file);
+        const response = await fetch(buildApiUrl(`/work-orders/${wo.id}/photos`), {
+          method: "POST",
+          headers: { Authorization: `Bearer ${localStorage.getItem("token") ?? ""}` },
+          body,
+        });
+        if (!response.ok) throw new Error("Fotoğraf yüklenemedi.");
+      }
+      await loadPhotos();
+      showSuccess("Fotoğraflar iş emrine eklendi.");
+    } catch {
+      showError("Fotoğraflar yüklenemedi.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -597,14 +662,34 @@ export default function WorkOrderDetailPage() {
       <div className="flex flex-col items-center justify-center py-20 gap-4">
         <ClipboardList className="h-10 w-10 text-slate-200" />
         <p className="text-sm text-slate-500">İş emri bulunamadı.</p>
-        <Link href="/is-emirleri" className="text-sm text-blue-600 hover:underline">← İş Emirleri</Link>
+        <Link href={backHref} className="text-sm text-blue-600 hover:underline">İş Emirlerine Dön</Link>
       </div>
     );
   }
 
   const computedSt = computedStatus(stages);
   const statusCls = STATUS_COLOR[wo.status] ?? "bg-slate-100 text-slate-600";
-  const eligiblePhotos = photos.filter(p => !p.is_added_to_inventory);
+  const photoSourceLabel: Record<string, string> = {
+    before: "Hazırlık", after: "Uygulama / İmalat",
+    issue: "Kontrol / Test", completion: "Tamamlandı",
+  };
+  const allPhotoItems = [
+    ...photos.map((photo) => ({
+      key: `work:${photo.id}`, id: photo.id, kind: "work" as const,
+      name: photo.file_name, url: photo.fresh_url, mime: photo.mime_type,
+      uploadedBy: photo.uploaded_by_name, uploadedAt: photo.uploaded_at,
+      isAdded: photo.is_added_to_inventory,
+      source: photoSourceLabel[photo.photo_type] ?? "İş Emri",
+    })),
+    ...reports.flatMap((report) => report.photos.map((photo) => ({
+      key: `report:${photo.id}`, id: photo.id, kind: "report" as const,
+      name: photo.file_name, url: photo.fresh_url, mime: photo.mime_type,
+      uploadedBy: photo.uploaded_by_name, uploadedAt: photo.uploaded_at,
+      isAdded: photo.is_added_to_inventory,
+      source: "Rapor",
+    }))),
+  ];
+  const eligiblePhotos = allPhotoItems.filter((photo) => !photo.isAdded && photo.mime?.startsWith("image/"));
   const hasCriticalReport = reports.some(r => r.severity === "critical");
 
   // ── Raporlar Sekmesi ──────────────────────────────────────────────────────────
@@ -616,22 +701,24 @@ export default function WorkOrderDetailPage() {
           <p className="text-sm font-semibold text-slate-800">İş Raporları</p>
           <p className="text-xs text-slate-400 mt-0.5">Her aşamada oluşturulan rapor kayıtları</p>
         </div>
-        <button
-          onClick={() => setReportModal(true)}
-          className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-        >
-          <Plus className="h-4 w-4" /> Rapor Oluştur
-        </button>
+        {isUser && (
+          <button
+            onClick={() => setReportModal(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+          >
+            <Plus className="h-4 w-4" /> Rapor Oluştur
+          </button>
+        )}
       </div>
 
       {reports.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-14 gap-3 rounded-2xl border border-dashed border-slate-200">
           <FileText className="h-10 w-10 text-slate-200" />
           <p className="text-sm text-slate-400">Henüz rapor oluşturulmamış.</p>
-          <button onClick={() => setReportModal(true)}
+          {isUser && <button onClick={() => setReportModal(true)}
             className="text-xs text-blue-600 border border-blue-200 rounded-lg px-3 py-1.5 hover:bg-blue-50">
             İlk Raporu Oluştur
-          </button>
+          </button>}
         </div>
       ) : (
         <div className="space-y-3">
@@ -662,12 +749,12 @@ export default function WorkOrderDetailPage() {
                     <span>{fmtDateTime(rep.created_at)}</span>
                   </div>
                 </div>
-                <button
+                {isUser && <button
                   onClick={() => handleDeleteReport(rep.id)}
                   className="shrink-0 flex h-7 w-7 items-center justify-center rounded-lg text-slate-300 hover:bg-red-50 hover:text-red-500"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
-                </button>
+                </button>}
               </div>
 
               {/* Görsel önizlemeler */}
@@ -772,12 +859,12 @@ export default function WorkOrderDetailPage() {
                     )}
                   </div>
 
-                  <button
+                  {isUser && <button
                     onClick={() => setStageModal(stage)}
                     className="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 active:scale-95 transition-transform"
                   >
                     Güncelle
-                  </button>
+                  </button>}
                 </div>
               </div>
             );
@@ -798,11 +885,11 @@ export default function WorkOrderDetailPage() {
   // ── Fotoğraflar Sekmesi ───────────────────────────────────────────────────────
 
   const PhotosTab = () => {
-    const allEligibleSelected = eligiblePhotos.length > 0 && eligiblePhotos.every(p => selected.has(p.id));
+    const allEligibleSelected = eligiblePhotos.length > 0 && eligiblePhotos.every((photo) => selected.has(photo.key));
 
     const toggleAll = () => {
       if (allEligibleSelected) setSelected(new Set());
-      else setSelected(new Set(eligiblePhotos.map(p => p.id)));
+      else setSelected(new Set(eligiblePhotos.map((photo) => photo.key)));
     };
     const toggleOne = (pid: string) => setSelected(prev => {
       const n = new Set(prev);
@@ -816,16 +903,31 @@ export default function WorkOrderDetailPage() {
           <div className="flex items-center gap-2">
             <Camera className="h-4 w-4 text-slate-400" />
             <p className="text-sm font-semibold text-slate-800">Saha Fotoğrafları</p>
-            <span className="text-xs text-slate-400">{photos.length} adet</span>
+            <span className="text-xs text-slate-400">{allPhotoItems.length} adet</span>
           </div>
           <div className="flex items-center gap-2">
-            {eligiblePhotos.length > 0 && (
+            {isUser && (
+              <>
+                <select value={photoType} onChange={(event) => setPhotoType(event.target.value)} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600">
+                  <option value="before">Hazırlık</option>
+                  <option value="after">Uygulama / İmalat</option>
+                  <option value="issue">Kontrol / Test</option>
+                  <option value="completion">Tamamlandı</option>
+                </select>
+                <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700">
+                  {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
+                  Fotoğraf Yükle
+                  <input type="file" multiple accept="image/jpeg,image/png" capture="environment" className="hidden" disabled={uploading} onChange={(event) => handlePhotoUpload(event.target.files)} />
+                </label>
+              </>
+            )}
+            {isManager && eligiblePhotos.length > 0 && (
               <button onClick={toggleAll}
                 className="text-xs text-slate-500 border border-slate-200 rounded-lg px-2.5 py-1.5 hover:bg-slate-50">
                 {allEligibleSelected ? "Seçimi Kaldır" : "Tümünü Seç"}
               </button>
             )}
-            {selected.size > 0 && (
+            {isManager && selected.size > 0 && (
               <button onClick={() => setTransferOpen(true)}
                 className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-blue-700">
                 <Store className="h-3.5 w-3.5" /> {selected.size} Fotoğrafı Ekle
@@ -834,33 +936,29 @@ export default function WorkOrderDetailPage() {
           </div>
         </div>
 
-        {photos.length === 0 ? (
+        {allPhotoItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-14 gap-3">
             <Camera className="h-10 w-10 text-slate-200" />
             <p className="text-sm text-slate-400">Bu iş emrinde fotoğraf bulunmuyor.</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-            {photos.map((photo, idx) => {
-              const isChecked  = selected.has(photo.id);
-              const isEligible = !photo.is_added_to_inventory;
+            {allPhotoItems.map((photo, idx) => {
+              const isChecked  = selected.has(photo.key);
+              const isEligible = !photo.isAdded && photo.mime?.startsWith("image/");
               return (
-                <div key={photo.id} className="relative group">
-                  {isEligible && (
+                <div key={photo.key} className="relative group">
+                  {isManager && isEligible && (
                     <button
-                      onClick={() => toggleOne(photo.id)}
+                      onClick={() => toggleOne(photo.key)}
                       className={`absolute top-2 left-2 z-10 flex h-5 w-5 items-center justify-center rounded border-2 shadow-sm transition-colors ${
                         isChecked ? "bg-blue-600 border-blue-600" : "bg-white/80 border-slate-300 hover:border-blue-400"
                       }`}
                     >
-                      {isChecked && (
-                        <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
+                      {isChecked && <CheckCircle2 className="h-3.5 w-3.5 text-white" />}
                     </button>
                   )}
-                  {photo.is_added_to_inventory && (
+                  {photo.isAdded && (
                     <div className="absolute top-2 left-2 z-10 flex items-center gap-1 rounded-full bg-emerald-600/90 px-2 py-0.5">
                       <CheckCircle2 className="h-3 w-3 text-white" />
                       <span className="text-[10px] font-semibold text-white">Eklendi</span>
@@ -868,16 +966,16 @@ export default function WorkOrderDetailPage() {
                   )}
                   <button
                     onClick={() => setLightbox({
-                      urls: photos.filter(p => p.fresh_url).map(p => p.fresh_url!),
-                      names: photos.filter(p => p.fresh_url).map(p => p.file_name ?? ""),
+                      urls: allPhotoItems.map((item) => item.url ?? ""),
+                      names: allPhotoItems.map((item) => item.name ?? ""),
                       idx,
                     })}
                     className={`w-full aspect-square overflow-hidden rounded-xl border transition-all ${
                       isChecked ? "border-blue-500 ring-2 ring-blue-400" : "border-slate-200 hover:border-slate-300"
                     }`}
                   >
-                    {photo.fresh_url ? (
-                      <img src={photo.fresh_url} alt={photo.file_name ?? ""} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" />
+                    {photo.url && photo.mime?.startsWith("image/") ? (
+                      <img src={photo.url} alt={photo.name ?? "İş emri fotoğrafı"} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" />
                     ) : (
                       <div className="w-full h-full bg-slate-100 flex items-center justify-center">
                         <ImageIcon className="h-8 w-8 text-slate-300" />
@@ -885,8 +983,9 @@ export default function WorkOrderDetailPage() {
                     )}
                   </button>
                   <div className="mt-1.5 px-0.5">
-                    <p className="text-[10px] text-slate-500 truncate">{photo.file_name ?? "—"}</p>
-                    <p className="text-[10px] text-slate-400">{photo.uploaded_by_name ?? "Saha"} · {fmtDate(photo.uploaded_at)}</p>
+                    <p className="text-[10px] font-medium text-slate-600">{photo.source}</p>
+                    <p className="text-[10px] text-slate-500 truncate">{photo.name ?? "Dosya"}</p>
+                    <p className="text-[10px] text-slate-400">{photo.uploadedBy ?? "Saha"} | {fmtDate(photo.uploadedAt)}</p>
                   </div>
                 </div>
               );
@@ -900,12 +999,12 @@ export default function WorkOrderDetailPage() {
   // ── Render ────────────────────────────────────────────────────────────────────
 
   const TABS = [
+    { key: "stages"  as const, label: "Aşamalar", count: null,
+      icon: <Zap className="h-4 w-4" /> },
     { key: "reports" as const, label: "Raporlar", count: reports.length,
       icon: <FileText className="h-4 w-4" />,
       badge: hasCriticalReport ? "critical" : undefined },
-    { key: "stages"  as const, label: "Aşamalar", count: null,
-      icon: <Zap className="h-4 w-4" /> },
-    { key: "photos"  as const, label: "Fotoğraflar", count: photos.length,
+    { key: "photos"  as const, label: "Fotoğraflar", count: allPhotoItems.length,
       icon: <Camera className="h-4 w-4" /> },
   ];
 
@@ -914,7 +1013,7 @@ export default function WorkOrderDetailPage() {
 
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-xs text-slate-400">
-        <Link href="/is-emirleri" className="flex items-center gap-1 hover:text-slate-700">
+        <Link href={backHref} className="flex items-center gap-1 hover:text-slate-700">
           <ArrowLeft className="h-3.5 w-3.5" /> İş Emirleri
         </Link>
         <span>/</span>
@@ -927,6 +1026,12 @@ export default function WorkOrderDetailPage() {
           <p className="text-sm font-medium text-emerald-800">{successMsg}</p>
         </div>
       )}
+      {errorMsg && (
+        <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+          <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
+          <p className="text-sm font-medium text-red-800">{errorMsg}</p>
+        </div>
+      )}
 
       {/* Üst Özet Kartı */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
@@ -934,7 +1039,7 @@ export default function WorkOrderDetailPage() {
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-2 mb-2">
               <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${statusCls}`}>
-                {wo.status_label}
+                {workOrderStatusLabel(wo.status)}
               </span>
               <span className="text-[11px] font-medium border border-slate-200 rounded-full px-2 py-0.5 text-slate-600">
                 {wo.work_type_label}
@@ -953,19 +1058,32 @@ export default function WorkOrderDetailPage() {
               <p className="mt-1 text-sm text-slate-500 leading-relaxed">{wo.description}</p>
             )}
           </div>
-          <Link
-            href={`/projects/${wo.project_id}`}
-            className="shrink-0 inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
-          >
-            <Store className="h-3.5 w-3.5" /> Mağaza Kartı
-          </Link>
+          <div className="flex shrink-0 flex-col gap-2">
+            {isManager && (
+              <Link
+                href={`/manager/magaza-karti/${wo.project_id}`}
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
+              >
+                <Store className="h-3.5 w-3.5" /> Mağaza Kartı
+              </Link>
+            )}
+            {isUser && ["draft", "sent", "approval_pending"].includes(wo.status) && (
+              <button
+                onClick={handleStart}
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700"
+              >
+                <Zap className="h-3.5 w-3.5" /> Süreci Başlat
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-slate-100">
           <div>
             <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wide">Mağaza</p>
-            <p className="text-sm font-semibold text-slate-800 mt-0.5 truncate">{wo.project_name ?? "—"}</p>
+            <p className="text-sm font-semibold text-slate-800 mt-0.5 truncate">{wo.project_name ?? "Belirtilmedi"}</p>
             {wo.project_no && <p className="text-[11px] text-slate-400 font-mono">{wo.project_no}</p>}
+            {(wo.project_city || wo.project_region) && <p className="text-[11px] text-slate-400">{[wo.project_region, wo.project_city].filter(Boolean).join(" / ")}</p>}
           </div>
           {wo.assigned_to_name && (
             <div>
@@ -985,6 +1103,10 @@ export default function WorkOrderDetailPage() {
             <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold mt-0.5 ${computedSt.cls}`}>
               {computedSt.label}
             </span>
+          </div>
+          <div>
+            <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wide">Son Güncelleme</p>
+            <p className="mt-0.5 text-sm text-slate-700">{fmtDateTime(wo.updated_at ?? wo.created_at)}</p>
           </div>
         </div>
       </div>
@@ -1022,14 +1144,14 @@ export default function WorkOrderDetailPage() {
       </div>
 
       {/* Modaller */}
-      {reportModal && (
+      {isUser && reportModal && (
         <CreateReportModal
           woId={wo.id}
           onClose={() => setReportModal(false)}
           onDone={() => { setReportModal(false); loadReports(); showSuccess("Rapor kaydedildi."); }}
         />
       )}
-      {stageModal && (
+      {isUser && stageModal && (
         <StageUpdateModal
           stage={stageModal}
           woId={wo.id}
@@ -1040,9 +1162,10 @@ export default function WorkOrderDetailPage() {
       {transferOpen && (
         <TransferModal
           woId={wo.id}
-          photoIds={Array.from(selected)}
+          photoIds={Array.from(selected).filter((key) => key.startsWith("work:")).map((key) => key.slice(5))}
+          reportPhotoIds={Array.from(selected).filter((key) => key.startsWith("report:")).map((key) => key.slice(7))}
           onClose={() => setTransferOpen(false)}
-          onDone={() => { setTransferOpen(false); setSelected(new Set()); loadPhotos(); showSuccess("Fotoğraflar mağaza kartına eklendi."); }}
+          onDone={() => { setTransferOpen(false); setSelected(new Set()); void Promise.all([loadPhotos(), loadReports()]); showSuccess("Fotoğraflar mağaza kartına eklendi."); }}
         />
       )}
       {lightbox && (

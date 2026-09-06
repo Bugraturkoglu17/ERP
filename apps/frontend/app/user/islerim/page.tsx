@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import Link from "next/link";
 import { Search } from "lucide-react";
 import { apiGet } from "@/lib/api";
 
@@ -23,6 +24,14 @@ const STATUS_COLOR: Record<string, string> = {
   completed: "bg-emerald-100 text-emerald-700",
   failed:    "bg-red-100 text-red-700",
 };
+
+function statusLabel(status: string) {
+  if (["draft", "sent", "approval_pending"].includes(status)) return "Planlanacak";
+  if (["started", "material_waiting", "revisit"].includes(status)) return "Devam Ediyor";
+  if (["completed", "approved"].includes(status)) return "Tamamlandı";
+  if (["cancelled", "failed"].includes(status)) return "İptal Edildi";
+  return status;
+}
 
 const PRIORITY_DOT: Record<string, string> = {
   normal:   "bg-slate-400",
@@ -82,21 +91,22 @@ export default function UserIslerimPage() {
       ) : (
         <div className="space-y-2">
           {filtered.map((wo) => (
-            <div
+            <Link
               key={wo.id}
-              className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white px-4 py-3.5"
+              href={`/user/islerim/${wo.id}`}
+              className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white px-4 py-3.5 transition-colors hover:border-teal-300 hover:bg-teal-50/30"
             >
               <div className={`h-2.5 w-2.5 shrink-0 rounded-full ${PRIORITY_DOT[wo.priority] ?? "bg-slate-400"}`} />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-slate-800">{wo.title}</p>
                 <p className="mt-0.5 text-xs text-slate-400">
-                  {wo.project_name ?? "—"} · {wo.work_type_label}
+                  {wo.project_name ?? "Mağaza bilgisi yok"} | {wo.work_type_label}
                 </p>
               </div>
               <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_COLOR[wo.status] ?? "bg-slate-100 text-slate-500"}`}>
-                {wo.status_label}
+                {statusLabel(wo.status)}
               </span>
-            </div>
+            </Link>
           ))}
         </div>
       )}

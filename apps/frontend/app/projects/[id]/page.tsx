@@ -7,6 +7,7 @@ import {
   AlertCircle,
   Archive,
   ChevronRight,
+  ClipboardPlus,
   Download,
   Edit2,
   FileText,
@@ -366,6 +367,7 @@ function EditModal({ project, onClose, onDone }: { project: Project; onClose: ()
 export default function MagazaDetailPage() {
   const { id } = useParams<{ id: string }>();
   const pathname = usePathname();
+  const isManager = pathname?.startsWith("/manager") ?? false;
   const backHref = pathname?.startsWith("/manager") ? "/manager/magaza-karti"
     : pathname?.startsWith("/admin") ? "/admin/stores"
     : "/projects";
@@ -482,6 +484,12 @@ export default function MagazaDetailPage() {
             )}
           </div>
           <div className="flex gap-2 shrink-0 flex-wrap">
+            {isManager && (
+              <Link href={`/manager/is-emirleri/yeni?storeId=${project.id}`}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors">
+                <ClipboardPlus className="h-3.5 w-3.5" /> İş Emri Oluştur
+              </Link>
+            )}
             <button onClick={() => setEditOpen(true)}
               className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
               <Edit2 className="h-3.5 w-3.5" /> Düzenle

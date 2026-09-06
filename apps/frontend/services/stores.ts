@@ -22,13 +22,15 @@ export type Store = {
   updated_at?: string;
 };
 
-export type StoreListParams = { limit?: number; skip?: number };
+export type StoreListParams = { limit?: number; skip?: number; q?: string };
 
 /** Tüm mağaza listesini getirir. Görünürlük backend'de role göre sınırlanır. */
 export async function getStores(params: StoreListParams = {}): Promise<Store[]> {
   const limit = params.limit ?? 5000;
   const skip = params.skip ?? 0;
-  const data = await apiGet<Store[]>(`/projects?limit=${limit}&skip=${skip}`);
+  const query = new URLSearchParams({ limit: String(limit), skip: String(skip) });
+  if (params.q?.trim()) query.set("q", params.q.trim());
+  const data = await apiGet<Store[]>(`/projects?${query.toString()}`);
   return Array.isArray(data) ? data : [];
 }
 
@@ -47,6 +49,12 @@ export function searchStores(stores: Store[], query: string): Store[] {
   return stores.filter(
     (s) => s.name.toLowerCase().includes(q) || (s.project_no ?? "").toLowerCase().includes(q)
   );
+}
+
+/** Büyük mağaza dizininde sunucu tarafında ad/kod araması yapar. */
+export async function searchStoresRemote(query: string, limit = 20): Promise<Store[]> {
+  if (!query.trim()) return [];
+  return getStores({ q: query, limit, skip: 0 });
 }
 
 export type StoreCreateInput = {

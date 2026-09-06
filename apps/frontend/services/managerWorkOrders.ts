@@ -1,333 +1,139 @@
-// TODO Backend endpoint önerileri:
-// GET    /api/manager/work-orders
-// POST   /api/manager/work-orders
-// GET    /api/manager/work-orders/:id
-// PATCH  /api/manager/work-orders/:id
-// POST   /api/manager/work-orders/:id/assign
-// POST   /api/manager/work-orders/:id/cancel
-// POST   /api/manager/work-orders/:id/reports/:reportId/images/:imageId/attach-to-store
+import { apiGet, apiPatch, apiPost } from "@/lib/api";
 
 export type WorkOrderStatus = "planned" | "in_progress" | "completed" | "cancelled";
 export type WorkOrderCategory = "ariza" | "tadilat" | "yeni_yapim";
 export type WorkOrderPriority = "normal" | "important" | "critical";
-export type ReportSeverity = "normal" | "important" | "critical";
 
 export const CATEGORY_LABEL: Record<WorkOrderCategory, string> = {
-  ariza: "Arıza",
-  tadilat: "Tadilat",
-  yeni_yapim: "Yeni Yapım",
+  ariza: "Arıza", tadilat: "Tadilat", yeni_yapim: "Yeni Yapım",
 };
-
 export const PRIORITY_LABEL: Record<WorkOrderPriority, string> = {
-  normal: "Normal",
-  important: "Önemli",
-  critical: "Kritik",
+  normal: "Normal", important: "Önemli", critical: "Kritik",
 };
-
 export const STATUS_LABEL: Record<WorkOrderStatus, string> = {
-  planned: "Planlanacak",
-  in_progress: "Devam Ediyor",
-  completed: "Tamamlandı",
-  cancelled: "İptal Edildi",
+  planned: "Planlanacak", in_progress: "Devam Ediyor",
+  completed: "Tamamlandı", cancelled: "İptal Edildi",
 };
 
-export const SEVERITY_LABEL: Record<ReportSeverity, string> = {
-  normal: "Normal",
-  important: "Önemli",
-  critical: "Kritik",
+type BackendWorkOrder = {
+  id: string; project_id: string; project_name?: string; project_no?: string;
+  project_region?: string; project_city?: string; project_address?: string;
+  work_type: string; title: string; description?: string;
+  assigned_to_name?: string; assigned_to_user_id?: string;
+  priority: string; status: string; due_date?: string;
+  created_at: string; updated_at: string; photo_count?: number; has_critical_report?: boolean;
 };
 
-export interface MockStore {
-  id: string;
-  name: string;
-  code: string;
+export type WorkOrder = {
+  id: string; title: string; description: string; category: WorkOrderCategory;
+  priority: WorkOrderPriority; status: WorkOrderStatus; rawStatus: string;
+  store_id: string; store_name: string; store_code: string;
+  store_region: string; store_city: string; store_address: string;
+  assigned_to: string; assigned_to_name: string; due_date: string | null;
+  created_at: string; updated_at: string; photo_count: number;
+  has_critical_report: boolean;
+};
+
+export type TeamUser = {
+  id: string; full_name: string; email: string; phone?: string;
+  is_active: boolean; default_role?: string;
+};
+
+const CATEGORY_FROM_API: Record<string, WorkOrderCategory> = {
+  fault: "ariza", repair: "ariza", renovation: "tadilat",
+  maintenance: "tadilat", manufacturing: "yeni_yapim",
+};
+const CATEGORY_TO_API: Record<WorkOrderCategory, string> = {
+  ariza: "fault", tadilat: "renovation", yeni_yapim: "manufacturing",
+};
+const PRIORITY_FROM_API: Record<string, WorkOrderPriority> = {
+  normal: "normal", urgent: "important", critical: "critical",
+};
+const PRIORITY_TO_API: Record<WorkOrderPriority, string> = {
+  normal: "normal", important: "urgent", critical: "critical",
+};
+
+export function normalizeStatus(status: string): WorkOrderStatus {
+  if (["started", "material_waiting", "revisit"].includes(status)) return "in_progress";
+  if (["completed", "approved"].includes(status)) return "completed";
+  if (["cancelled", "failed"].includes(status)) return "cancelled";
+  return "planned";
 }
 
-export const MOCK_STORES: MockStore[] = [
-  { id: "store-1", name: "Ankara Çayyolu Migros", code: "AKC-001" },
-  { id: "store-2", name: "İstanbul Bağcılar Migros", code: "IST-042" },
-  { id: "store-3", name: "İzmir Konak Migros", code: "IZM-015" },
-  { id: "store-4", name: "Bursa Nilüfer Migros", code: "BRS-008" },
-  { id: "store-5", name: "Adana Yüreğir Migros", code: "ADN-003" },
-];
-
-export interface WorkOrderImage {
-  id: string;
-  name: string;
-  url: string;
-  transferred_to_store: boolean;
-  transferred_at?: string;
-}
-
-export interface WorkOrderReport {
-  id: string;
-  title: string;
-  description: string;
-  severity: ReportSeverity;
-  created_by: string;
-  created_by_name: string;
-  created_at: string;
-  images: WorkOrderImage[];
-}
-
-export interface WorkOrder {
-  id: string;
-  title: string;
-  description: string;
-  category: WorkOrderCategory;
-  priority: WorkOrderPriority;
-  status: WorkOrderStatus;
-  store_id: string;
-  store_name: string;
-  store_code: string;
-  assigned_to: string;
-  assigned_to_name: string;
-  due_date: string | null;
-  manager_note: string;
-  reports: WorkOrderReport[];
-  images: WorkOrderImage[];
-  created_at: string;
-  updated_at: string;
-}
-
-const SEED: WorkOrder[] = [
-  {
-    id: "wo-1",
-    title: "Soğutma Ünitesi Arızası",
-    description: "Mağazanın soğutma ünitesi çalışmıyor, acil müdahale gerekiyor. Kompresör arızalı görünüyor.",
-    category: "ariza",
-    priority: "critical",
-    status: "in_progress",
-    store_id: "store-1",
-    store_name: "Ankara Çayyolu Migros",
-    store_code: "AKC-001",
-    assigned_to: "user-1",
-    assigned_to_name: "Buğra Türkoğlu",
-    due_date: "2026-08-10",
-    manager_note: "Öncelikli olarak soğutma sistemi kontrol edilmeli. Parça siparişi verildi.",
-    reports: [
-      {
-        id: "rpt-1",
-        title: "İlk İnceleme",
-        description: "Kompresör arızalı, parça değişimi gerekiyor. Yedek parça temin edildi.",
-        severity: "critical",
-        created_by: "user-1",
-        created_by_name: "Buğra Türkoğlu",
-        created_at: "2026-08-07T11:00:00Z",
-        images: [
-          { id: "img-1", name: "kompressor_on.jpg", url: "", transferred_to_store: false },
-          { id: "img-2", name: "ariza_detay.jpg", url: "", transferred_to_store: true, transferred_at: "2026-08-07T14:00:00Z" },
-        ],
-      },
-    ],
-    images: [],
-    created_at: "2026-08-07T09:00:00Z",
-    updated_at: "2026-08-07T11:00:00Z",
-  },
-  {
-    id: "wo-2",
-    title: "Tavan Aydınlatma Yenileme",
-    description: "Mağaza tavan LED aydınlatmalarının yenilenmesi. Mevcut lambalar ömrünü tamamladı.",
-    category: "tadilat",
-    priority: "normal",
-    status: "planned",
-    store_id: "store-2",
-    store_name: "İstanbul Bağcılar Migros",
-    store_code: "IST-042",
-    assigned_to: "user-1",
-    assigned_to_name: "Buğra Türkoğlu",
-    due_date: "2026-08-20",
-    manager_note: "",
-    reports: [],
-    images: [],
-    created_at: "2026-08-08T08:00:00Z",
-    updated_at: "2026-08-08T08:00:00Z",
-  },
-  {
-    id: "wo-3",
-    title: "Klima Mevsimlik Bakımı",
-    description: "Mevsimlik klima bakımı ve filtre değişimi. Tüm klima üniteleri kontrol edilecek.",
-    category: "tadilat",
-    priority: "important",
-    status: "completed",
-    store_id: "store-3",
-    store_name: "İzmir Konak Migros",
-    store_code: "IZM-015",
-    assigned_to: "user-1",
-    assigned_to_name: "Buğra Türkoğlu",
-    due_date: "2026-08-01",
-    manager_note: "Bakım tamamlandı. Belgeler mağaza kartına aktarıldı.",
-    reports: [
-      {
-        id: "rpt-2",
-        title: "Bakım Tamamlandı",
-        description: "Tüm filtreler değiştirildi, sistem optimal çalışıyor.",
-        severity: "normal",
-        created_by: "user-1",
-        created_by_name: "Buğra Türkoğlu",
-        created_at: "2026-08-01T15:00:00Z",
-        images: [
-          { id: "img-3", name: "bakim_sonrasi.jpg", url: "", transferred_to_store: true, transferred_at: "2026-08-02T09:00:00Z" },
-        ],
-      },
-    ],
-    images: [],
-    created_at: "2026-07-28T08:00:00Z",
-    updated_at: "2026-08-01T15:00:00Z",
-  },
-  {
-    id: "wo-4",
-    title: "Yeni Şube Mekanik Tesisat Kurulumu",
-    description: "Bursa Nilüfer şubesinin sıfırdan mekanik tesisat kurulumu. Klima, sprinkler ve havalandırma dahil.",
-    category: "yeni_yapim",
-    priority: "important",
-    status: "planned",
-    store_id: "store-4",
-    store_name: "Bursa Nilüfer Migros",
-    store_code: "BRS-008",
-    assigned_to: "user-1",
-    assigned_to_name: "Buğra Türkoğlu",
-    due_date: "2026-09-01",
-    manager_note: "İnşaat firmasıyla koordineli çalışılacak.",
-    reports: [],
-    images: [],
-    created_at: "2026-08-06T10:00:00Z",
-    updated_at: "2026-08-06T10:00:00Z",
-  },
-];
-
-const STORAGE_KEY = "manager_work_orders_v2";
-
-function load(): WorkOrder[] {
-  if (typeof window === "undefined") return [...SEED];
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(SEED));
-    return [...SEED];
-  }
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return [...SEED];
-  }
-}
-
-function save(orders: WorkOrder[]) {
-  if (typeof window !== "undefined") {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
-  }
-}
-
-export function getManagerWorkOrders(): WorkOrder[] {
-  return load();
-}
-
-// Kullanıcı paneli entegrasyonu için
-export function getUserWorkOrders(userId: string): WorkOrder[] {
-  return load().filter((wo) => wo.assigned_to === userId && wo.status !== "cancelled");
-}
-
-export function getManagerWorkOrderById(id: string): WorkOrder | null {
-  return load().find((wo) => wo.id === id) ?? null;
-}
-
-export interface CreateWorkOrderPayload {
-  title: string;
-  description: string;
-  category: WorkOrderCategory;
-  priority: WorkOrderPriority;
-  store_id: string;
-  store_name: string;
-  store_code: string;
-  assigned_to: string;
-  assigned_to_name: string;
-  due_date: string | null;
-}
-
-export function createWorkOrder(payload: CreateWorkOrderPayload): WorkOrder {
-  const orders = load();
-  const wo: WorkOrder = {
-    id: crypto.randomUUID(),
-    ...payload,
-    status: "planned",
-    manager_note: "",
-    reports: [],
-    images: [],
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+function normalizeWorkOrder(item: BackendWorkOrder): WorkOrder {
+  return {
+    id: item.id,
+    title: item.title,
+    description: item.description ?? "",
+    category: CATEGORY_FROM_API[item.work_type] ?? "ariza",
+    priority: PRIORITY_FROM_API[item.priority] ?? "normal",
+    status: normalizeStatus(item.status),
+    rawStatus: item.status,
+    store_id: item.project_id,
+    store_name: item.project_name ?? "Mağaza bilgisi yok",
+    store_code: item.project_no ?? "Kod yok",
+    store_region: item.project_region ?? "",
+    store_city: item.project_city ?? "",
+    store_address: item.project_address ?? "",
+    assigned_to: item.assigned_to_user_id ?? "",
+    assigned_to_name: item.assigned_to_name ?? "Atanmadı",
+    due_date: item.due_date ?? null,
+    created_at: item.created_at,
+    updated_at: item.updated_at,
+    photo_count: item.photo_count ?? 0,
+    has_critical_report: item.has_critical_report ?? false,
   };
-  save([...orders, wo]);
-  // TODO: Audit log — "İş emri oluşturuldu"
-  // TODO: Bildirim — atanan kullanıcıya push/email
-  return wo;
 }
 
-export interface UpdateWorkOrderPayload {
-  title?: string;
-  description?: string;
-  priority?: WorkOrderPriority;
-  assigned_to?: string;
-  assigned_to_name?: string;
-  due_date?: string | null;
-  manager_note?: string;
-  status?: WorkOrderStatus;
+export async function getManagerWorkOrders(): Promise<WorkOrder[]> {
+  const data = await apiGet<BackendWorkOrder[]>("/work-orders");
+  return Array.isArray(data) ? data.map(normalizeWorkOrder) : [];
 }
 
-export function updateWorkOrder(id: string, payload: UpdateWorkOrderPayload): WorkOrder | null {
-  const orders = load();
-  const idx = orders.findIndex((wo) => wo.id === id);
-  if (idx === -1) return null;
-  orders[idx] = { ...orders[idx], ...payload, updated_at: new Date().toISOString() };
-  save(orders);
-  // TODO: Audit log — "İş emri güncellendi"
-  return orders[idx];
+export async function getManagerWorkOrderById(id: string): Promise<WorkOrder> {
+  return normalizeWorkOrder(await apiGet<BackendWorkOrder>(`/work-orders/${id}`));
 }
 
-export function assignWorkOrder(id: string, userId: string, userName: string): WorkOrder | null {
-  return updateWorkOrder(id, { assigned_to: userId, assigned_to_name: userName });
-}
-
-export function cancelWorkOrder(id: string): WorkOrder | null {
-  const orders = load();
-  const idx = orders.findIndex((wo) => wo.id === id);
-  if (idx === -1) return null;
-  orders[idx] = { ...orders[idx], status: "cancelled", updated_at: new Date().toISOString() };
-  save(orders);
-  // TODO: Audit log — "İş emri iptal edildi"
-  return orders[idx];
-}
-
-export function transferWorkOrderImageToStore(
-  workOrderId: string,
-  reportId: string,
-  imageId: string
-): { success: boolean; alreadyTransferred: boolean } {
-  const orders = load();
-  const idx = orders.findIndex((wo) => wo.id === workOrderId);
-  if (idx === -1) return { success: false, alreadyTransferred: false };
-
-  let alreadyTransferred = false;
-  let updated = false;
-
-  orders[idx].reports = orders[idx].reports.map((rpt) => {
-    if (rpt.id !== reportId) return rpt;
-    return {
-      ...rpt,
-      images: rpt.images.map((img) => {
-        if (img.id !== imageId) return img;
-        if (img.transferred_to_store) { alreadyTransferred = true; return img; }
-        updated = true;
-        return { ...img, transferred_to_store: true, transferred_at: new Date().toISOString() };
-      }),
-    };
+export async function getTeamUsers(): Promise<TeamUser[]> {
+  const users = await apiGet<TeamUser[]>("/auth/users");
+  return (Array.isArray(users) ? users : []).filter((user) => {
+    const role = user.default_role ?? "";
+    return user.is_active && !role.includes("admin") && !role.includes("manager");
   });
+}
 
-  if (updated) {
-    orders[idx].updated_at = new Date().toISOString();
-    save(orders);
-    // TODO: Audit log — "Görsel mağaza kartına aktarıldı"
-    // TODO: Mağaza kartı servisi: storeCardService.addImage(storeId, image, source="İş Emri")
-  }
+export type CreateWorkOrderPayload = {
+  title: string; description: string; category: WorkOrderCategory;
+  priority: WorkOrderPriority; store_id: string; assigned_to: string;
+  due_date: string | null;
+};
 
-  return { success: updated || alreadyTransferred, alreadyTransferred };
+export async function createWorkOrder(payload: CreateWorkOrderPayload): Promise<WorkOrder> {
+  const created = await apiPost<BackendWorkOrder>("/work-orders", {
+    project_id: payload.store_id,
+    work_type: CATEGORY_TO_API[payload.category],
+    title: payload.title,
+    description: payload.description,
+    assigned_to_user_id: payload.assigned_to,
+    priority: PRIORITY_TO_API[payload.priority],
+    due_date: payload.due_date,
+  });
+  return normalizeWorkOrder(created);
+}
+
+export async function updateWorkOrder(
+  id: string,
+  payload: Partial<Pick<CreateWorkOrderPayload, "title" | "description" | "priority" | "assigned_to" | "due_date">>,
+): Promise<WorkOrder> {
+  const body: Record<string, unknown> = {};
+  if (payload.title !== undefined) body.title = payload.title;
+  if (payload.description !== undefined) body.description = payload.description;
+  if (payload.priority !== undefined) body.priority = PRIORITY_TO_API[payload.priority];
+  if (payload.assigned_to !== undefined) body.assigned_to_user_id = payload.assigned_to;
+  if (payload.due_date !== undefined) body.due_date = payload.due_date;
+  return normalizeWorkOrder(await apiPatch<BackendWorkOrder>(`/work-orders/${id}`, body));
+}
+
+export async function cancelWorkOrder(id: string): Promise<WorkOrder> {
+  return normalizeWorkOrder(await apiPatch<BackendWorkOrder>(`/work-orders/${id}`, { status: "cancelled" }));
 }

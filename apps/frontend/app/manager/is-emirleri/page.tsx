@@ -1,457 +1,181 @@
 "use client";
 
-import { Fragment, useState, useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  Plus, Search, X, ChevronRight, CalendarDays, User,
-  Building2, Loader2, AlertTriangle,
+  AlertCircle, ArrowRight, CalendarDays, CircleAlert, Clock3,
+  Filter, Plus, Search, Store, UserRound,
 } from "lucide-react";
 import {
-  getManagerWorkOrders,
-  createWorkOrder,
-  CATEGORY_LABEL,
-  PRIORITY_LABEL,
-  STATUS_LABEL,
-  type WorkOrder,
-  type WorkOrderCategory,
-  type WorkOrderPriority,
-  type WorkOrderStatus,
+  CATEGORY_LABEL, PRIORITY_LABEL, STATUS_LABEL,
+  getManagerWorkOrders, getTeamUsers,
+  type TeamUser, type WorkOrder, type WorkOrderCategory,
+  type WorkOrderPriority, type WorkOrderStatus,
 } from "@/services/managerWorkOrders";
-import { getUsers } from "@/services/adminUsers";
-import { StorePicker, useStoreDirectory, type StoreOption } from "@/components/store/store-picker";
+import { Skeleton } from "@/components/ui/skeleton";
 
-const CATEGORY_STYLE: Record<WorkOrderCategory, string> = {
-  ariza: "bg-red-100 text-red-700",
-  tadilat: "bg-amber-100 text-amber-700",
-  yeni_yapim: "bg-blue-100 text-blue-700",
-};
-
-const PRIORITY_STYLE: Record<WorkOrderPriority, { badge: string; dot: string }> = {
-  normal:    { badge: "bg-slate-100 text-slate-600", dot: "bg-slate-400" },
-  important: { badge: "bg-amber-100 text-amber-700", dot: "bg-amber-400" },
-  critical:  { badge: "bg-red-100 text-red-700",    dot: "bg-red-500"   },
-};
-
-const STATUS_STYLE: Record<WorkOrderStatus, string> = {
-  planned:    "bg-blue-100 text-blue-700",
-  in_progress:"bg-orange-100 text-orange-700",
-  completed:  "bg-emerald-100 text-emerald-700",
-  cancelled:  "bg-slate-100 text-slate-500",
-};
-
-const TABS: { key: WorkOrderStatus; label: string }[] = [
-  { key: "planned",    label: "Planlanacak" },
-  { key: "in_progress",label: "Devam Edenler" },
-  { key: "completed",  label: "Tamamlananlar" },
-  { key: "cancelled",  label: "İptal Edilenler" },
+const TABS: { key: Exclude<WorkOrderStatus, "cancelled">; label: string }[] = [
+  { key: "planned", label: "Planlanacak" },
+  { key: "in_progress", label: "Devam Edenler" },
+  { key: "completed", label: "Tamamlananlar" },
 ];
 
-const selCls =
-  "rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none";
+const priorityStyle: Record<WorkOrderPriority, string> = {
+  normal: "bg-slate-100 text-slate-600",
+  important: "bg-amber-50 text-amber-700",
+  critical: "bg-red-50 text-red-700",
+};
 
-const inputCls =
-  "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:border-blue-400 focus:outline-none";
+const statusStyle: Record<WorkOrderStatus, string> = {
+  planned: "bg-blue-50 text-blue-700",
+  in_progress: "bg-amber-50 text-amber-700",
+  completed: "bg-emerald-50 text-emerald-700",
+  cancelled: "bg-slate-100 text-slate-500",
+};
 
-interface CreateForm {
-  category: WorkOrderCategory | "";
-  store_id: string;
-  title: string;
-  description: string;
-  priority: WorkOrderPriority;
-  assigned_to: string;
-  due_date: string;
+function dateLabel(value: string | null) {
+  if (!value) return "Termin yok";
+  return new Date(value).toLocaleDateString("tr-TR", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-function isOverdue(due: string | null, status: WorkOrderStatus): boolean {
-  if (!due || status === "completed" || status === "cancelled") return false;
-  return new Date(due) < new Date();
+function getWarnings(order: WorkOrder) {
+  if (order.status === "completed" || order.status === "cancelled") return [];
+  const warnings: { label: string; tone: string }[] = [];
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+  if (order.due_date?.slice(0, 10) === today) warnings.push({ label: "Bugün Terminli", tone: "text-amber-700" });
+  if (order.due_date && new Date(order.due_date) < now) warnings.push({ label: "Gecikti", tone: "text-red-700" });
+  const staleDays = (now.getTime() - new Date(order.updated_at).getTime()) / 86_400_000;
+  if (staleDays > 3) warnings.push({ label: "Uzun Süredir Güncellenmedi", tone: "text-slate-600" });
+  if (order.has_critical_report) warnings.push({ label: "Kritik Rapor", tone: "text-red-700" });
+  return warnings;
 }
 
-function formatDate(d: string | null): string {
-  if (!d) return "—";
-  return new Date(d).toLocaleDateString("tr-TR", { day: "numeric", month: "short", year: "numeric" });
-}
-
-export default function ManagerIsEmirleriPage() {
+export default function ManagerWorkOrdersPage() {
   const [orders, setOrders] = useState<WorkOrder[]>([]);
-  const [activeTab, setActiveTab] = useState<WorkOrderStatus>("planned");
-  const [search, setSearch] = useState("");
-  const [filterCategory, setFilterCategory] = useState<WorkOrderCategory | "">("");
-  const [filterPriority, setFilterPriority] = useState<WorkOrderPriority | "">("");
-  const [filterAssignee, setFilterAssignee] = useState("");
-  const [showCreate, setShowCreate] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState<CreateForm>({
-    category: "", store_id: "", title: "", description: "",
-    priority: "normal", assigned_to: "", due_date: "",
-  });
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [users, setUsers] = useState<TeamUser[]>([]);
+  const [activeTab, setActiveTab] = useState<Exclude<WorkOrderStatus, "cancelled">>("planned");
+  const [query, setQuery] = useState("");
+  const [category, setCategory] = useState<WorkOrderCategory | "">("");
+  const [priority, setPriority] = useState<WorkOrderPriority | "">("");
+  const [assignee, setAssignee] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"current" | "cancelled">("current");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const users = useMemo(
-    () => getUsers().filter((u) => u.role === "USER" && u.status === "active"),
-    []
-  );
-  const { stores } = useStoreDirectory();
-  const [selectedStore, setSelectedStore] = useState<StoreOption | null>(null);
+  useEffect(() => {
+    Promise.all([getManagerWorkOrders(), getTeamUsers()])
+      .then(([workOrders, team]) => { setOrders(workOrders); setUsers(team); })
+      .catch(() => setError("İş emirleri yüklenemedi. Lütfen tekrar deneyin."))
+      .finally(() => setLoading(false));
+  }, []);
 
-  useEffect(() => { setOrders(getManagerWorkOrders()); }, []);
-
-  const tabCounts = useMemo(() => {
-    const c: Record<WorkOrderStatus, number> = { planned: 0, in_progress: 0, completed: 0, cancelled: 0 };
-    orders.forEach((o) => { c[o.status]++; });
-    return c;
-  }, [orders]);
+  const counts = useMemo(() => ({
+    planned: orders.filter((item) => item.status === "planned").length,
+    in_progress: orders.filter((item) => item.status === "in_progress").length,
+    completed: orders.filter((item) => item.status === "completed").length,
+  }), [orders]);
 
   const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    return orders.filter((o) => {
-      if (o.status !== activeTab) return false;
-      if (q && !`${o.title} ${o.store_name} ${o.assigned_to_name}`.toLowerCase().includes(q)) return false;
-      if (filterCategory && o.category !== filterCategory) return false;
-      if (filterPriority && o.priority !== filterPriority) return false;
-      if (filterAssignee && o.assigned_to !== filterAssignee) return false;
+    const search = query.trim().toLocaleLowerCase("tr-TR");
+    return orders.filter((item) => {
+      if (statusFilter === "cancelled" ? item.status !== "cancelled" : item.status !== activeTab) return false;
+      if (search && !`${item.title} ${item.store_name} ${item.store_code} ${item.assigned_to_name}`.toLocaleLowerCase("tr-TR").includes(search)) return false;
+      if (category && item.category !== category) return false;
+      if (priority && item.priority !== priority) return false;
+      if (assignee && item.assigned_to !== assignee) return false;
       return true;
     });
-  }, [orders, activeTab, search, filterCategory, filterPriority, filterAssignee]);
-
-  function resetForm() {
-    setForm({ category: "", store_id: "", title: "", description: "", priority: "normal", assigned_to: "", due_date: "" });
-    setSelectedStore(null);
-    setFormErrors({});
-  }
-
-  function validate(): Record<string, string> {
-    const e: Record<string, string> = {};
-    if (!form.category) e.category = "Kategori seçiniz.";
-    if (form.category !== "yeni_yapim" && !form.store_id) e.store_id = "Mağaza seçiniz.";
-    if (!form.title.trim()) e.title = "Başlık zorunludur.";
-    if (!form.assigned_to) e.assigned_to = "Atanan çalışan seçiniz.";
-    return e;
-  }
-
-  function handleCreate() {
-    const e = validate();
-    if (Object.keys(e).length > 0) { setFormErrors(e); return; }
-    setSaving(true);
-    const user = users.find((u) => u.id === form.assigned_to);
-    createWorkOrder({
-      title: form.title.trim(),
-      description: form.description.trim(),
-      category: form.category as WorkOrderCategory,
-      priority: form.priority,
-      store_id: selectedStore?.id ?? "",
-      store_name: selectedStore?.name ?? "—",
-      store_code: selectedStore?.project_no ?? "—",
-      assigned_to: user?.id ?? "",
-      assigned_to_name: user ? `${user.first_name} ${user.last_name}` : "—",
-      due_date: form.due_date || null,
-    });
-    setOrders(getManagerWorkOrders());
-    setActiveTab("planned");
-    setSaving(false);
-    setShowCreate(false);
-    resetForm();
-  }
+  }, [orders, statusFilter, activeTab, query, category, priority, assignee]);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="mx-auto max-w-7xl space-y-5">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">İş Emirleri</h1>
-          <p className="mt-1 text-sm text-slate-500">Toplam {orders.length} iş emri</p>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-950">İş Emirleri</h1>
+          <p className="mt-1 text-sm text-slate-500">Arıza, tadilat ve yeni yapım görevlerini oluşturun, atayın ve takip edin.</p>
         </div>
-        <button
-          onClick={() => { setShowCreate(true); resetForm(); }}
-          className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="h-4 w-4" />
-          Yeni İş Emri
-        </button>
-      </div>
+        <Link href="/manager/is-emirleri/yeni" className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 active:scale-[0.98]">
+          <Plus className="h-4 w-4" /> İş Emri Oluştur
+        </Link>
+      </header>
 
-      {/* Tabs */}
-      <div className="flex gap-1 rounded-xl bg-slate-100 p-1">
+      <nav className="grid grid-cols-3 overflow-hidden rounded-xl border border-slate-200 bg-white" aria-label="İş emri durumları">
         {TABS.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-              activeTab === tab.key
-                ? "bg-white text-slate-900 shadow-sm"
-                : "text-slate-500 hover:text-slate-700"
-            }`}
-          >
-            {tab.label}
-            <span className={`rounded-full px-1.5 py-0.5 text-xs font-bold ${
-              activeTab === tab.key ? "bg-blue-100 text-blue-700" : "bg-slate-200 text-slate-500"
-            }`}>
-              {tabCounts[tab.key]}
-            </span>
+          <button key={tab.key} onClick={() => { setActiveTab(tab.key); setStatusFilter("current"); }} className={`border-r border-slate-100 px-3 py-3 text-sm font-medium transition last:border-r-0 ${activeTab === tab.key && statusFilter === "current" ? "bg-slate-950 text-white" : "text-slate-500 hover:bg-slate-50"}`}>
+            {tab.label} <span className="ml-1 tabular-nums opacity-70">{counts[tab.key]}</span>
           </button>
         ))}
-      </div>
+      </nav>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3">
-        <div className="relative min-w-[200px] flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Başlık, mağaza veya çalışan ara…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-4 text-sm text-slate-700 placeholder:text-slate-400 focus:border-blue-400 focus:outline-none"
-          />
+      <section className="rounded-xl border border-slate-200 bg-white p-3">
+        <div className="grid gap-2 lg:grid-cols-[minmax(240px,1fr)_repeat(4,minmax(130px,auto))]">
+          <label className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Başlık, mağaza kodu veya çalışan ara" className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-500" />
+          </label>
+          <select value={category} onChange={(event) => setCategory(event.target.value as WorkOrderCategory | "")} className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 outline-none focus:border-blue-500">
+            <option value="">Tüm İş Tipleri</option>
+            {Object.entries(CATEGORY_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          </select>
+          <select value={priority} onChange={(event) => setPriority(event.target.value as WorkOrderPriority | "")} className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 outline-none focus:border-blue-500">
+            <option value="">Tüm Öncelikler</option>
+            {Object.entries(PRIORITY_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          </select>
+          <select value={assignee} onChange={(event) => setAssignee(event.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 outline-none focus:border-blue-500">
+            <option value="">Tüm Çalışanlar</option>
+            {users.map((user) => <option key={user.id} value={user.id}>{user.full_name}</option>)}
+          </select>
+          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as "current" | "cancelled")} className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 outline-none focus:border-blue-500">
+            <option value="current">Sekme Durumu</option>
+            <option value="cancelled">İptal Edilenler</option>
+          </select>
         </div>
-        <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value as WorkOrderCategory | "")} className={selCls}>
-          <option value="">Tüm Kategoriler</option>
-          <option value="ariza">Arıza</option>
-          <option value="tadilat">Tadilat</option>
-          <option value="yeni_yapim">Yeni Yapım</option>
-        </select>
-        <select value={filterPriority} onChange={(e) => setFilterPriority(e.target.value as WorkOrderPriority | "")} className={selCls}>
-          <option value="">Tüm Öncelikler</option>
-          <option value="normal">Normal</option>
-          <option value="important">Önemli</option>
-          <option value="critical">Kritik</option>
-        </select>
-        <select value={filterAssignee} onChange={(e) => setFilterAssignee(e.target.value)} className={selCls}>
-          <option value="">Tüm Çalışanlar</option>
-          {users.map((u) => (
-            <option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>
-          ))}
-        </select>
-      </div>
+      </section>
 
-      {/* Cards */}
-      {filtered.length === 0 ? (
-        <div className="rounded-xl border border-slate-200 bg-white py-20 text-center">
-          <p className="text-sm text-slate-400">
-            {search || filterCategory || filterPriority || filterAssignee
-              ? "Filtreyle eşleşen iş emri bulunamadı."
-              : "Bu sekmede iş emri yok."}
-          </p>
+      {error && <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"><AlertCircle className="h-4 w-4" />{error}</div>}
+
+      {loading ? (
+        <div className="space-y-2" aria-busy="true">{Array.from({ length: 5 }).map((_, index) => <Skeleton key={index} className="h-28 rounded-xl" />)}</div>
+      ) : filtered.length === 0 ? (
+        <div className="rounded-xl border border-slate-200 bg-white px-6 py-16 text-center">
+          <Filter className="mx-auto h-8 w-8 text-slate-300" />
+          <h2 className="mt-3 text-sm font-semibold text-slate-800">İş emri bulunamadı</h2>
+          <p className="mt-1 text-sm text-slate-500">Arama veya filtre kriterlerinizi değiştirerek tekrar deneyin.</p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {filtered.map((wo) => {
-            const overdue = isOverdue(wo.due_date, wo.status);
+        <div className="space-y-2">
+          {filtered.map((order) => {
+            const warnings = getWarnings(order);
+            const progress = order.status === "completed" ? 100 : order.status === "in_progress" ? 50 : 0;
             return (
-              <div
-                key={wo.id}
-                className="flex items-start gap-4 rounded-xl border border-slate-200 bg-white p-4 hover:border-blue-300 hover:shadow-sm transition-all"
-              >
-                <div className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${PRIORITY_STYLE[wo.priority].dot}`} />
-                <div className="min-w-0 flex-1 space-y-2">
-                  <div className="flex flex-wrap items-start gap-2">
-                    <p className="min-w-0 flex-1 text-sm font-semibold text-slate-900">{wo.title}</p>
-                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${CATEGORY_STYLE[wo.category]}`}>
-                      {CATEGORY_LABEL[wo.category]}
-                    </span>
-                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${PRIORITY_STYLE[wo.priority].badge}`}>
-                      {PRIORITY_LABEL[wo.priority]}
-                    </span>
+              <article key={order.id} className="rounded-xl border border-slate-200 bg-white p-4 transition hover:border-slate-300">
+                <div className="flex flex-col gap-4 xl:flex-row xl:items-center">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="truncate text-sm font-semibold text-slate-950">{order.title}</h2>
+                      <span className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${priorityStyle[order.priority]}`}>{PRIORITY_LABEL[order.priority]}</span>
+                      <span className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${statusStyle[order.status]}`}>{STATUS_LABEL[order.status]}</span>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-slate-500">
+                      <span className="flex items-center gap-1.5"><Store className="h-3.5 w-3.5" />{order.store_name} <span className="font-mono text-slate-400">{order.store_code}</span></span>
+                      <span className="flex items-center gap-1.5"><UserRound className="h-3.5 w-3.5" />{order.assigned_to_name}</span>
+                      <span className="flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5" />{dateLabel(order.due_date)}</span>
+                      <span className="flex items-center gap-1.5"><Clock3 className="h-3.5 w-3.5" />{new Date(order.updated_at).toLocaleDateString("tr-TR")}</span>
+                    </div>
+                    {warnings.length > 0 && <div className="mt-2 flex flex-wrap gap-3">{warnings.map((warning) => <span key={warning.label} className={`flex items-center gap-1 text-[11px] font-medium ${warning.tone}`}><CircleAlert className="h-3 w-3" />{warning.label}</span>)}</div>}
                   </div>
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
-                    <span className="flex items-center gap-1">
-                      <Building2 className="h-3 w-3" />
-                      {wo.store_name}
-                      <span className="text-slate-400">({wo.store_code})</span>
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <User className="h-3 w-3" />
-                      {wo.assigned_to_name}
-                    </span>
-                    {wo.due_date && (
-                      <span className={`flex items-center gap-1 ${overdue ? "font-medium text-red-600" : ""}`}>
-                        <CalendarDays className="h-3 w-3" />
-                        {overdue && "Gecikti · "}
-                        {formatDate(wo.due_date)}
-                      </span>
-                    )}
+                  <div className="flex items-center gap-4 xl:w-72">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex justify-between text-[11px] text-slate-500"><span>{CATEGORY_LABEL[order.category]}</span><span>{progress}%</span></div>
+                      <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-blue-600" style={{ width: `${progress}%` }} /></div>
+                    </div>
+                    <Link href={`/manager/is-emirleri/${order.id}`} className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">Detayı Gör <ArrowRight className="h-3.5 w-3.5" /></Link>
                   </div>
                 </div>
-                <Link
-                  href={`/manager/is-emirleri/${wo.id}`}
-                  className="flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50"
-                >
-                  Detay
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </Link>
-              </div>
+              </article>
             );
           })}
-        </div>
-      )}
-
-      {/* Create Modal */}
-      {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-2xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-              <h2 className="text-base font-semibold text-slate-900">Yeni İş Emri Oluştur</h2>
-              <button onClick={() => { setShowCreate(false); resetForm(); }} className="text-slate-400 hover:text-slate-600">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
-              {/* Category */}
-              <div>
-                <label className="mb-2 block text-xs font-medium text-slate-500">
-                  Kategori <span className="text-red-500">*</span>
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {(["ariza", "tadilat", "yeni_yapim"] as WorkOrderCategory[]).map((cat) => (
-                    <button
-                      key={cat}
-                      type="button"
-                      onClick={() => { setForm((f) => ({ ...f, category: cat, store_id: "" })); setSelectedStore(null); }}
-                      className={`rounded-lg border py-2.5 text-sm font-medium transition-colors ${
-                        form.category === cat
-                          ? cat === "ariza"
-                            ? "border-red-400 bg-red-50 text-red-700"
-                            : cat === "tadilat"
-                            ? "border-amber-400 bg-amber-50 text-amber-700"
-                            : "border-blue-400 bg-blue-50 text-blue-700"
-                          : "border-slate-200 text-slate-600 hover:bg-slate-50"
-                      }`}
-                    >
-                      {CATEGORY_LABEL[cat]}
-                    </button>
-                  ))}
-                </div>
-                {formErrors.category && <p className="mt-1 text-xs text-red-500">{formErrors.category}</p>}
-              </div>
-
-              {/* Store */}
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-slate-500">
-                  Mağaza{form.category !== "yeni_yapim" && <span className="text-red-500"> *</span>}
-                  {form.category === "yeni_yapim" && (
-                    <span className="ml-1 text-slate-400">(opsiyonel — yeni şube ise boş bırakın)</span>
-                  )}
-                </label>
-                <StorePicker
-                  stores={stores}
-                  value={selectedStore}
-                  onChange={(s) => { setSelectedStore(s); setForm((f) => ({ ...f, store_id: s?.id ?? "" })); }}
-                />
-                {formErrors.store_id && <p className="mt-1 text-xs text-red-500">{formErrors.store_id}</p>}
-                {form.category === "yeni_yapim" && !form.store_id && (
-                  <div className="mt-2 flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2">
-                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-500" />
-                    <p className="text-xs text-blue-700">
-                      Yeni şube ise{" "}
-                      <Link href="/manager/magaza-karti" className="font-semibold underline hover:text-blue-900">
-                        önce mağaza kartı oluşturun
-                      </Link>
-                      {" "}ve ardından buradan seçin.
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Title */}
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-slate-500">
-                  Başlık <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="İş emri başlığı"
-                  value={form.title}
-                  onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                  className={inputCls}
-                />
-                {formErrors.title && <p className="mt-1 text-xs text-red-500">{formErrors.title}</p>}
-              </div>
-
-              {/* Description */}
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-slate-500">Açıklama</label>
-                <textarea
-                  placeholder="İş emri detayları…"
-                  value={form.description}
-                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                  rows={3}
-                  className={inputCls + " resize-none"}
-                />
-              </div>
-
-              {/* Priority */}
-              <div>
-                <label className="mb-2 block text-xs font-medium text-slate-500">Öncelik</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {(["normal", "important", "critical"] as WorkOrderPriority[]).map((p) => (
-                    <button
-                      key={p}
-                      type="button"
-                      onClick={() => setForm((f) => ({ ...f, priority: p }))}
-                      className={`rounded-lg border py-2.5 text-sm font-medium transition-colors ${
-                        form.priority === p
-                          ? p === "normal"
-                            ? "border-slate-400 bg-slate-100 text-slate-700"
-                            : p === "important"
-                            ? "border-amber-400 bg-amber-50 text-amber-700"
-                            : "border-red-400 bg-red-50 text-red-700"
-                          : "border-slate-200 text-slate-600 hover:bg-slate-50"
-                      }`}
-                    >
-                      {PRIORITY_LABEL[p]}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Assignee */}
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-slate-500">
-                  Atanan Çalışan <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={form.assigned_to}
-                  onChange={(e) => setForm((f) => ({ ...f, assigned_to: e.target.value }))}
-                  className={inputCls}
-                >
-                  <option value="">— Seçiniz —</option>
-                  {users.map((u) => (
-                    <option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>
-                  ))}
-                </select>
-                {formErrors.assigned_to && <p className="mt-1 text-xs text-red-500">{formErrors.assigned_to}</p>}
-              </div>
-
-              {/* Due Date */}
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-slate-500">Son Tarih</label>
-                <input
-                  type="date"
-                  value={form.due_date}
-                  onChange={(e) => setForm((f) => ({ ...f, due_date: e.target.value }))}
-                  className={inputCls}
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-3 border-t border-slate-200 px-6 py-4">
-              <button
-                onClick={() => { setShowCreate(false); resetForm(); }}
-                className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
-              >
-                İptal
-              </button>
-              <button
-                onClick={handleCreate}
-                disabled={saving}
-                className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
-              >
-                {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-                Oluştur
-              </button>
-            </div>
-          </div>
         </div>
       )}
     </div>

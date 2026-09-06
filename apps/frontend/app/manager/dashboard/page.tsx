@@ -1,236 +1,83 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
-import { apiGet } from "@/lib/api";
+import {
+  AlertCircle, ArrowRight, CalendarClock, CheckCircle2,
+  ClipboardList, FileWarning, TimerReset, UsersRound,
+} from "lucide-react";
+import { getManagerWorkOrders, getTeamUsers, type TeamUser, type WorkOrder } from "@/services/managerWorkOrders";
 import { Skeleton } from "@/components/ui/skeleton";
+import DocumentQuickSearch from "@/components/dashboard/document-quick-search";
 
-interface WorkOrder {
-  id: string;
-  title: string;
-  status: string;
-  priority: string;
-  work_type: string;
-  created_at: string;
-}
-
-const STATUS_CONFIG: Record<string, { label: string; cls: string }> = {
-  draft:            { label: "Taslak",         cls: "bg-slate-700 text-white" },
-  approval_pending: { label: "Onay Bekliyor",  cls: "bg-amber-500 text-white" },
-  sent:             { label: "Gönderildi",     cls: "bg-blue-600 text-white" },
-  started:          { label: "Başladı",        cls: "bg-blue-700 text-white" },
-  material_waiting: { label: "Malzeme",        cls: "bg-orange-500 text-white" },
-  revisit:          { label: "Tekrar Ziyaret", cls: "bg-violet-600 text-white" },
-  completed:        { label: "Tamamlandı",     cls: "bg-emerald-600 text-white" },
-  approved:         { label: "Onaylandı",      cls: "bg-emerald-600 text-white" },
-  failed:           { label: "Başarısız",      cls: "bg-red-600 text-white" },
-  cancelled:        { label: "İptal",          cls: "bg-slate-600 text-white" },
-};
-
-const PRIORITY_CONFIG: Record<string, { label: string; cls: string }> = {
-  low:      { label: "Düşük",  cls: "text-slate-400" },
-  medium:   { label: "Orta",   cls: "text-amber-600 font-medium" },
-  high:     { label: "Yüksek", cls: "text-orange-600 font-semibold" },
-  critical: { label: "KRİTİK", cls: "text-red-600 font-black" },
-};
-
-function StatusBadge({ status }: { status: string }) {
-  const { label, cls } = STATUS_CONFIG[status] ?? { label: status, cls: "bg-slate-500 text-white" };
-  return (
-    <span className={`inline-flex items-center rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${cls}`}>
-      {label}
-    </span>
-  );
-}
-
-function PriorityLabel({ priority }: { priority: string }) {
-  const { label, cls } = PRIORITY_CONFIG[priority] ?? { label: priority, cls: "text-slate-400" };
-  return <span className={`text-xs ${cls}`}>{label}</span>;
+function isOverdue(order: WorkOrder, referenceTime: number | null) {
+  return Boolean(referenceTime && order.due_date && !["completed", "cancelled"].includes(order.status) && new Date(order.due_date).getTime() < referenceTime);
 }
 
 export default function ManagerDashboardPage() {
-  const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
+  const [orders, setOrders] = useState<WorkOrder[]>([]);
+  const [users, setUsers] = useState<TeamUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [referenceTime, setReferenceTime] = useState<number | null>(null);
 
   useEffect(() => {
-    apiGet<WorkOrder[]>("/work-orders")
-      .then((data) => setWorkOrders(Array.isArray(data) ? data : []))
-      .catch(() => {})
+    Promise.all([getManagerWorkOrders(), getTeamUsers()])
+      .then(([workOrders, team]) => { setOrders(workOrders); setUsers(team); setReferenceTime(Date.now()); })
+      .catch(() => setError("Operasyon özeti yüklenemedi."))
       .finally(() => setLoading(false));
   }, []);
 
-  const open       = workOrders.filter((w) => ["draft", "approval_pending", "sent"].includes(w.status));
-  const inProgress = workOrders.filter((w) => ["started", "material_waiting", "revisit"].includes(w.status));
-  const completed  = workOrders.filter((w) => ["completed", "approved"].includes(w.status));
-  const critical   = workOrders.filter((w) => w.priority === "critical");
+  const kpis = useMemo(() => [
+    { label: "Planlanacak", value: orders.filter((item) => item.status === "planned").length, icon: ClipboardList },
+    { label: "Devam Eden", value: orders.filter((item) => item.status === "in_progress").length, icon: TimerReset },
+    { label: "Tamamlanan", value: orders.filter((item) => item.status === "completed").length, icon: CheckCircle2 },
+    { label: "Geciken", value: orders.filter((order) => isOverdue(order, referenceTime)).length, icon: CalendarClock },
+    { label: "Kritik Raporlar", value: orders.filter((item) => item.has_critical_report).length, icon: FileWarning },
+  ], [orders, referenceTime]);
 
-  const kpiCells = [
-    {
-      label: "Açık İş Emirleri",
-      value: open.length,
-      sub: open.filter((w) => w.status === "approval_pending").length > 0
-        ? `${open.filter((w) => w.status === "approval_pending").length} onay bekliyor`
-        : "Bekleyen yok",
-      href: "/manager/is-emirleri",
-      accent: false,
-    },
-    {
-      label: "Devam Eden",
-      value: inProgress.length,
-      sub: "sahada aktif",
-      href: "/manager/is-emirleri",
-      accent: false,
-    },
-    {
-      label: "Tamamlanan",
-      value: completed.length,
-      sub: "bu dönem",
-      href: "/manager/is-emirleri",
-      accent: false,
-    },
-    {
-      label: "Kritik",
-      value: critical.length,
-      sub: critical.length > 0 ? "acil müdahale gerekiyor" : "—",
-      href: "/manager/is-emirleri",
-      accent: critical.length > 0,
-    },
-  ];
+  const attention = useMemo(() => orders
+    .filter((order) => {
+      const today = referenceTime ? new Date(referenceTime).toISOString().slice(0, 10) : "";
+      const stale = referenceTime ? (referenceTime - new Date(order.updated_at).getTime()) / 86_400_000 > 3 : false;
+      return isOverdue(order, referenceTime) || order.has_critical_report || order.due_date?.slice(0, 10) === today || (stale && !["completed", "cancelled"].includes(order.status));
+    })
+    .slice(0, 6), [orders, referenceTime]);
 
-  const recent = [...workOrders]
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    .slice(0, 8);
+  const recent = useMemo(() => [...orders]
+    .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+    .slice(0, 6), [orders]);
 
   return (
-    /* Break out of layout padding to get edge-to-edge KPI strip */
-    <div className="-m-4 sm:-m-6 lg:-m-8">
+    <div className="mx-auto max-w-7xl space-y-6">
+      <header>
+        <div><h1 className="text-2xl font-bold tracking-tight text-slate-950">Genel Bakış</h1><p className="mt-1 text-sm text-slate-500">Operasyonun güncel durumu ve öncelikli aksiyonlar.</p></div>
+      </header>
 
-      {/* ── KPI Strip ─────────────────────────────────────────────────────── */}
-      <div className="border-b border-slate-200 bg-white" aria-busy={loading}>
-        {loading ? (
-          <div className="grid grid-cols-2 xl:grid-cols-4 divide-x divide-slate-200">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="px-8 py-6 space-y-3">
-                <Skeleton className="h-3 w-28" />
-                <Skeleton className="h-9 w-14" />
-                <Skeleton className="h-3 w-20" />
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 xl:grid-cols-4 divide-x divide-slate-200">
-            {kpiCells.map((cell) => (
-              <Link
-                key={cell.label}
-                href={cell.href}
-                className={`group block px-8 py-6 transition-colors ${
-                  cell.accent
-                    ? "bg-red-50 hover:bg-red-100/60"
-                    : "hover:bg-slate-50/80"
-                }`}
-              >
-                <p className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${
-                  cell.accent ? "text-red-400" : "text-slate-400 group-hover:text-slate-500"
-                }`}>
-                  {cell.label}
-                </p>
-                <p className={`text-4xl font-black mt-2.5 tabular-nums leading-none ${
-                  cell.accent && cell.value > 0 ? "text-red-600" : "text-slate-900"
-                }`}>
-                  {cell.value}
-                </p>
-                <p className={`text-xs mt-2 ${cell.accent ? "text-red-400" : "text-slate-400"}`}>
-                  {cell.sub}
-                </p>
-              </Link>
-            ))}
-          </div>
-        )}
+      <DocumentQuickSearch />
+
+      {error && <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"><AlertCircle className="h-4 w-4" />{error}</div>}
+
+      <section className="grid overflow-hidden rounded-xl border border-slate-200 bg-white sm:grid-cols-2 xl:grid-cols-5">
+        {loading ? Array.from({ length: 5 }).map((_, index) => <div key={index} className="border-b border-r border-slate-100 p-5"><Skeleton className="h-4 w-24" /><Skeleton className="mt-4 h-9 w-12" /></div>) : kpis.map(({ label, value, icon: Icon }) => <Link key={label} href="/manager/is-emirleri" className="group border-b border-r border-slate-100 p-5 transition hover:bg-slate-50"><div className="flex items-center justify-between"><p className="text-xs font-semibold text-slate-500">{label}</p><Icon className="h-4 w-4 text-slate-300 group-hover:text-blue-600" /></div><p className="mt-4 text-3xl font-bold tabular-nums text-slate-950">{value}</p></Link>)}
+      </section>
+
+      <div className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
+        <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+          <div className="border-b border-slate-100 px-5 py-4"><h2 className="text-sm font-semibold text-slate-900">Dikkat Gerektirenler</h2></div>
+          {loading ? <div className="space-y-3 p-5"><Skeleton className="h-14" /><Skeleton className="h-14" /></div> : attention.length === 0 ? <div className="px-5 py-12 text-center"><CheckCircle2 className="mx-auto h-7 w-7 text-emerald-500" /><p className="mt-2 text-sm text-slate-500">Şu anda acil aksiyon gerektiren iş yok.</p></div> : <div>{attention.map((order) => <Link key={order.id} href={`/manager/is-emirleri/${order.id}`} className="flex items-center gap-4 border-b border-slate-100 px-5 py-3.5 last:border-0 hover:bg-slate-50"><span className={`h-9 w-1 rounded-full ${isOverdue(order, referenceTime) ? "bg-red-500" : order.has_critical_report ? "bg-amber-500" : "bg-blue-500"}`} /><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-slate-900">{order.title}</p><p className="mt-0.5 truncate text-xs text-slate-500">{order.store_name} | {order.assigned_to_name}</p></div><ArrowRight className="h-4 w-4 text-slate-300" /></Link>)}</div>}
+        </section>
+
+        <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4"><h2 className="text-sm font-semibold text-slate-900">Ekip İş Yükü</h2><UsersRound className="h-4 w-4 text-slate-300" /></div>
+          {loading ? <div className="space-y-3 p-5"><Skeleton className="h-12" /><Skeleton className="h-12" /></div> : users.length === 0 ? <p className="px-5 py-12 text-center text-sm text-slate-500">Aktif çalışan bulunamadı.</p> : <div className="divide-y divide-slate-100">{users.map((user) => { const mine = orders.filter((order) => order.assigned_to === user.id); return <div key={user.id} className="grid grid-cols-[1fr_repeat(3,auto)] items-center gap-4 px-5 py-3"><p className="truncate text-sm font-medium text-slate-800">{user.full_name || user.email}</p><span className="text-center text-xs text-slate-500"><strong className="block text-sm text-slate-900">{mine.filter((item) => item.status === "planned").length}</strong>Plan</span><span className="text-center text-xs text-slate-500"><strong className="block text-sm text-slate-900">{mine.filter((item) => item.status === "in_progress").length}</strong>Aktif</span><span className="text-center text-xs text-slate-500"><strong className="block text-sm text-red-600">{mine.filter((order) => isOverdue(order, referenceTime)).length}</strong>Geciken</span></div>; })}</div>}
+        </section>
       </div>
 
-      {/* ── Work Orders Table ──────────────────────────────────────────────── */}
-      <div className="p-4 sm:p-6 lg:p-8">
-        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-            <h2 className="text-sm font-bold text-slate-900">Son İş Emirleri</h2>
-            <Link
-              href="/manager/is-emirleri"
-              className="flex items-center gap-1 text-xs font-medium text-slate-400 hover:text-slate-700 transition-colors"
-            >
-              Tümünü gör <ArrowRight className="h-3 w-3" />
-            </Link>
-          </div>
-
-          {loading ? (
-            <div aria-busy="true">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="flex items-center gap-6 px-6 py-4 border-b border-slate-100 last:border-0">
-                  <div className="flex-1 space-y-2">
-                    <Skeleton className="h-3.5 w-52" />
-                    <Skeleton className="h-3 w-24" />
-                  </div>
-                  <Skeleton className="h-5 w-20 rounded" />
-                  <Skeleton className="h-3.5 w-12" />
-                  <Skeleton className="h-3 w-16" />
-                </div>
-              ))}
-            </div>
-          ) : recent.length === 0 ? (
-            <div className="py-16 text-center">
-              <p className="text-sm text-slate-400">Henüz iş emri yok.</p>
-            </div>
-          ) : (
-            <table className="w-full">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="px-6 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                    Başlık
-                  </th>
-                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                    Durum
-                  </th>
-                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                    Öncelik
-                  </th>
-                  <th className="px-6 py-3 text-right text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                    Tarih
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {recent.map((wo) => (
-                  <tr key={wo.id} className="group hover:bg-slate-50/70 transition-colors">
-                    <td className="px-6 py-3.5">
-                      <Link
-                        href={`/manager/is-emirleri/${wo.id}`}
-                        className="text-sm font-medium text-slate-800 group-hover:text-slate-900 transition-colors"
-                      >
-                        {wo.title}
-                      </Link>
-                      {wo.work_type && (
-                        <p className="text-xs text-slate-400 mt-0.5">{wo.work_type}</p>
-                      )}
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <StatusBadge status={wo.status} />
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <PriorityLabel priority={wo.priority} />
-                    </td>
-                    <td className="px-6 py-3.5 text-right text-xs text-slate-400 tabular-nums">
-                      {new Date(wo.created_at).toLocaleDateString("tr-TR", {
-                        day: "2-digit",
-                        month: "short",
-                      })}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
+      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4"><h2 className="text-sm font-semibold text-slate-900">Son Hareketler</h2><Link href="/manager/is-emirleri" className="text-xs font-semibold text-blue-700 hover:text-blue-800">Tümünü Gör</Link></div>
+        {recent.length === 0 && !loading ? <p className="px-5 py-10 text-center text-sm text-slate-500">Henüz hareket bulunmuyor.</p> : <div className="divide-y divide-slate-100">{recent.map((order) => <Link key={order.id} href={`/manager/is-emirleri/${order.id}`} className="grid gap-1 px-5 py-3.5 hover:bg-slate-50 sm:grid-cols-[1fr_auto]"><p className="text-sm text-slate-700"><span className="font-semibold">{order.assigned_to_name}</span>: {order.title} güncellendi.</p><time className="text-xs text-slate-400">{new Date(order.updated_at).toLocaleString("tr-TR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</time></Link>)}</div>}
+      </section>
     </div>
   );
 }

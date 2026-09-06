@@ -4,12 +4,31 @@ import { FormEvent, useState } from "react";
 import {
   Building2,
   ArrowRight,
+  BriefcaseBusiness,
+  ShieldCheck,
   Loader2,
+  UserRound,
 } from "lucide-react";
 import axios from "axios";
 import { buildApiUrl } from "@/lib/api";
 import { getTokenPayloadFromStorage } from "@/lib/auth";
 import { AUTH_STORE_KEY } from "@/contexts/auth-context";
+import {
+  DEMO_ACCOUNTS,
+  DEMO_MODE,
+  demoLogin,
+  type LoginTarget,
+} from "@/lib/demo-auth";
+
+const QUICK_LOGIN: Array<{
+  target: LoginTarget;
+  icon: typeof ShieldCheck;
+  tone: string;
+}> = [
+  { target: "admin", icon: ShieldCheck, tone: "bg-slate-900 text-white" },
+  { target: "manager", icon: BriefcaseBusiness, tone: "bg-blue-600 text-white" },
+  { target: "user", icon: UserRound, tone: "bg-emerald-600 text-white" },
+];
 
 function redirectByRole() {
   const payload = getTokenPayloadFromStorage();
@@ -26,6 +45,7 @@ export default function LoginPage() {
   const [companyPassword, setCompanyPassword] = useState("");
   const [companyLoading, setCompanyLoading] = useState(false);
   const [companyError, setCompanyError] = useState("");
+  const [quickLoading, setQuickLoading] = useState<LoginTarget | null>(null);
 
   const handleCompanyLogin = async (e: FormEvent) => {
     e.preventDefault();
@@ -52,6 +72,19 @@ export default function LoginPage() {
     }
   };
 
+  const handleQuickLogin = async (target: LoginTarget) => {
+    setQuickLoading(target);
+    setCompanyError("");
+    localStorage.removeItem(AUTH_STORE_KEY);
+    const result = await demoLogin(target);
+    if (!result.ok) {
+      setCompanyError(result.error ?? "Giriş yapılamadı.");
+      setQuickLoading(null);
+      return;
+    }
+    redirectByRole();
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-4 py-12">
       <div className="text-center mb-8">
@@ -66,7 +99,8 @@ export default function LoginPage() {
         </p>
       </div>
 
-      <div className="w-full max-w-sm">
+      <div className={`w-full ${DEMO_MODE ? "max-w-4xl" : "max-w-sm"}`}>
+        <div className={DEMO_MODE ? "grid gap-5 lg:grid-cols-[0.95fr_1.25fr]" : ""}>
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center gap-3 mb-4">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white">
@@ -88,14 +122,14 @@ export default function LoginPage() {
             )}
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">
-                Telefon veya E-posta
+                Kullanıcı adı / E-posta
               </label>
               <input
                 type="text"
                 required
                 value={companyEmail}
                 onChange={(e) => setCompanyEmail(e.target.value)}
-                placeholder="0555 123 45 67 veya kullanici@firma.com"
+                placeholder="kullanici@firma.com"
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
@@ -125,6 +159,53 @@ export default function LoginPage() {
               {companyLoading ? "Giriş yapılıyor…" : "Giriş Yap"}
             </button>
           </form>
+        </div>
+
+        {DEMO_MODE && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-6 shadow-sm">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <div className="mb-1 flex items-center gap-2">
+                  <h2 className="text-sm font-semibold text-slate-900">Geçici hızlı giriş</h2>
+                  <span className="rounded-full bg-amber-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-900">
+                    Geliştirme
+                  </span>
+                </div>
+                <p className="text-xs leading-5 text-slate-500">
+                  Test etmek istediğiniz yetki seviyesini seçin; bilgiler otomatik doldurulup giriş yapılır.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {QUICK_LOGIN.map(({ target, icon: Icon, tone }) => {
+                const account = DEMO_ACCOUNTS[target];
+                const isLoading = quickLoading === target;
+                return (
+                  <button
+                    key={target}
+                    type="button"
+                    onClick={() => handleQuickLogin(target)}
+                    disabled={quickLoading !== null || companyLoading}
+                    className="group flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 text-left transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${tone}`}>
+                      {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Icon className="h-5 w-5" />}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-semibold text-slate-900">{account.label}</span>
+                      <span className="block truncate text-xs text-slate-500">{account.description}</span>
+                      <span className="mt-1 block truncate font-mono text-[10px] text-slate-400">
+                        {account.email} · {account.password}
+                      </span>
+                    </span>
+                    <ArrowRight className="h-4 w-4 shrink-0 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-blue-600" />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
         </div>
       </div>
     </div>

@@ -34,8 +34,8 @@ const AuthContext = createContext<AuthState | null>(null);
 export const AUTH_STORE_KEY = "auth_store";
 
 function mapJwtToRole(roles: string[]): UserRole {
-  if (roles.includes("admin")) return "ADMIN";
-  if (roles.includes("manager")) return "MANAGER";
+  if (roles.includes("platform_admin")) return "ADMIN";
+  if (roles.includes("admin") || roles.includes("manager")) return "MANAGER";
   return "USER";
 }
 

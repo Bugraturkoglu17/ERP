@@ -1,9 +1,1 @@
-import { redirect } from "next/navigation";
-
-interface Props {
-  params: { id: string };
-}
-
-export default function UserIsEmriDetail({ params }: Props) {
-  redirect(`/is-emirleri/${params.id}`);
-}
+export { default } from "@/app/is-emirleri/[id]/page";

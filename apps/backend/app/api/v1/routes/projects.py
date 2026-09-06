@@ -15,7 +15,7 @@ from decimal import Decimal
 from types import SimpleNamespace
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status, UploadFile, File
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database         import get_db
@@ -306,6 +306,7 @@ async def delete_branch(
 async def list_projects(
     skip:         int                  = 0,
     limit:        int                  = 100,
+    q:            str | None           = None,
     status:       ProjectStatus | None = None,
     branch_id:    str | None           = None,
     customer_id:  str | None           = None,
@@ -338,6 +339,10 @@ async def list_projects(
         query = query.where(Project.branch_id == branch_id)
     if customer_id:
         query = query.where(Project.customer_id == customer_id)
+
+    if q and q.strip():
+        term = f"%{q.strip()}%"
+        query = query.where(or_(Project.name.ilike(term), Project.project_no.ilike(term)))
 
     query = query.offset(skip).limit(limit).order_by(Project.created_at.desc())
     result = await db.execute(query)

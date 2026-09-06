@@ -1288,9 +1288,6 @@ class WorkOrderPhoto(SQLModel, table=True):
     uploaded_by_name: Optional[str]   = Field(default=None, max_length=255)
     uploaded_at:    datetime           = Field(default_factory=utc_now, nullable=False)
     # ── Görsel Envanter aktarım ─────────────────────────────
-    is_added_to_inventory: bool          = Field(default=False, index=True)
-    vi_doc_id:             Optional[UUID] = Field(default=None)  # → documents.id
-
     work_order: Mapped["WorkOrder"] = Relationship(back_populates="photos")
 
 
@@ -1380,7 +1377,6 @@ class WorkOrderReportPhoto(SQLModel, table=True):
     mime_type:        Optional[str]  = Field(default=None, max_length=128)
     uploaded_by_name: Optional[str]  = Field(default=None, max_length=255)
     uploaded_at:      datetime       = Field(default_factory=utc_now, nullable=False)
-
     report: Mapped["WorkOrderReport"] = Relationship(back_populates="photos")
 
 

@@ -9,45 +9,38 @@
  */
 import { useState } from "react";
 import { ArrowRight, Loader2, LogOut } from "lucide-react";
-import axios from "axios";
-import { buildApiUrl } from "@/lib/api";
 import { useAuth, AUTH_STORE_KEY } from "@/contexts/auth-context";
 import { ROLE_LABEL, type UserRole } from "@/lib/permissions";
+import { DEMO_MODE, demoLogin, type LoginTarget } from "@/lib/demo-auth";
 
 const QUICK_ACCOUNTS: {
   role: UserRole;
   label: string;
   email: string;
+  target: LoginTarget;
   home: string;
   avatarCls: string;
 }[] = [
-  { role: "ADMIN",   label: "Admin",     email: "admin@sismik.com",    home: "/admin/dashboard",   avatarCls: "bg-indigo-500" },
-  { role: "MANAGER", label: "Yönetici",  email: "yonetici@sismik.com", home: "/manager/dashboard", avatarCls: "bg-blue-500"   },
-  { role: "USER",    label: "Kullanıcı", email: "saha@sismik.com",     home: "/user/dashboard",    avatarCls: "bg-teal-500"   },
+  { role: "ADMIN",   target: "admin",   label: "Admin",     email: "admin@sismik.com",    home: "/admin/dashboard",   avatarCls: "bg-indigo-500" },
+  { role: "MANAGER", target: "manager", label: "Yönetici",  email: "yonetici@sismik.com", home: "/manager/dashboard", avatarCls: "bg-blue-500"   },
+  { role: "USER",    target: "user",    label: "Kullanıcı", email: "saha@sismik.com",     home: "/user/dashboard",    avatarCls: "bg-teal-500"   },
 ];
 
 export function QuickSwitch() {
   const { user, logout } = useAuth();
   const [switching, setSwitching] = useState<UserRole | null>(null);
 
-  if (!user) return null;
+  if (!DEMO_MODE || !user) return null;
 
   const others = QUICK_ACCOUNTS.filter((a) => a.role !== user.role);
 
   const switchTo = async (acc: (typeof QUICK_ACCOUNTS)[0]) => {
     setSwitching(acc.role);
     try {
-      const params = new URLSearchParams();
-      params.append("username", acc.email);
-      params.append("password", "x");
-      const res = await axios.post<{ access_token: string }>(
-        buildApiUrl("/auth/login"),
-        params,
-        { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
-      );
       localStorage.removeItem(AUTH_STORE_KEY);
-      localStorage.setItem("token", res.data.access_token);
-      window.location.href = acc.home;
+      const result = await demoLogin(acc.target);
+      if (!result.ok) throw new Error(result.error ?? "Hesap değiştirilemedi.");
+      window.location.assign(acc.home);
     } catch {
       setSwitching(null);
     }

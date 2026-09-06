@@ -93,6 +93,7 @@ class UserRead(BaseModel):
     discipline:     str | None
     discipline_only:bool
     is_active:      bool
+    default_role:   str | None
     model_config   = ConfigDict(from_attributes=True)
 
 

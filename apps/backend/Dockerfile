@@ -23,8 +23,6 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
     curl \
-    redis-server \
-    supervisor \
     && rm -rf /var/lib/apt/lists/*
 
 RUN groupadd -r app && useradd -r -g app -d /home/app -m -s /usr/sbin/nologin app
@@ -34,11 +32,12 @@ COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/pytho
 COPY --from=builder /usr/local/bin /usr/local/bin
 
 COPY . .
-COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 RUN mkdir -p /home/app/.postgresql && chown -R app:app /app /home/app
 
 RUN chmod +x /app/entrypoint.sh
+
+USER app
 
 EXPOSE 8000
 

@@ -53,6 +53,9 @@ class StorageService:
         
         # OCI kimlik bilgileri eksikse otomatik local fallback modunu aktif et
         self.local_mode = not settings.AWS_ACCESS_KEY_ID or settings.AWS_ACCESS_KEY_ID == ""
+
+        if self.local_mode and settings.is_production:
+            raise RuntimeError("Object storage credentials are required in production.")
         
         if self.local_mode:
             print("[WARN] OCI Object Storage credentials missing! Running in LOCAL FALLBACK mode.")
@@ -70,6 +73,7 @@ class StorageService:
                     aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
                     aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
                     endpoint_url=self.endpoint_url,
+                    region_name=settings.OCI_REGION,
                     config=Config(signature_version="s3v4"),
                 )
             except Exception as e:

@@ -1,7 +1,7 @@
 """work_orders — iş emri modülleri
 
 Revision ID: 20260627_01
-Revises: 20260521_02
+Revises: 9a98d4f3ee8f
 Create Date: 2026-06-27
 """
 
@@ -13,7 +13,7 @@ from sqlalchemy import inspect
 
 
 revision = "20260627_01"
-down_revision = "20260521_02"
+down_revision = "9a98d4f3ee8f"
 branch_labels = None
 depends_on = None
 

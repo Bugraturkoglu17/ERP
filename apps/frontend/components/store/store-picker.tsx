@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Search, Store, X } from "lucide-react";
-import { getStores, type Store as StoreOption } from "@/services/stores";
+import { getStores, searchStoresRemote, type Store as StoreOption } from "@/services/stores";
 
 export type { StoreOption };
+
+const EMPTY_STORES: StoreOption[] = [];
 
 function parseBolge(desc?: string): string {
   if (!desc) return "";
@@ -36,12 +38,12 @@ export function useStoreDirectory() {
  * tüm listeyi basmaz — kullanıcı yazana kadar sonuç göstermez, debounce'lu arar.
  */
 export function StorePicker({
-  stores,
+  stores = EMPTY_STORES,
   value,
   onChange,
   placeholder = "Mağaza adı veya kodu ile ara...",
 }: {
-  stores: StoreOption[];
+  stores?: StoreOption[];
   value: StoreOption | null;
   onChange: (s: StoreOption | null) => void;
   placeholder?: string;
@@ -49,18 +51,34 @@ export function StorePicker({
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
   const [open, setOpen] = useState(false);
+  const [results, setResults] = useState<StoreOption[]>([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(query), 200);
     return () => clearTimeout(t);
   }, [query]);
 
-  const results = useMemo(() => {
+  useEffect(() => {
     const q = debounced.trim().toLowerCase();
-    if (!q) return [];
-    return stores
-      .filter((s) => s.name.toLowerCase().includes(q) || (s.project_no ?? "").toLowerCase().includes(q))
-      .slice(0, 20);
+    if (!q) { setResults([]); return; }
+    let active = true;
+    setLoading(true);
+    searchStoresRemote(q)
+      .then((remote) => {
+        if (!active) return;
+        const fallback = stores.filter((s) =>
+          s.name.toLowerCase().includes(q) || (s.project_no ?? "").toLowerCase().includes(q)
+        );
+        setResults(remote.length ? remote : fallback.slice(0, 20));
+      })
+      .catch(() => {
+        if (active) setResults(stores.filter((s) =>
+          s.name.toLowerCase().includes(q) || (s.project_no ?? "").toLowerCase().includes(q)
+        ).slice(0, 20));
+      })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, [stores, debounced]);
 
   if (value) {
@@ -95,7 +113,9 @@ export function StorePicker({
       </div>
       {open && debounced.trim() !== "" && (
         <div className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
-          {results.length === 0 ? (
+          {loading ? (
+            <p className="px-3 py-3 text-xs text-slate-400">Mağazalar aranıyor...</p>
+          ) : results.length === 0 ? (
             <p className="px-3 py-3 text-xs text-slate-400">Sonuç bulunamadı.</p>
           ) : (
             results.map((s) => {

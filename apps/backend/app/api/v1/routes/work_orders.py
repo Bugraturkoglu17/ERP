@@ -14,8 +14,8 @@ from typing import List, Optional
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status, Request
-from pydantic import BaseModel
-from sqlalchemy import select, desc
+from pydantic import BaseModel, Field
+from sqlalchemy import select, desc, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user, get_db, is_platform_admin
@@ -54,7 +54,7 @@ DEFAULT_STAGES = [
     (1, "Hazırlık"),
     (2, "Uygulama / İmalat"),
     (3, "Kontrol / Test"),
-    (4, "Tamamlama"),
+    (4, "Tamamlandı"),
 ]
 
 SEVERITY_LABELS = {
@@ -97,6 +97,9 @@ class WorkOrderRead(BaseModel):
     project_id:            UUID
     project_name:          Optional[str] = None
     project_no:            Optional[str] = None
+    project_region:        Optional[str] = None
+    project_city:          Optional[str] = None
+    project_address:       Optional[str] = None
     work_type:             str
     work_type_label:       str
     title:                 str
@@ -118,6 +121,7 @@ class WorkOrderRead(BaseModel):
     updated_at:            datetime
     photo_count:           int = 0
     has_service_form:      bool = False
+    has_critical_report:   bool = False
     public_token:          Optional[str] = None
 
     class Config:
@@ -133,6 +137,7 @@ class WorkOrderReportPhotoRead(BaseModel):
     uploaded_by_name: Optional[str]
     uploaded_at:      datetime
     fresh_url:        Optional[str] = None
+    is_added_to_inventory: bool = False
 
 
 class WorkOrderReportRead(BaseModel):
@@ -169,6 +174,7 @@ class WorkOrderUpdate(BaseModel):
     description:       Optional[str] = None
     assigned_to_name:  Optional[str] = None
     assigned_to_phone: Optional[str] = None
+    assigned_to_user_id: Optional[UUID] = None
     priority:          Optional[str] = None
     due_date:          Optional[str] = None
     status:            Optional[str] = None
@@ -191,6 +197,7 @@ class WorkOrderPhotoRead(BaseModel):
 
 class AddPhotosToInventoryPayload(BaseModel):
     photo_ids: List[UUID]
+    report_photo_ids: List[UUID] = Field(default_factory=list)
     category:  Optional[str] = "saha_gorseli"
     title:     Optional[str] = None
 
@@ -245,6 +252,60 @@ def _parse_project_phone(proj: Project) -> Optional[str]:
         return None
 
 
+def _parse_project_meta(proj: Project) -> dict:
+    if not proj or not proj.description:
+        return {}
+    try:
+        value = json.loads(proj.description)
+        return value if isinstance(value, dict) else {}
+    except Exception:
+        return {}
+
+
+async def _photo_inventory_refs(project_id: UUID, db: AsyncSession) -> tuple[dict[str, UUID], dict[str, UUID]]:
+    """Görsel envanterdeki iş emri ve rapor fotoğrafı referanslarını döndürür."""
+    # Eski/stamp edilmiş veritabanlarında görsel envanter kolonları bulunmayabilir.
+    # Fotoğraf görüntüleme bu isteğe bağlı envanter kontrolü yüzünden tamamen bozulmasın.
+    schema_check = await db.execute(text("""
+        SELECT COUNT(*)
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = 'documents'
+          AND column_name IN (
+            'process_id', 'vi_meta', 'is_archive', 'archive_status',
+            'transferred_project_id', 'transferred_category', 'transferred_at'
+          )
+    """))
+    if schema_check.scalar_one() < 7:
+        return {}, {}
+
+    result = await db.execute(
+        select(Document).where(
+            Document.project_id == project_id,
+            Document.doc_type == "visual_inventory",
+        )
+    )
+    work_refs: dict[str, UUID] = {}
+    report_refs: dict[str, UUID] = {}
+    for document in result.scalars().all():
+        try:
+            meta = json.loads(document.vi_meta or "{}")
+            if meta.get("source") == "work_order":
+                work_refs[document.file_key] = document.id
+            if meta.get("source") == "work_order_report":
+                report_refs[document.file_key] = document.id
+        except (TypeError, ValueError, json.JSONDecodeError):
+            continue
+    return work_refs, report_refs
+
+
+def _ensure_work_order_access(wo: WorkOrder, user: User) -> None:
+    if user.tenant_id and wo.tenant_id != user.tenant_id:
+        raise HTTPException(403, "Bu iş emri şirket kapsamınız dışında.")
+    if not _can_view_all_work_orders(user) and wo.assigned_to_user_id != user.id:
+        raise HTTPException(403, "Bu iş emrine erişim yetkiniz yok.")
+
+
 def _parse_date(d: Optional[str]) -> Optional[datetime]:
     if not d:
         return None
@@ -285,12 +346,23 @@ async def _log_activity(
     ))
 
 
-def _enrich(wo: WorkOrder, project: Project, photos: list, service_forms: list, link: Optional[WorkOrderPublicLink]) -> WorkOrderRead:
+def _enrich(
+    wo: WorkOrder,
+    project: Project,
+    photos: list,
+    service_forms: list,
+    link: Optional[WorkOrderPublicLink],
+    reports: Optional[list] = None,
+) -> WorkOrderRead:
+    project_meta = _parse_project_meta(project)
     return WorkOrderRead(
         id=wo.id,
         project_id=wo.project_id,
         project_name=project.name if project else None,
         project_no=project.project_no if project else None,
+        project_region=project_meta.get("bolge") or project_meta.get("region"),
+        project_city=project_meta.get("sehir") or project_meta.get("city"),
+        project_address=project_meta.get("adres") or project_meta.get("address"),
         work_type=wo.work_type,
         work_type_label=WORK_TYPE_LABELS.get(wo.work_type, wo.work_type),
         title=wo.title,
@@ -312,6 +384,7 @@ def _enrich(wo: WorkOrder, project: Project, photos: list, service_forms: list, 
         updated_at=wo.updated_at,
         photo_count=len(photos),
         has_service_form=len(service_forms) > 0,
+        has_critical_report=any(report.severity == "critical" for report in (reports or [])),
         public_token=link.token if link else None,
     )
 
@@ -329,15 +402,22 @@ async def create_work_order(
     proj = await db.get(Project, payload.project_id)
     if not proj:
         raise HTTPException(404, "Mağaza bulunamadı.")
+    if not _can_view_all_work_orders(user):
+        raise HTTPException(403, "İş emri oluşturma yetkiniz yok.")
+    if user.tenant_id and proj.tenant_id != user.tenant_id:
+        raise HTTPException(403, "Bu mağaza şirket kapsamınız dışında.")
 
     # Kullanıcı ID'sinden isim çek (eğer user_id verilmişse)
     assigned_name  = payload.assigned_to_name
     assigned_phone = payload.assigned_to_phone
-    if payload.assigned_to_user_id and not assigned_name:
+    if payload.assigned_to_user_id:
         assigned_user = await db.get(User, payload.assigned_to_user_id)
-        if assigned_user:
-            assigned_name  = assigned_user.full_name or assigned_user.email
-            assigned_phone = assigned_user.phone or assigned_phone
+        if not assigned_user or not assigned_user.is_active:
+            raise HTTPException(400, "Atanacak aktif kullanıcı bulunamadı.")
+        if user.tenant_id and assigned_user.tenant_id != user.tenant_id:
+            raise HTTPException(403, "Kullanıcı şirket kapsamınız dışında.")
+        assigned_name  = assigned_user.full_name or assigned_user.email
+        assigned_phone = assigned_user.phone or assigned_phone
 
     wo = WorkOrder(
         id=uuid4(),
@@ -417,8 +497,9 @@ async def list_work_orders(
         proj = await db.get(Project, wo.project_id)
         photos_r = await db.execute(select(WorkOrderPhoto).where(WorkOrderPhoto.work_order_id == wo.id))
         forms_r  = await db.execute(select(WorkOrderServiceForm).where(WorkOrderServiceForm.work_order_id == wo.id))
+        reports_r = await db.execute(select(WorkOrderReport).where(WorkOrderReport.work_order_id == wo.id))
         link = await _get_active_link(wo.id, db)
-        out.append(_enrich(wo, proj, photos_r.scalars().all(), forms_r.scalars().all(), link))
+        out.append(_enrich(wo, proj, photos_r.scalars().all(), forms_r.scalars().all(), link, reports_r.scalars().all()))
     return out
 
 
@@ -431,11 +512,13 @@ async def get_work_order(
     wo = await db.get(WorkOrder, work_order_id)
     if not wo:
         raise HTTPException(404, "İş emri bulunamadı.")
+    _ensure_work_order_access(wo, user)
     proj = await db.get(Project, wo.project_id)
     photos_r = await db.execute(select(WorkOrderPhoto).where(WorkOrderPhoto.work_order_id == wo.id))
     forms_r  = await db.execute(select(WorkOrderServiceForm).where(WorkOrderServiceForm.work_order_id == wo.id))
+    reports_r = await db.execute(select(WorkOrderReport).where(WorkOrderReport.work_order_id == wo.id))
     link = await _get_active_link(wo.id, db)
-    return _enrich(wo, proj, photos_r.scalars().all(), forms_r.scalars().all(), link)
+    return _enrich(wo, proj, photos_r.scalars().all(), forms_r.scalars().all(), link, reports_r.scalars().all())
 
 
 @router.patch("/{work_order_id}", response_model=WorkOrderRead)
@@ -448,14 +531,43 @@ async def update_work_order(
     wo = await db.get(WorkOrder, work_order_id)
     if not wo:
         raise HTTPException(404, "İş emri bulunamadı.")
+    _ensure_work_order_access(wo, user)
+    if not _can_view_all_work_orders(user):
+        if not payload.model_fields_set.issubset({"status"}):
+            raise HTTPException(403, "Bu iş emrinde yalnızca süreç durumu güncellenebilir.")
+        if payload.status not in {"started", "completed"}:
+            raise HTTPException(400, "Geçersiz süreç durumu.")
 
     if payload.title is not None:           wo.title = payload.title
     if payload.description is not None:     wo.description = payload.description
     if payload.assigned_to_name is not None: wo.assigned_to_name = payload.assigned_to_name
     if payload.assigned_to_phone is not None: wo.assigned_to_phone = payload.assigned_to_phone
+    if payload.assigned_to_user_id is not None:
+        assigned_user = await db.get(User, payload.assigned_to_user_id)
+        if not assigned_user or not assigned_user.is_active:
+            raise HTTPException(400, "Atanacak aktif kullanıcı bulunamadı.")
+        if user.tenant_id and assigned_user.tenant_id != user.tenant_id:
+            raise HTTPException(403, "Kullanıcı şirket kapsamınız dışında.")
+        wo.assigned_to_user_id = assigned_user.id
+        wo.assigned_to_name = assigned_user.full_name or assigned_user.email
+        wo.assigned_to_phone = assigned_user.phone
     if payload.priority is not None:        wo.priority = payload.priority
     if payload.due_date is not None:        wo.due_date = _parse_date(payload.due_date)
-    if payload.status is not None:          wo.status = payload.status
+    if payload.status is not None:
+        if payload.status == "completed":
+            completion_photos = await db.execute(
+                select(WorkOrderPhoto).where(
+                    WorkOrderPhoto.work_order_id == wo.id,
+                    WorkOrderPhoto.photo_type == "completion",
+                )
+            )
+            if not completion_photos.scalars().first():
+                raise HTTPException(400, "İşi tamamlamak için en az bir nihai fotoğraf yükleyin.")
+            wo.completed_at = utc_now()
+        if payload.status == "started" and not wo.started_at:
+            wo.started_at = utc_now()
+        wo.status = payload.status
+    wo.updated_at = utc_now()
 
     await db.commit()
     await db.refresh(wo)
@@ -463,8 +575,9 @@ async def update_work_order(
     proj = await db.get(Project, wo.project_id)
     photos_r = await db.execute(select(WorkOrderPhoto).where(WorkOrderPhoto.work_order_id == wo.id))
     forms_r  = await db.execute(select(WorkOrderServiceForm).where(WorkOrderServiceForm.work_order_id == wo.id))
+    reports_r = await db.execute(select(WorkOrderReport).where(WorkOrderReport.work_order_id == wo.id))
     link = await _get_active_link(wo.id, db)
-    return _enrich(wo, proj, photos_r.scalars().all(), forms_r.scalars().all(), link)
+    return _enrich(wo, proj, photos_r.scalars().all(), forms_r.scalars().all(), link, reports_r.scalars().all())
 
 
 @router.delete("/{work_order_id}", status_code=204)
@@ -476,6 +589,9 @@ async def delete_work_order(
     wo = await db.get(WorkOrder, work_order_id)
     if not wo:
         raise HTTPException(404, "İş emri bulunamadı.")
+    _ensure_work_order_access(wo, user)
+    if not _can_view_all_work_orders(user):
+        raise HTTPException(403, "İş emri silme yetkiniz yok.")
 
     # Mağaza kartına silme kaydı düş (iş emri silindikten sonra project_id kaybolur)
     db.add(StoreActivity(
@@ -526,6 +642,7 @@ async def create_report(
     wo = await db.get(WorkOrder, work_order_id)
     if not wo:
         raise HTTPException(404, "İş emri bulunamadı.")
+    _ensure_work_order_access(wo, user)
 
     report = WorkOrderReport(
         id=uuid4(), work_order_id=wo.id,
@@ -565,6 +682,7 @@ async def create_report(
             file_name=rp.file_name, file_size_bytes=rp.file_size_bytes,
             mime_type=rp.mime_type, uploaded_by_name=rp.uploaded_by_name,
             uploaded_at=rp.uploaded_at, fresh_url=file_url,
+            is_added_to_inventory=False,
         ))
 
     await _log_activity(db, wo.id, wo.project_id, "report_created", f"Rapor eklendi: {title}")
@@ -588,6 +706,7 @@ async def list_reports(
     wo = await db.get(WorkOrder, work_order_id)
     if not wo:
         raise HTTPException(404, "İş emri bulunamadı.")
+    _ensure_work_order_access(wo, user)
 
     reports_r = await db.execute(
         select(WorkOrderReport)
@@ -595,6 +714,7 @@ async def list_reports(
         .order_by(desc(WorkOrderReport.created_at))
     )
     reports = reports_r.scalars().all()
+    _, inventory_refs = await _photo_inventory_refs(wo.project_id, db)
 
     out = []
     for rep in reports:
@@ -613,6 +733,7 @@ async def list_reports(
                 file_name=p.file_name, file_size_bytes=p.file_size_bytes,
                 mime_type=p.mime_type, uploaded_by_name=p.uploaded_by_name,
                 uploaded_at=p.uploaded_at, fresh_url=url,
+                is_added_to_inventory=p.file_key in inventory_refs,
             ))
         out.append(WorkOrderReportRead(
             id=rep.id, work_order_id=rep.work_order_id,
@@ -634,6 +755,10 @@ async def delete_report(
     rep = await db.get(WorkOrderReport, report_id)
     if not rep or rep.work_order_id != work_order_id:
         raise HTTPException(404, "Rapor bulunamadı.")
+    wo = await db.get(WorkOrder, work_order_id)
+    if not wo:
+        raise HTTPException(404, "İş emri bulunamadı.")
+    _ensure_work_order_access(wo, user)
     photos_r = await db.execute(
         select(WorkOrderReportPhoto).where(WorkOrderReportPhoto.report_id == report_id)
     )
@@ -655,6 +780,7 @@ async def list_stages(
     wo = await db.get(WorkOrder, work_order_id)
     if not wo:
         raise HTTPException(404, "İş emri bulunamadı.")
+    _ensure_work_order_access(wo, user)
 
     stages_r = await db.execute(
         select(WorkOrderStage)
@@ -662,6 +788,13 @@ async def list_stages(
         .order_by(WorkOrderStage.stage_order)
     )
     stages = stages_r.scalars().all()
+    renamed = False
+    for item in stages:
+        if item.stage_name == "Tamamlama":
+            item.stage_name = "Tamamlandı"
+            renamed = True
+    if renamed:
+        await db.commit()
 
     # Eski iş emirleri için aşama yoksa otomatik oluştur
     if not stages:
@@ -701,12 +834,40 @@ async def update_stage(
     if not stage or stage.work_order_id != work_order_id:
         raise HTTPException(404, "Aşama bulunamadı.")
 
+    wo = await db.get(WorkOrder, work_order_id)
+    if not wo:
+        raise HTTPException(404, "İş emri bulunamadı.")
+    _ensure_work_order_access(wo, user)
+
     if payload.status is not None:
+        if payload.status not in {"planned", "in_progress", "completed", "cancelled"}:
+            raise HTTPException(400, "Geçersiz aşama durumu.")
+        if stage.stage_order == 4 and payload.status == "completed":
+            completion_photos = await db.execute(
+                select(WorkOrderPhoto).where(
+                    WorkOrderPhoto.work_order_id == work_order_id,
+                    WorkOrderPhoto.photo_type == "completion",
+                )
+            )
+            if not completion_photos.scalars().first():
+                raise HTTPException(400, "Tamamlandı aşaması için en az bir nihai fotoğraf yükleyin.")
         stage.status = payload.status
     if payload.description is not None:
         stage.description = payload.description or None
     stage.updated_at       = utc_now()
     stage.updated_by_name  = user.full_name
+
+    stages_r = await db.execute(
+        select(WorkOrderStage).where(WorkOrderStage.work_order_id == work_order_id)
+    )
+    all_stages = list(stages_r.scalars().all())
+    if all_stages and all(item.status == "completed" for item in all_stages):
+        wo.status = WorkOrderStatus.COMPLETED
+        wo.completed_at = utc_now()
+    elif any(item.status in {"in_progress", "completed"} for item in all_stages):
+        wo.status = WorkOrderStatus.STARTED
+        wo.started_at = wo.started_at or utc_now()
+    wo.updated_at = utc_now()
 
     await db.commit()
     await db.refresh(stage)
@@ -820,6 +981,15 @@ async def upload_admin_photo(
     wo = await db.get(WorkOrder, work_order_id)
     if not wo:
         raise HTTPException(404, "İş emri bulunamadı.")
+    _ensure_work_order_access(wo, user)
+    if photo_type not in {"before", "after", "issue", "completion"}:
+        raise HTTPException(400, "Geçersiz fotoğraf kaynağı.")
+    allowed_file = bool(file.content_type and (
+        file.content_type.startswith("image/")
+        or (photo_type == "before" and file.content_type == "application/pdf")
+    ))
+    if not allowed_file:
+        raise HTTPException(400, "Yalnızca JPG, JPEG, PNG veya başlangıç eki olarak PDF yükleyebilirsiniz.")
 
     content = await file.read()
     safe_name = sanitize_filename(file.filename or "photo.jpg")
@@ -853,6 +1023,7 @@ async def list_work_order_photos(
     wo = await db.get(WorkOrder, work_order_id)
     if not wo:
         raise HTTPException(404, "İş emri bulunamadı.")
+    _ensure_work_order_access(wo, user)
 
     photos_r = await db.execute(
         select(WorkOrderPhoto)
@@ -860,6 +1031,7 @@ async def list_work_order_photos(
         .order_by(WorkOrderPhoto.uploaded_at)
     )
     photos = photos_r.scalars().all()
+    inventory_refs, _ = await _photo_inventory_refs(wo.project_id, db)
 
     result = []
     for p in photos:
@@ -877,8 +1049,8 @@ async def list_work_order_photos(
             photo_type=p.photo_type,
             uploaded_by_name=p.uploaded_by_name,
             uploaded_at=p.uploaded_at,
-            is_added_to_inventory=p.is_added_to_inventory,
-            vi_doc_id=p.vi_doc_id,
+            is_added_to_inventory=p.file_key in inventory_refs,
+            vi_doc_id=inventory_refs.get(p.file_key),
             fresh_url=url,
         ))
     return result
@@ -896,9 +1068,13 @@ async def add_photos_to_inventory(
     wo = await db.get(WorkOrder, work_order_id)
     if not wo:
         raise HTTPException(404, "İş emri bulunamadı.")
+    _ensure_work_order_access(wo, user)
+    if not _can_view_all_work_orders(user):
+        raise HTTPException(403, "Fotoğrafları mağaza kartına ekleme yetkiniz yok.")
 
     added: list[str] = []
     skipped: list[str] = []
+    work_inventory_refs, report_inventory_refs = await _photo_inventory_refs(wo.project_id, db)
 
     for photo_id in payload.photo_ids:
         photo_r = await db.execute(
@@ -910,7 +1086,7 @@ async def add_photos_to_inventory(
         photo = photo_r.scalar_one_or_none()
         if not photo:
             continue
-        if photo.is_added_to_inventory:
+        if photo.file_key in work_inventory_refs:
             skipped.append(str(photo_id))
             continue
 
@@ -918,6 +1094,7 @@ async def add_photos_to_inventory(
             "c":        payload.category or "saha_gorseli",
             "t":        payload.title or photo.file_name or "Saha Görseli",
             "source":   "work_order",
+            "work_order_photo_id": str(photo.id),
             "wo_id":    str(wo.id),
             "wo_title": wo.title,
             "reporter": photo.uploaded_by_name,
@@ -942,8 +1119,50 @@ async def add_photos_to_inventory(
         db.add(doc)
         await db.flush()
 
-        photo.is_added_to_inventory = True
-        photo.vi_doc_id = doc.id
+        work_inventory_refs[photo.file_key] = doc.id
+        added.append(str(photo_id))
+
+    for photo_id in payload.report_photo_ids:
+        photo_r = await db.execute(
+            select(WorkOrderReportPhoto).where(
+                WorkOrderReportPhoto.id == photo_id,
+                WorkOrderReportPhoto.work_order_id == work_order_id,
+            )
+        )
+        photo = photo_r.scalar_one_or_none()
+        if not photo:
+            continue
+        if photo.file_key in report_inventory_refs:
+            skipped.append(str(photo_id))
+            continue
+
+        doc = Document(
+            id=uuid4(),
+            project_id=wo.project_id,
+            doc_type="visual_inventory",
+            original_name=photo.file_name or "rapor-gorseli.jpg",
+            file_key=photo.file_key,
+            bucket_name=storage.bucket_name,
+            file_size_bytes=photo.file_size_bytes,
+            mime_type=photo.mime_type,
+            revision_note=None,
+            vi_meta=json.dumps({
+                "c": payload.category or "saha_gorseli",
+                "t": payload.title or photo.file_name or "Rapor Görseli",
+                "source": "work_order_report",
+                "report_photo_id": str(photo.id),
+                "wo_id": str(wo.id),
+                "wo_title": wo.title,
+                "reporter": photo.uploaded_by_name,
+                "wo_date": photo.uploaded_at.strftime("%Y-%m-%d"),
+            }, ensure_ascii=False),
+            version=1,
+            uploaded_by=user.id,
+            created_at=utc_now(),
+        )
+        db.add(doc)
+        await db.flush()
+        report_inventory_refs[photo.file_key] = doc.id
         added.append(str(photo_id))
 
     if added:

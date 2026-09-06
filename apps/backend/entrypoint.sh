@@ -46,27 +46,6 @@ if [ "$AUTO_MIGRATE" = "true" ]; then
   log "Waiting for database (${WAIT_SECONDS}s timeout)"
   wait_for_db
   
-  log "Applying hotfixes for DB schema..."
-  python - <<'PY'
-import os, asyncio, asyncpg
-async def main():
-    url = os.environ.get("DATABASE_URL", "").replace("postgresql+asyncpg://", "postgresql://")
-    try:
-        conn = await asyncpg.connect(url)
-        # Sütunları güvenli şekilde ekleyelim (Northflank veritabanında eksik kalmış olabilir)
-        try:
-            await conn.execute("ALTER TABLE outbound_whatsapp_audits ADD COLUMN IF NOT EXISTS conversation_id VARCHAR(255);")
-            await conn.execute("ALTER TABLE outbound_whatsapp_audits ADD COLUMN IF NOT EXISTS pricing_category VARCHAR(50);")
-            print("Successfully ensured whatsapp audit columns exist.")
-        except Exception as col_err:
-            print(f"Column add skipped: {col_err}")
-            
-        await conn.close()
-    except Exception as e:
-        print(f"DB hotfix failed: {e}")
-asyncio.run(main())
-PY
-
   log "Running alembic migrations"
   alembic upgrade head
 
