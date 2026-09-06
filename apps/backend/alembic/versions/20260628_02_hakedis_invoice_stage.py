@@ -15,10 +15,16 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "store_progress_payments",
-        sa.Column("sent_to_migros_by_name", sa.String(255), nullable=True),
-    )
+    inspector = sa.inspect(op.get_bind())
+    columns = {
+        column["name"]
+        for column in inspector.get_columns("store_progress_payments")
+    }
+    if "sent_to_migros_by_name" not in columns:
+        op.add_column(
+            "store_progress_payments",
+            sa.Column("sent_to_migros_by_name", sa.String(255), nullable=True),
+        )
 
     # ready_for_invoice → invoice_stage
     op.execute("""

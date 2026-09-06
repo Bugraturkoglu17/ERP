@@ -1,7 +1,7 @@
 """Hakkediş iki aşamalı onay: yeni kolonlar ve status migration
 
 Revision ID: 20260628_01
-Revises: 20260627_01
+Revises: 20260627_02
 Create Date: 2026-06-28
 """
 
@@ -9,19 +9,30 @@ from alembic import op
 import sqlalchemy as sa
 
 revision = "20260628_01"
-down_revision = "20260627_01"
+down_revision = "20260627_02"
 branch_labels = None
 depends_on = None
 
 
 def upgrade() -> None:
+    inspector = sa.inspect(op.get_bind())
+    columns = {
+        column["name"]
+        for column in inspector.get_columns("store_progress_payments")
+    }
+
     # Yeni zaman damgası kolonları
-    op.add_column("store_progress_payments", sa.Column("internal_approved_by_name", sa.String(255), nullable=True))
-    op.add_column("store_progress_payments", sa.Column("internal_approved_at",      sa.DateTime(),  nullable=True))
-    op.add_column("store_progress_payments", sa.Column("sent_to_migros_at",         sa.DateTime(),  nullable=True))
-    op.add_column("store_progress_payments", sa.Column("migros_approved_by_name",   sa.String(255), nullable=True))
-    op.add_column("store_progress_payments", sa.Column("migros_approved_at",        sa.DateTime(),  nullable=True))
-    op.add_column("store_progress_payments", sa.Column("invoiced_at",               sa.DateTime(),  nullable=True))
+    additions = (
+        sa.Column("internal_approved_by_name", sa.String(255), nullable=True),
+        sa.Column("internal_approved_at", sa.DateTime(), nullable=True),
+        sa.Column("sent_to_migros_at", sa.DateTime(), nullable=True),
+        sa.Column("migros_approved_by_name", sa.String(255), nullable=True),
+        sa.Column("migros_approved_at", sa.DateTime(), nullable=True),
+        sa.Column("invoiced_at", sa.DateTime(), nullable=True),
+    )
+    for column in additions:
+        if column.name not in columns:
+            op.add_column("store_progress_payments", column)
 
     # store_progress_payments.approval_status migration
     op.execute("""
