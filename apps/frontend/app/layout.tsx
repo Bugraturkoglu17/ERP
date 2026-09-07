@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { fetchTenantContext } from "@/lib/tenant-context";
 import { AuthProvider } from "@/contexts/auth-context";
+import { UpdateAvailableBanner } from "@/components/pwa/UpdateAvailableBanner";
 
 function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -126,6 +127,7 @@ export default function RootLayout({
         <AuthProvider>
           <AppShell>{children}</AppShell>
         </AuthProvider>
+        <UpdateAvailableBanner />
       </body>
     </html>
   );
