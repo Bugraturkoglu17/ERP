@@ -119,6 +119,15 @@ export default function RootLayout({
   return (
     <html lang="tr" suppressHydrationWarning>
       <head>
+        <title>SİSMİK · Kurumsal Operasyon Sistemi</title>
+        <meta
+          name="description"
+          content="İş emirleri, mağaza projeleri ve saha raporları için kurumsal operasyon sistemi."
+        />
+        <meta name="application-name" content="SİSMİK" />
+        <meta name="apple-mobile-web-app-title" content="SİSMİK" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <link rel="manifest" href="/manifest.webmanifest" />
         <meta
           name="viewport"
           content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
