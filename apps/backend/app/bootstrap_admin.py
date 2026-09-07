@@ -60,6 +60,12 @@ async def bootstrap_platform_admin() -> None:
             display_name="Tenant Admin",
             description="Tenant-level admin access",
         )
+        await _ensure_role(
+            session,
+            name="saha_muhendisi",
+            display_name="Kullanıcı",
+            description="Saha çalışanı / kullanıcı erişimi",
+        )
 
         user = (await session.execute(select(User).where(User.email == email))).scalar_one_or_none()
         if user is None:

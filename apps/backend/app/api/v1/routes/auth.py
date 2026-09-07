@@ -4,13 +4,16 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
+import time
+from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -31,6 +34,36 @@ CREATABLE_ROLE_MAP = {
 
 def _is_manager(user: User) -> bool:
     return is_platform_admin(user) or (user.default_role or "") in MANAGER_ROLES
+
+
+def _is_manager_tier_role(role_name: str) -> bool:
+    """'admin' default_role'ü — frontend'de 'Yönetici' (Manager) olarak gösterilir."""
+    return role_name == "admin"
+
+
+# ── Login rate limiting ──────────────────────────────────────────────────────
+# Basit bellek-içi sabit pencereli sınırlayıcı: /auth/login brute-force'a karşı
+# hiç korunmuyordu. Tek process içinde çalışır — çok-instance'lı bir dağıtımda
+# Redis tabanlı bir çözüme taşınması önerilir, ama hiç koruma olmamasından iyidir.
+_login_attempts: dict[str, list[float]] = defaultdict(list)
+_login_rate_lock = asyncio.Lock()
+_LOGIN_RATE_WINDOW_SECONDS = 60.0
+_LOGIN_RATE_MAX_ATTEMPTS = 10
+
+
+async def _enforce_login_rate_limit(client_ip: str) -> None:
+    now = time.monotonic()
+    cutoff = now - _LOGIN_RATE_WINDOW_SECONDS
+    async with _login_rate_lock:
+        attempts = _login_attempts[client_ip]
+        while attempts and attempts[0] < cutoff:
+            attempts.pop(0)
+        if len(attempts) >= _LOGIN_RATE_MAX_ATTEMPTS:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Çok fazla giriş denemesi yapıldı. Lütfen bir dakika sonra tekrar deneyin.",
+            )
+        attempts.append(now)
 
 
 async def _password_change_required(db: AsyncSession, user_id) -> bool:
@@ -63,10 +96,14 @@ def _parse_opt_out_templates(raw: str | None) -> list[str]:
 
 @router.post("/login", response_model=Token, tags=["auth"])
 async def login(
+    request:     Request,
     db:          AsyncSession = Depends(get_db),
     form_data:   OAuth2PasswordRequestForm = Depends(),
 ) -> Token:
     """E-posta ve parola ile güvenli kullanıcı girişi."""
+    client_ip = request.client.host if request.client else "unknown"
+    await _enforce_login_rate_limit(client_ip)
+
     login_id = form_data.username.strip()
     normalized_email = login_id.lower()
     result  = await db.execute(
@@ -90,8 +127,9 @@ async def login(
         sub=str(user.id), roles=roles, permissions=permissions,
         tenant_id=str(user.tenant_id) if user.tenant_id else None,
         force_password_change=force_change,
+        token_version=user.token_version,
     )
-    refresh_token = create_refresh_token(sub=str(user.id))
+    refresh_token = create_refresh_token(sub=str(user.id), token_version=user.token_version)
 
     return Token(
         access_token  = access_token,
@@ -118,6 +156,8 @@ async def refresh_token(
     user = user_result.scalar_one_or_none()
     if not user or not user.is_active:
         raise HTTPException(status_code=401, detail="Kullanıcı bulunamadı.")
+    if payload.get("tv", 0) != user.token_version:
+        raise HTTPException(status_code=401, detail="Oturum sona ermiş, lütfen tekrar giriş yapın.")
 
     roles       = await get_user_roles(db, user.id)
     permissions = await get_user_permissions(db, user.id)
@@ -129,8 +169,9 @@ async def refresh_token(
         permissions=permissions,
         tenant_id=str(user.tenant_id) if user.tenant_id else None,
         force_password_change=force_change,
+        token_version=user.token_version,
     )
-    refresh_token = create_refresh_token(sub=str(user.id))
+    refresh_token = create_refresh_token(sub=str(user.id), token_version=user.token_version)
 
     return Token(
         access_token  = access_token,
@@ -138,6 +179,22 @@ async def refresh_token(
         token_type    = "bearer",
         force_password_change=force_change,
     )
+
+
+@router.post("/logout", response_model=MessageResponse, tags=["auth"])
+async def logout(
+    db:   AsyncSession = Depends(get_db),
+    user: User         = Depends(get_current_user),
+) -> MessageResponse:
+    """Tüm cihazlardaki mevcut token'ları geçersiz kılar (token_version artırılır)."""
+    # user, get_current_user'ın kendi (farklı) DB session'ına bağlı — ORM
+    # nesnesini burada başka bir session'a (db) eklemek yerine doğrudan UPDATE
+    # çalıştırıyoruz (iki session'a aynı anda attach olma hatasını önler).
+    await db.execute(
+        update(User).where(User.id == user.id).values(token_version=User.token_version + 1)
+    )
+    await db.commit()
+    return MessageResponse(message="Çıkış yapıldı, tüm oturumlar sonlandırıldı.")
 
 
 @router.post("/complete-password-reset", response_model=MessageResponse, tags=["auth"])
@@ -350,6 +407,8 @@ async def create_user(
     if raw_role not in CREATABLE_ROLE_MAP:
         raise HTTPException(status_code=403, detail="Yalnızca Kullanıcı veya Yönetici rolü atanabilir. Admin yetkisi verilemez.")
     requested_role = CREATABLE_ROLE_MAP[raw_role]
+    if _is_manager_tier_role(requested_role) and not is_platform_admin(admin):
+        raise HTTPException(status_code=403, detail="Yönetici hesabı oluşturma yetkiniz yok. Bu işlem yalnızca platform admin tarafından yapılabilir.")
 
     target_tenant_id = admin.tenant_id
     if is_platform_admin(admin):
@@ -414,6 +473,12 @@ async def update_user_details(
         raise HTTPException(status_code=403, detail="Bu kullanıcı tenant kapsamınız dışında.")
     if is_platform_admin(user):
         raise HTTPException(status_code=403, detail="Geliştirici admin hesabı bu ekrandan değiştirilemez.")
+    if _is_manager_tier_role(user.default_role or "") and not is_platform_admin(admin):
+        raise HTTPException(status_code=403, detail="Yönetici hesaplarını yalnızca platform admin düzenleyebilir.")
+    if user_in.roles is not None and not is_platform_admin(admin):
+        raise HTTPException(status_code=403, detail="Rol değişikliği yalnızca platform admin tarafından yapılabilir.")
+    if user.id == admin.id and user_in.is_active is False:
+        raise HTTPException(status_code=403, detail="Kendi hesabınızı pasif hale getiremezsiniz.")
 
     if user_in.full_name is not None:
         user.full_name = user_in.full_name
@@ -435,6 +500,12 @@ async def update_user_details(
         await db.execute(UserRole.__table__.delete().where(UserRole.user_id == user.id))
         db.add(UserRole(user_id=user.id, role_id=role.id))
         user.default_role = role_name
+        # Rol değişikliği sonrası eldeki eski token'lar geçersiz kılınır —
+        # kullanıcı yeni yetkileriyle tekrar giriş yapmak zorunda kalır.
+        user.token_version = (user.token_version or 0) + 1
+    if user_in.is_active is False:
+        # Pasif yapılan hesabın eldeki token'ları da anında geçersiz kılınır.
+        user.token_version = (user.token_version or 0) + 1
 
     db.add(user)
     await db.commit()
@@ -461,7 +532,9 @@ async def delete_user_account(
         raise HTTPException(status_code=403, detail="Kendi hesabınızı silemezsiniz.")
     if is_platform_admin(user):
         raise HTTPException(status_code=403, detail="Geliştirici admin hesabı silinemez.")
-    
+    if _is_manager_tier_role(user.default_role or "") and not is_platform_admin(admin):
+        raise HTTPException(status_code=403, detail="Yönetici hesaplarını yalnızca platform admin silebilir.")
+
     user.is_active = False
     db.add(user)
     await db.commit()

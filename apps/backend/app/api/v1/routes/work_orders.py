@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import secrets
 import time
+from collections import defaultdict
 from datetime import datetime, timezone
 from typing import List, Optional
 from uuid import UUID, uuid4
@@ -498,15 +499,50 @@ async def list_work_orders(
         select(WorkOrder).where(*filters).order_by(desc(WorkOrder.created_at)).limit(500)
     )
     wos = result.scalars().all()
+    if not wos:
+        return []
+
+    wo_ids = [wo.id for wo in wos]
+    project_ids = {wo.project_id for wo in wos if wo.project_id}
+
+    projects_r = await db.execute(select(Project).where(Project.id.in_(project_ids)))
+    projects_by_id = {p.id: p for p in projects_r.scalars().all()}
+
+    photos_by_wo: dict = defaultdict(list)
+    photos_r = await db.execute(select(WorkOrderPhoto).where(WorkOrderPhoto.work_order_id.in_(wo_ids)))
+    for photo in photos_r.scalars().all():
+        photos_by_wo[photo.work_order_id].append(photo)
+
+    forms_by_wo: dict = defaultdict(list)
+    forms_r = await db.execute(select(WorkOrderServiceForm).where(WorkOrderServiceForm.work_order_id.in_(wo_ids)))
+    for form in forms_r.scalars().all():
+        forms_by_wo[form.work_order_id].append(form)
+
+    reports_by_wo: dict = defaultdict(list)
+    reports_r = await db.execute(select(WorkOrderReport).where(WorkOrderReport.work_order_id.in_(wo_ids)))
+    for report in reports_r.scalars().all():
+        reports_by_wo[report.work_order_id].append(report)
+
+    # Aktif linkler: en yeni önce sıralanır, work_order başına ilkini alırız.
+    links_by_wo: dict = {}
+    links_r = await db.execute(
+        select(WorkOrderPublicLink)
+        .where(WorkOrderPublicLink.work_order_id.in_(wo_ids), WorkOrderPublicLink.is_active == True)
+        .order_by(desc(WorkOrderPublicLink.created_at))
+    )
+    for link in links_r.scalars().all():
+        links_by_wo.setdefault(link.work_order_id, link)
 
     out = []
     for wo in wos:
-        proj = await db.get(Project, wo.project_id)
-        photos_r = await db.execute(select(WorkOrderPhoto).where(WorkOrderPhoto.work_order_id == wo.id))
-        forms_r  = await db.execute(select(WorkOrderServiceForm).where(WorkOrderServiceForm.work_order_id == wo.id))
-        reports_r = await db.execute(select(WorkOrderReport).where(WorkOrderReport.work_order_id == wo.id))
-        link = await _get_active_link(wo.id, db)
-        out.append(_enrich(wo, proj, photos_r.scalars().all(), forms_r.scalars().all(), link, reports_r.scalars().all()))
+        out.append(_enrich(
+            wo,
+            projects_by_id.get(wo.project_id),
+            photos_by_wo.get(wo.id, []),
+            forms_by_wo.get(wo.id, []),
+            links_by_wo.get(wo.id),
+            reports_by_wo.get(wo.id, []),
+        ))
     return out
 
 
@@ -627,19 +663,32 @@ async def delete_work_order(
         created_at=utc_now(),
     ))
 
+    # Mağaza kartı görsel envanterinde hâlâ referans edilen file_key'leri koru —
+    # sadece envanterde artık referanslanmayan dosyalar fiziksel olarak silinir.
+    work_refs, report_refs = await _photo_inventory_refs(wo.project_id, db)
+
     # Child tabloları FK kısıtı oluşturmadan önce sil
     # Report photos önce silinmeli (report'lara FK var)
     reports_r = await db.execute(select(WorkOrderReport).where(WorkOrderReport.work_order_id == work_order_id))
     for rep in reports_r.scalars().all():
         rp_r = await db.execute(select(WorkOrderReportPhoto).where(WorkOrderReportPhoto.report_id == rep.id))
         for rp in rp_r.scalars().all():
+            if rp.file_key not in report_refs:
+                await storage.delete_file(rp.file_key)
             await db.delete(rp)
         await db.flush()
         await db.delete(rep)
     await db.flush()
 
+    photos_r = await db.execute(select(WorkOrderPhoto).where(WorkOrderPhoto.work_order_id == work_order_id))
+    for photo in photos_r.scalars().all():
+        if photo.file_key not in work_refs:
+            await storage.delete_file(photo.file_key)
+        await db.delete(photo)
+    await db.flush()
+
     for child_model in [
-        WorkOrderActivity, WorkOrderPhoto, WorkOrderServiceForm,
+        WorkOrderActivity, WorkOrderServiceForm,
         WorkOrderWhatsappMessage, WorkOrderPublicLink, WorkOrderStage,
     ]:
         rows = await db.execute(
@@ -785,10 +834,13 @@ async def delete_report(
     if not wo:
         raise HTTPException(404, "İş emri bulunamadı.")
     _ensure_work_order_access(wo, user)
+    _, report_refs = await _photo_inventory_refs(wo.project_id, db)
     photos_r = await db.execute(
         select(WorkOrderReportPhoto).where(WorkOrderReportPhoto.report_id == report_id)
     )
     for p in photos_r.scalars().all():
+        if p.file_key not in report_refs:
+            await storage.delete_file(p.file_key)
         await db.delete(p)
     await db.flush()
     await db.delete(rep)

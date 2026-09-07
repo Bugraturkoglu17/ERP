@@ -54,6 +54,7 @@ def create_access_token(
     tenant_id:   str | None = None,
     discipline:  str | None  = None,
     force_password_change: bool = False,
+    token_version: int = 0,
 ) -> str:
     payload: dict[str, Any] = {
         "sub":         sub,
@@ -62,13 +63,14 @@ def create_access_token(
         "tenant_id":   tenant_id,
         "discipline":  discipline,
         "force_password_change": force_password_change,
+        "tv":          token_version,
     }
     return _create_token(payload, ACCESS_EXPIRES)
 
 
-def create_refresh_token(sub: str) -> str:
-    """Refresh token — uzun süreli, sadece subject içerir."""
-    return _create_token({"sub": sub}, REFRESH_EXPIRES)
+def create_refresh_token(sub: str, token_version: int = 0) -> str:
+    """Refresh token — uzun süreli, subject ve token_version içerir."""
+    return _create_token({"sub": sub, "tv": token_version}, REFRESH_EXPIRES)
 
 
 def decode_token(token: str) -> dict[str, Any]:

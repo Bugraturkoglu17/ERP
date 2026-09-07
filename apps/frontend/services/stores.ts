@@ -24,14 +24,34 @@ export type Store = {
 
 export type StoreListParams = { limit?: number; skip?: number; q?: string };
 
-/** Tüm mağaza listesini getirir. Görünürlük backend'de role göre sınırlanır. */
-export async function getStores(params: StoreListParams = {}): Promise<Store[]> {
-  const limit = params.limit ?? 5000;
-  const skip = params.skip ?? 0;
+const STORE_PAGE_CHUNK = 500;
+
+async function fetchStorePage(skip: number, limit: number, q?: string): Promise<Store[]> {
   const query = new URLSearchParams({ limit: String(limit), skip: String(skip) });
-  if (params.q?.trim()) query.set("q", params.q.trim());
+  if (q?.trim()) query.set("q", q.trim());
   const data = await apiGet<Store[]>(`/projects?${query.toString()}`);
   return Array.isArray(data) ? data : [];
+}
+
+/**
+ * Mağaza listesini getirir. `limit` verilmezse (varsayılan "tüm liste" kullanımı)
+ * backend'den tek dev bir istekle değil, 500'lük parçalar halinde art arda çekilir —
+ * aynı veri, aynı sıralama, ama tek seferde binlerce satırlık bir response üretilmez.
+ */
+export async function getStores(params: StoreListParams = {}): Promise<Store[]> {
+  if (params.limit !== undefined) {
+    return fetchStorePage(params.skip ?? 0, params.limit, params.q);
+  }
+
+  const results: Store[] = [];
+  let skip = params.skip ?? 0;
+  for (;;) {
+    const page = await fetchStorePage(skip, STORE_PAGE_CHUNK, params.q);
+    results.push(...page);
+    if (page.length < STORE_PAGE_CHUNK) break;
+    skip += STORE_PAGE_CHUNK;
+  }
+  return results;
 }
 
 /** Tek bir mağazayı ID ile getirir. */

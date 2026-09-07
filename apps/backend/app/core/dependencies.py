@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db as database_get_db
-from app.core.security import decode_token
+from app.core.security import decode_token, get_user_permissions, get_user_roles
 from app.db.models import User, RolePermission
 
 
@@ -42,14 +42,24 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 # Kimlik Doğrulama (Authentication)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-async def _get_user_by_sub(db: AsyncSession, sub: str) -> User:
-    """JWT subject alanından UUID'ye çevirip kullanıcıyı veritabanından getirir."""
+async def _get_user_by_sub(db: AsyncSession, sub: str, token_version: int | None = None) -> User:
+    """JWT subject alanından UUID'ye çevirip kullanıcıyı veritabanından getirir.
+
+    ``token_version`` verilirse, kullanıcının güncel ``token_version``'ı ile
+    karşılaştırılır — uyuşmuyorsa token, kullanıcı çıkış yaptıktan/oturumları
+    sonlandırdıktan sonra kalan eski bir token demektir ve reddedilir.
+    """
     user_result = await db.execute(select(User).where(User.id == uuid.UUID(sub)))
     user = user_result.scalar_one_or_none()
     if not user or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Kullanıcı bulunamadı veya hesabı pasif durumda.",
+        )
+    if token_version is not None and token_version != user.token_version:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Oturum sona ermiş, lütfen tekrar giriş yapın.",
         )
     return user
 
@@ -73,7 +83,7 @@ async def get_current_user(
     if not sub:
         raise HTTPException(status_code=401, detail="Token içeriği geçersiz.")
 
-    return await _get_user_by_sub(db, sub)
+    return await _get_user_by_sub(db, sub, token_version=payload.get("tv", 0))
 
 
 async def get_current_tenant_id(
@@ -87,7 +97,7 @@ async def get_current_tenant_id(
     except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail="Geçersiz token.")
 
-    user = await _get_user_by_sub(db, payload["sub"])
+    user = await _get_user_by_sub(db, payload["sub"], token_version=payload.get("tv", 0))
     if is_platform_admin(user):
         return None
 
@@ -115,7 +125,7 @@ async def get_current_user_optional(
         payload = decode_token(token)
     except jwt.PyJWTError:
         return None
-    return await _get_user_by_sub(db, payload["sub"])
+    return await _get_user_by_sub(db, payload["sub"], token_version=payload.get("tv", 0))
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -153,10 +163,11 @@ def require_role(*role_names: str):
             payload = decode_token(token)
         except jwt.PyJWTError:
             raise HTTPException(status_code=401, detail="Geçersiz token.")
-        user = await _get_user_by_sub(db, payload["sub"])
-        # Token içindeki rollerle kontrol et
-        token_roles: list[str] = payload.get("roles", [])
-        if not any(r in token_roles for r in role_names):
+        user = await _get_user_by_sub(db, payload["sub"], token_version=payload.get("tv", 0))
+        # Token'daki değil, DB'deki güncel rollerle kontrol et — rol değişikliği
+        # anında etkili olsun diye (token süresi dolana kadar eski yetki kalmasın).
+        live_roles = await get_user_roles(db, user.id)
+        if not any(r in live_roles for r in role_names):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Bu işlem için yetkiniz yok.",
@@ -180,9 +191,9 @@ async def require_permission(
         payload = decode_token(token)
     except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail="Geçersiz token.")
-    user = await _get_user_by_sub(db, payload["sub"])
-    token_perms: list[str] = payload.get("permissions", [])
-    if permission not in token_perms:
+    user = await _get_user_by_sub(db, payload["sub"], token_version=payload.get("tv", 0))
+    live_perms = await get_user_permissions(db, user.id)
+    if permission not in live_perms:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Bu işlem için yetkiniz yok.",

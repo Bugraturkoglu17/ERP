@@ -1,27 +1,60 @@
+"use client";
+
+import { useId } from "react";
+
 type BrandTone = "red" | "amber";
 
-const toneClass: Record<BrandTone, string> = {
-  red: "text-[#ff3131]",
-  amber: "text-amber-400",
+const toneColor: Record<BrandTone, string> = {
+  red: "#ff3131",
+  amber: "#fbbf24",
 };
+
+const ICON_PATH =
+  "M 1284.949219 187.699219 L 1284.949219 1312.292969 L 911.484375 985.53125 C 854.46875 935.667969 854.46875 846.976562 911.484375 797.113281 L 1143.132812 999.835938 L 1143.132812 500.15625 L 215.039062 1312.292969 L 215.039062 187.699219 L 696.167969 608.695312 L 670.921875 630.777344 C 623.703125 672.089844 553.257812 672.089844 506.039062 630.777344 L 356.859375 500.15625 L 356.859375 999.785156 Z M 1284.949219 187.699219 ";
 
 export function BrandMark({ tone = "red", className = "h-8 w-8", animated = false }: {
   tone?: BrandTone;
   className?: string;
   animated?: boolean;
 }) {
+  const uid = useId();
+  const clipId = `erp-mark-clip-${uid}`;
+  const sheenId = `erp-mark-sheen-${uid}`;
+
   return (
     <svg
-      viewBox="0 0 64 64"
+      viewBox="0 0 1500 1500"
       role="img"
       aria-label="Sismik ERP amblemi"
-      className={`${className} ${toneClass[tone]} ${animated ? "erp-brand-mark--animated" : ""}`}
+      className={`${className} ${animated ? "erp-brand-mark--animated" : ""}`}
+      style={{ color: toneColor[tone] }}
       fill="none"
     >
-      <path className="erp-brand-stroke erp-brand-stroke--one" d="M9 55V10L27 28" stroke="currentColor" strokeWidth="7" strokeLinejoin="miter" strokeLinecap="square" />
-      <path className="erp-brand-stroke erp-brand-stroke--two" d="M9 55L55 10V55" stroke="currentColor" strokeWidth="7" strokeLinejoin="miter" strokeLinecap="square" />
-      <path className="erp-brand-stroke erp-brand-stroke--three" d="M39 39L55 55" stroke="currentColor" strokeWidth="7" strokeLinecap="round" />
-      {animated && <path className="erp-brand-shine" d="M8 10H56L8 54H56" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />}
+      {animated && (
+        <defs>
+          <clipPath id={clipId}>
+            <path d={ICON_PATH} />
+          </clipPath>
+          <linearGradient id={sheenId} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="white" stopOpacity="0" />
+            <stop offset="48%" stopColor="white" stopOpacity="0.85" />
+            <stop offset="100%" stopColor="white" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+      )}
+      <path className="erp-brand-fill" fill={toneColor[tone]} d={ICON_PATH} />
+      {animated && (
+        <g clipPath={`url(#${clipId})`}>
+          <rect
+            className="erp-brand-sheen"
+            x="-450"
+            y="-1900"
+            width="450"
+            height="5300"
+            fill={`url(#${sheenId})`}
+          />
+        </g>
+      )}
     </svg>
   );
 }

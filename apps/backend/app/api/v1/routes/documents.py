@@ -272,11 +272,13 @@ async def update_document(
     doc_id: uuid.UUID,
     body:   DocumentUpdate,
     db:     AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> Document:
     doc = await db.get(Document, doc_id)
     if not doc:
         raise NotFoundError(detail="Döküman bulunamadı.")
-    
+    await _ensure_document_scope(current_user, doc, db)
+
     for key, value in body.model_dump(exclude_unset=True).items():
         setattr(doc, key, value)
     

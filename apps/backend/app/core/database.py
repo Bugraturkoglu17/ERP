@@ -4,11 +4,19 @@
 
 from __future__ import annotations
 
+import asyncio
+import logging
 from collections.abc import AsyncGenerator
 from typing import Generator
 
-from sqlalchemy import create_engine
+from asyncpg.exceptions import (
+    CannotConnectNowError,
+    PostgresConnectionError,
+    TooManyConnectionsError,
+)
+from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
+from sqlalchemy.exc import InterfaceError, OperationalError
 from sqlalchemy.ext.asyncio import (
     AsyncAttrs,
     AsyncSession,
@@ -19,6 +27,8 @@ from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from sqlmodel import SQLModel
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 # ── Sync Engine  (migrations, celery, sync crud) ──────────────────────────────
@@ -72,14 +82,51 @@ def get_session() -> Generator:
         yield session
 
 
+# ── Neon cold-start retry ─────────────────────────────────────────────────────
+# Scale-to-zero veritabanlarında (Neon) uzun bir süre istek gelmezse compute
+# uykuya dalar. Uyandıktan sonraki ilk bağlantı denemesi bu istisnalarla
+# başarısız olabilir. Bağlantı henüz hiçbir sorgu çalıştırmadığı için (aşağıdaki
+# "SELECT 1" ping'i route mantığından önce çalışır) retry çift kayıt riski
+# taşımaz — route'un kendi sorguları yalnızca ping başarılı olduktan sonra başlar.
+_COLD_START_RETRYABLE: tuple[type[Exception], ...] = (
+    OperationalError,
+    InterfaceError,
+    PostgresConnectionError,
+    TooManyConnectionsError,
+    CannotConnectNowError,
+)
+_COLD_START_RETRY_DELAY_SECONDS = 0.3
+
+
 # ── FastAPI Dependency: Async Session ────────────────────────────────────────
-async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
-    async with AsyncSessionLocal() as session:
-        yield session
-
-
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    async with AsyncSessionLocal() as session:
+    """Her istek için yeni bir async veritabanı oturumu sağlar.
+
+    Neon uykudan uyanırken ilk bağlantı denemesi başarısız olabilir; bu durumda
+    300ms bekleyip tek seferlik retry yapılır. İkinci deneme de başarısız
+    olursa hata olduğu gibi yükselir (sonsuz döngü yok).
+    """
+    session = AsyncSessionLocal()
+    try:
+        try:
+            await session.execute(text("SELECT 1"))
+        except _COLD_START_RETRYABLE as exc:
+            await session.close()
+            logger.warning(
+                "db cold-start: ilk bağlantı denemesi başarısız (%s), %dms sonra tek seferlik retry yapılıyor",
+                type(exc).__name__,
+                int(_COLD_START_RETRY_DELAY_SECONDS * 1000),
+            )
+            await asyncio.sleep(_COLD_START_RETRY_DELAY_SECONDS)
+            session = AsyncSessionLocal()
+            await session.execute(text("SELECT 1"))
+        yield session
+    finally:
+        await session.close()
+
+
+async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
+    async for session in get_db():
         yield session
 
 

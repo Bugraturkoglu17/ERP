@@ -56,10 +56,28 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Neon cold-start: DB uykudan uyanırken ilk istek ağ hatası (yanıt yok) ya da
+// 5xx alabilir. Yalnızca GET istekleri için 300ms sonra tek seferlik retry
+// yapılır — POST/PATCH/DELETE'de yeniden deneme çift kayıt riski taşıyabileceği
+// için buraya dahil edilmedi (backend'deki retry, route mantığı hiç çalışmadan
+// önce devreye girdiği için güvenli; frontend'de aynı garanti yok).
+const COLD_START_RETRY_DELAY_MS = 300;
+
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401 && typeof window !== 'undefined') {
+  async (error) => {
+    const config = error.config as (typeof error.config & { __coldStartRetried?: boolean }) | undefined;
+    const status = error.response?.status;
+    const isNetworkOrServerError = status === undefined || status >= 500;
+    const isRetryableMethod = (config?.method ?? 'get').toLowerCase() === 'get';
+
+    if (config && isRetryableMethod && isNetworkOrServerError && !config.__coldStartRetried) {
+      config.__coldStartRetried = true;
+      await new Promise((resolve) => setTimeout(resolve, COLD_START_RETRY_DELAY_MS));
+      return api(config);
+    }
+
+    if (status === 401 && typeof window !== 'undefined') {
       localStorage.removeItem('token');
       localStorage.removeItem('auth_store');
       const pathname = window.location.pathname;
