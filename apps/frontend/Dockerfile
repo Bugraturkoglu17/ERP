@@ -10,6 +10,7 @@ ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 ENV NEXT_PUBLIC_DEMO_LOGIN=false
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
+RUN date +%s > BUILD_VERSION
 RUN npm run build
 
 FROM node:20-alpine AS runner
