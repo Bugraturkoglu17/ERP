@@ -2,6 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
+html {
+  touch-action: pan-x pan-y;
+}
+
 @keyframes shimmer {
   100% { transform: translateX(100%); }
 }

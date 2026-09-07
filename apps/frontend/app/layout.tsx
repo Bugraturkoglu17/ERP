@@ -116,6 +116,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="tr" suppressHydrationWarning>
+      <head>
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+        />
+      </head>
       <body className="min-h-screen bg-slate-50 text-slate-900">
         <AuthProvider>
           <AppShell>{children}</AppShell>
