@@ -1,5 +1,4 @@
 "use client";
-/* eslint-disable react-hooks/static-components */
 
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";

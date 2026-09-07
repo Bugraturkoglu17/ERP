@@ -14,7 +14,7 @@ type SidebarProps = {
   onClose?: () => void;
 };
 
-function useActiveGroup(groups: NavGroup[], pathname: string): string | null {
+function findActiveGroup(groups: NavGroup[], pathname: string): string | null {
   for (const g of groups) {
     if (pathname === g.href || pathname.startsWith(g.href + "/") ||
         g.items.some((i) => pathname === i.href.split("?")[0] || pathname.startsWith(i.href.split("?")[0] + "/"))) {
@@ -45,7 +45,7 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
 
   // Auto-open the group that contains the current path
   useEffect(() => {
-    const active = useActiveGroup(navGroups, pathname);
+    const active = findActiveGroup(navGroups, pathname);
     if (active) setOpenGroups((prev) => new Set(Array.from(prev).concat(active)));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname, roles]);
