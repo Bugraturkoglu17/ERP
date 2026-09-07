@@ -57,14 +57,14 @@ export function MetricCard({ label, value, description, icon: Icon, tone = "blue
           <Icon className="h-4 w-4" strokeWidth={1.8} />
         </span>
       </div>
-      <p className="relative z-10 mt-5 text-3xl font-bold tabular-nums tracking-[-0.04em] text-slate-950">{value}</p>
+      <p className="relative z-10 mt-auto pt-5 text-3xl font-bold tabular-nums tracking-[-0.04em] text-slate-950">{value}</p>
       {href && <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-0.5 origin-left scale-x-0 bg-blue-600 transition-transform duration-300 group-hover:scale-x-100" />}
     </>
   );
 
-  const className = "erp-spotlight-card group min-h-36 rounded-2xl border border-slate-200/90 p-4 shadow-[0_10px_35px_rgba(15,23,42,0.045)] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 sm:p-5";
+  const className = "erp-spotlight-card group flex h-full min-h-36 flex-col rounded-2xl border border-slate-200/90 p-4 shadow-[0_10px_35px_rgba(15,23,42,0.045)] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 sm:p-5";
 
-  if (href) return <Link href={href} className="block rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"><article ref={cardRef} onPointerMove={onPointerMove} onPointerLeave={onPointerLeave} className={className}>{content}</article></Link>;
+  if (href) return <Link href={href} className="block h-full rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"><article ref={cardRef} onPointerMove={onPointerMove} onPointerLeave={onPointerLeave} className={className}>{content}</article></Link>;
 
   return <article ref={cardRef} onPointerMove={onPointerMove} onPointerLeave={onPointerLeave} className={className}>{content}</article>;
 }

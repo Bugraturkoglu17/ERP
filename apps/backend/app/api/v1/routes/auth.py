@@ -408,7 +408,7 @@ async def create_user(
         raise HTTPException(status_code=403, detail="Yalnızca Kullanıcı veya Yönetici rolü atanabilir. Admin yetkisi verilemez.")
     requested_role = CREATABLE_ROLE_MAP[raw_role]
     if _is_manager_tier_role(requested_role) and not is_platform_admin(admin):
-        raise HTTPException(status_code=403, detail="Yönetici hesabı oluşturma yetkiniz yok. Bu işlem yalnızca platform admin tarafından yapılabilir.")
+        raise HTTPException(status_code=403, detail="Yönetici hesabı oluşturma yetkiniz yok. Bu işlem yalnızca geliştirici admin tarafından yapılabilir.")
 
     target_tenant_id = admin.tenant_id
     if is_platform_admin(admin):
@@ -474,9 +474,9 @@ async def update_user_details(
     if is_platform_admin(user):
         raise HTTPException(status_code=403, detail="Geliştirici admin hesabı bu ekrandan değiştirilemez.")
     if _is_manager_tier_role(user.default_role or "") and not is_platform_admin(admin):
-        raise HTTPException(status_code=403, detail="Yönetici hesaplarını yalnızca platform admin düzenleyebilir.")
+        raise HTTPException(status_code=403, detail="Yönetici hesaplarını yalnızca geliştirici admin düzenleyebilir.")
     if user_in.roles is not None and not is_platform_admin(admin):
-        raise HTTPException(status_code=403, detail="Rol değişikliği yalnızca platform admin tarafından yapılabilir.")
+        raise HTTPException(status_code=403, detail="Rol değişikliği yalnızca geliştirici admin tarafından yapılabilir.")
     if user.id == admin.id and user_in.is_active is False:
         raise HTTPException(status_code=403, detail="Kendi hesabınızı pasif hale getiremezsiniz.")
 
@@ -533,7 +533,7 @@ async def delete_user_account(
     if is_platform_admin(user):
         raise HTTPException(status_code=403, detail="Geliştirici admin hesabı silinemez.")
     if _is_manager_tier_role(user.default_role or "") and not is_platform_admin(admin):
-        raise HTTPException(status_code=403, detail="Yönetici hesaplarını yalnızca platform admin silebilir.")
+        raise HTTPException(status_code=403, detail="Yönetici hesaplarını yalnızca geliştirici admin silebilir.")
 
     user.is_active = False
     db.add(user)

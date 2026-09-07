@@ -4,6 +4,8 @@
 
 html {
   touch-action: pan-x pan-y;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
 }
 
 /* iOS Safari, odaklanılan input'un font-size'ı 16px altındaysa otomatik
@@ -14,6 +16,30 @@ html {
   select,
   textarea {
     font-size: 16px !important;
+  }
+
+  .overflow-hidden:has(> table) {
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+  }
+
+  .overflow-hidden > table {
+    min-width: 44rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .fixed.inset-0.z-50 {
+    max-height: 100dvh;
+    overflow-y: auto;
+    padding-top: max(0.75rem, env(safe-area-inset-top));
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  }
+
+  .fixed.inset-0.z-50 > [class*="bg-white"] {
+    max-height: calc(100dvh - max(1.5rem, env(safe-area-inset-top) + env(safe-area-inset-bottom)));
+    overflow-y: auto;
+    margin-block: auto;
   }
 }
 
@@ -26,15 +52,10 @@ html {
   100% { opacity: 1; transform: scale(1); }
 }
 
-@keyframes brand-glow-pulse {
-  0%, 100% { filter: drop-shadow(0 0 0 transparent); }
-  50% { filter: drop-shadow(0 0 26px currentColor); }
-}
-
 @keyframes brand-sheen-sweep {
   0%, 100% { transform: translateX(-220px) rotate(20deg); opacity: 0; }
-  8% { opacity: 0.85; }
-  34% { transform: translateX(1720px) rotate(20deg); opacity: 0; }
+  2% { opacity: 0.7; }
+  16% { transform: translateX(1720px) rotate(20deg); opacity: 0; }
 }
 
 @keyframes launch-screen-exit {
@@ -109,6 +130,8 @@ html {
   body {
     @apply bg-slate-50 text-slate-900 antialiased selection:bg-blue-500/10 selection:text-blue-950;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    min-width: 0;
+    overflow-x: hidden;
   }
 }
 
@@ -127,7 +150,12 @@ html {
 
   /* Professional Table Structure */
   .corp-table {
-    @apply w-full text-left border-collapse bg-white;
+    @apply min-w-[44rem] w-full text-left border-collapse bg-white;
+  }
+
+  .corp-card:has(> .corp-table) {
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
   }
 
   .corp-th {
@@ -222,9 +250,7 @@ html {
   .erp-brand-mark--animated .erp-brand-fill {
     transform-box: fill-box;
     transform-origin: 50% 50%;
-    animation:
-      brand-fill-in 0.7s cubic-bezier(0.34, 1.4, 0.64, 1) both,
-      brand-glow-pulse 4.5s ease-in-out 0.7s infinite;
+    animation: brand-fill-in 0.7s cubic-bezier(0.34, 1.4, 0.64, 1) both;
   }
 
   .erp-brand-sheen {
@@ -255,6 +281,19 @@ html {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+
   .erp-spotlight-card {
     transform: none !important;
     transition: none;

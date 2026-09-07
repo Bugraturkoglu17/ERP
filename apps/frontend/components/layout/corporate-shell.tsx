@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X, type LucideIcon } from "lucide-react";
@@ -9,6 +9,7 @@ import { QuickSwitch } from "@/components/layout/quick-switch";
 import type { UserRole } from "@/lib/permissions";
 import { AppLaunch } from "@/components/brand/app-launch";
 import { BrandMark, type BrandTone } from "@/components/brand/brand-mark";
+import { useMobileDrawer } from "@/hooks/use-mobile-drawer";
 
 export type CorporateNavItem = { href: string; label: string; icon: LucideIcon };
 
@@ -18,12 +19,14 @@ function CorporateSidebar({
   brandTone,
   title,
   navItems,
+  dragX,
 }: {
   mobileOpen: boolean;
   onClose: () => void;
   brandTone: BrandTone;
   title: string;
   navItems: CorporateNavItem[];
+  dragX: number | null;
 }) {
   const pathname = usePathname();
 
@@ -31,7 +34,7 @@ function CorporateSidebar({
     <div className={`flex h-full flex-col border-t-[3px] bg-[#0c1520] ${brandTone === "amber" ? "border-t-amber-400" : "border-t-[#ff3131]"}`}>
       <div className="flex h-16 items-center justify-between border-b border-white/[0.06] px-4">
         <div className="flex items-center gap-2.5">
-          <BrandMark tone={brandTone} className="h-9 w-9 shrink-0" />
+          <BrandMark tone={brandTone} animated className="h-9 w-9 shrink-0" />
           <div>
             <span className="text-sm font-semibold tracking-[-0.02em] text-white leading-none">{title}</span>
             <span className="block text-[10px] text-white/40 mt-0.5 uppercase tracking-widest">ERP Sistemi</span>
@@ -71,12 +74,28 @@ function CorporateSidebar({
   return (
     <>
       <aside className="hidden lg:block w-60 shrink-0">{inner}</aside>
-      {mobileOpen && (
-        <div className="fixed inset-0 z-40 lg:hidden">
-          <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-          <aside className="absolute left-0 top-0 bottom-0 w-60">{inner}</aside>
-        </div>
-      )}
+      <div
+        className={`fixed inset-0 z-40 lg:hidden ${mobileOpen || dragX !== null ? "pointer-events-auto" : "pointer-events-none"}`}
+        aria-hidden={!mobileOpen && dragX === null}
+      >
+        <button
+          type="button"
+          aria-label="Menüyü kapat"
+          className="absolute inset-0 h-full w-full bg-black/60 transition-opacity duration-200"
+          style={{ opacity: mobileOpen ? Math.max(0, 1 - Math.abs(dragX ?? 0) / 320) : Math.min(0.6, (dragX ?? 0) / 320) }}
+          onClick={onClose}
+        />
+        <aside
+          className={`absolute inset-y-0 left-0 w-[86vw] max-w-80 overscroll-contain ${dragX === null ? "transition-transform duration-200 ease-out" : ""}`}
+          style={{
+            transform: mobileOpen
+              ? `translate3d(${Math.min(0, dragX ?? 0)}px, 0, 0)`
+              : `translate3d(calc(-100% + ${Math.max(0, dragX ?? 0)}px), 0, 0)`,
+          } as CSSProperties}
+        >
+          {inner}
+        </aside>
+      </div>
     </>
   );
 }
@@ -100,23 +119,27 @@ export function CorporateShell({
   navItems: CorporateNavItem[];
   headerLabel: ReactNode;
 }) {
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const drawer = useMobileDrawer();
 
   return (
     <RoleGuard allowedRoles={allowedRoles} spinnerBg="bg-slate-50">
       <AppLaunch tone={brandTone} scope={allowedRoles.join("-")} />
-      <div className="flex min-h-dvh overflow-hidden bg-slate-50">
+      <div
+        className="flex min-h-dvh overflow-hidden bg-slate-50"
+        {...drawer.gestureProps}
+      >
         <CorporateSidebar
-          mobileOpen={mobileOpen}
-          onClose={() => setMobileOpen(false)}
+          mobileOpen={drawer.open}
+          onClose={() => drawer.setOpen(false)}
           brandTone={brandTone}
           title={title}
           navItems={navItems}
+          dragX={drawer.dragX}
         />
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/90 px-4 backdrop-blur-xl sm:px-6">
+          <header className="flex min-h-16 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/90 px-4 pb-0 pt-[env(safe-area-inset-top)] backdrop-blur-xl sm:px-6">
             <button
-              onClick={() => setMobileOpen(true)}
+              onClick={() => drawer.setOpen(true)}
               className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 shadow-sm transition hover:bg-slate-50 active:scale-[0.98] lg:hidden"
               aria-label="Menüyü aç"
             >
@@ -131,7 +154,7 @@ export function CorporateShell({
               <span className="max-w-[11rem] truncate text-[11px] font-semibold tracking-wide text-slate-500 sm:max-w-none">{headerLabel}</span>
             </div>
           </header>
-          <main id="main-content" className="erp-workspace flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">{children}</main>
+          <main id="main-content" className="erp-workspace min-w-0 flex-1 overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6 lg:p-8">{children}</main>
         </div>
       </div>
     </RoleGuard>

@@ -55,8 +55,8 @@ class Settings(BaseSettings):
     # ── Email (Resend) ───────────────────────────────────────────────────────
     RESEND_API_KEY: str = ""
     EMAIL_PROVIDER: str = "resend"
-    EMAIL_FROM_DEFAULT: str = "noreply@golabstek.com"
-    EMAIL_FROM_NAME_DEFAULT: str = "GOLABS ERP"
+    EMAIL_FROM_DEFAULT: str = "noreply@sismik.local"
+    EMAIL_FROM_NAME_DEFAULT: str = "SİSMİK"
     EMAIL_REPLY_TO_DEFAULT: Optional[str] = None
     EMAIL_ASYNC_ENABLED: bool = True
     EMAIL_MAX_RETRIES: int = 3

@@ -80,7 +80,7 @@ export default function PlatformDashboardPage() {
       {/* Sayfa başlığı */}
       <div>
         <h1 className="text-xl font-bold text-slate-900">Genel Bakış</h1>
-        <p className="mt-1 text-sm text-slate-500">Platform genelindeki firma ve lisans durumunu görüntüleyin.</p>
+        <p className="mt-1 text-sm text-slate-500">Sistem genelindeki firma ve lisans durumunu görüntüleyin.</p>
       </div>
 
       {/* İstatistikler */}

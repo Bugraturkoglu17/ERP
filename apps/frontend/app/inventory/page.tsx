@@ -430,7 +430,7 @@ export default function InventoryPage() {
             <div className="flex items-center gap-2 text-indigo-300 text-[10px] font-black uppercase tracking-wider mb-2 bg-indigo-900/50 px-3 py-1 rounded-md w-fit border border-indigo-800">
               <Activity className="w-3.5 h-3.5" /> Depo & Envanter Yönetimi
             </div>
-            <h2 className="text-2xl lg:text-3xl font-black tracking-tight font-sans">Golabs ERP Stok Portalı</h2>
+            <h2 className="text-2xl lg:text-3xl font-black tracking-tight font-sans">SİSMİK Stok Yönetimi</h2>
             <p className="text-slate-300 mt-1.5 text-xs lg:text-sm max-w-2xl font-medium leading-relaxed">
               Merkez depoları, dinamik şantiye envanterlerini ve stok hareketlerini gerçek zamanlı takip edin. 
               Rol tabanlı yetkilendirme ile kontrollü satın alma, sarfiyat ve transfer süreçleri yürütün.
@@ -529,7 +529,7 @@ export default function InventoryPage() {
             {!isSuper && (
               <div className="corp-badge-warning ml-auto px-3.5 py-2 font-bold flex items-center gap-2">
                 <Info className="w-4 h-4 shrink-0" />
-                Malzeme ekleme, silme ve fiyat düzenleme yetkisi yalnızca Platform Yöneticisine aittir.
+                Malzeme ekleme, silme ve fiyat düzenleme yetkisi yalnızca geliştirici admine aittir.
               </div>
             )}
           </div>
@@ -1140,7 +1140,7 @@ export default function InventoryPage() {
                 <h3 className="text-base font-black tracking-tight">
                   {editingMaterial ? "Malzeme Tanımını Düzenle" : "Malzeme Kataloğuna Ekle"}
                 </h3>
-                <p className="text-[10px] text-slate-300 mt-0.5 font-medium">Platform düzeyinde malzeme kartı tanımlayın</p>
+                <p className="text-[10px] text-slate-300 mt-0.5 font-medium">Sistem düzeyinde malzeme kartı tanımlayın</p>
               </div>
               <button onClick={() => {
                 setIsMaterialModalOpen(false);

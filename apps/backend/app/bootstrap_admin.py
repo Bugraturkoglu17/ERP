@@ -22,7 +22,7 @@ def _env(name: str, fallback: str | None = None) -> str | None:
 def _require_env() -> tuple[str, str, str]:
     email = _env("PLATFORM_ADMIN_EMAIL") or _env("ADMIN_EMAIL")
     password = _env("PLATFORM_ADMIN_PASSWORD") or _env("ADMIN_PASSWORD")
-    full_name = _env("PLATFORM_ADMIN_FULL_NAME", "Platform Admin")
+    full_name = _env("PLATFORM_ADMIN_FULL_NAME", "Geliştirici Admin")
 
     if not email or not password:
         raise ValueError(
@@ -51,7 +51,7 @@ async def bootstrap_platform_admin() -> None:
         platform_role = await _ensure_role(
             session,
             name="platform_admin",
-            display_name="Platform Admin",
+            display_name="Geliştirici Admin",
             description="Platform-level full access",
         )
         admin_role = await _ensure_role(
@@ -107,7 +107,7 @@ async def bootstrap_platform_admin() -> None:
         await session.commit()
 
     state = "created" if created else "updated"
-    print(f"Platform admin {state}: {email}")
+    print(f"Geliştirici admin {state}: {email}")
 
 
 def main() -> int:

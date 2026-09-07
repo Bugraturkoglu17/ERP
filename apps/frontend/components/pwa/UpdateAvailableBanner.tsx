@@ -4,7 +4,15 @@ import { useCallback, useEffect, useState } from "react";
 
 const CHECK_INTERVAL_MS = 15 * 60 * 1000;
 
-function hardReload() {
+async function hardReload() {
+  if ("caches" in window) {
+    const names = await window.caches.keys();
+    await Promise.all(names.map((name) => window.caches.delete(name)));
+  }
+  const registrations = "serviceWorker" in navigator
+    ? await navigator.serviceWorker.getRegistrations()
+    : [];
+  await Promise.all(registrations.map((registration) => registration.update().catch(() => undefined)));
   const url = new URL(window.location.href);
   url.searchParams.set("_v", Date.now().toString());
   window.location.replace(url.toString());
@@ -54,7 +62,7 @@ export function UpdateAvailableBanner() {
           disabled={reloading}
           onClick={() => {
             setReloading(true);
-            hardReload();
+            void hardReload();
           }}
           className="rounded-lg bg-[#ff3131] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-red-600 disabled:opacity-60"
         >

@@ -531,7 +531,7 @@ REPLACEMENTS_INVENTORY = {
     '<p className="text-slate-500 font-medium">Envanter modülü verileri yükleniyor...</p>':
     '<p className="text-slate-500 font-medium">{t("inventory.loading")}</p>',
 
-    '<h2 className="text-2xl lg:text-3xl font-black tracking-tight font-sans">Golabs ERP Stok Portalı</h2>':
+    '<h2 className="text-2xl lg:text-3xl font-black tracking-tight font-sans">SİSMİK Stok Yönetimi</h2>':
     '<h2 className="text-2xl lg:text-3xl font-black tracking-tight font-sans">{t("inventory.title")}</h2>',
 
     '<th className="corp-th">SKU (Kod)</th>':
@@ -632,7 +632,7 @@ REPLACEMENTS_INVENTORY = {
 }
 
 REPLACEMENTS_LOGIN = {
-    'Golabs ERP': '{t("login.title")}',
+    'SİSMİK': '{t("login.title")}',
     'Lütfen hesabınıza giriş yapın': '{t("login.prompt")}',
     'E-posta': '{t("login.email")}',
     'Şifre': '{t("login.password")}',
@@ -674,7 +674,7 @@ REPLACEMENTS_PASSWORD_RESET = {
 }
 
 REPLACEMENTS_PLATFORM = {
-    'Platform Owner': '{t("platform.owner")}',
+    'Geliştirici Admin': '{t("platform.owner")}',
     'Platform Yönetim Dashboardu': '{t("platform.title")}',
     'Firma yaşam döngüsü, lisans sağlığı, yönetici güvenliği ve denetim görünürlüğü.': '{t("platform.description")}',
     'Firma Yönetimine Git': '{t("platform.goFirmManagement")}',
@@ -700,7 +700,7 @@ REPLACEMENTS_PLATFORM = {
 }
 
 REPLACEMENTS_TENANTS = {
-    'Platform Owner': '{t("platformTenants.owner")}',
+    'Geliştirici Admin': '{t("platformTenants.owner")}',
     'Super Admin Paneli': '{t("platformTenants.title")}',
     'Firma yaşam döngüsü, yönetici, lisans ve denetim.': '{t("platformTenants.description")}',
     'Firma: ': '{t("platformTenants.firmColon")}',

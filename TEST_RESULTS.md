@@ -7,7 +7,7 @@ Aşağıdaki maddeler düzeltildi, backend'i yeniden başlatıp gerçek API ça�
 | Bulgu | Düzeltme | Canlı Doğrulama |
 |---|---|---|
 | P0-1 saha_muhendisi rolü yok | `bootstrap_admin.py`'a rol seed'i eklendi + DB'ye uygulandı | `POST /auth/users roles=["user"]` → **201** (önce 500) |
-| P0-2/3 Manager→Manager create/delete | `auth.py`: Yönetici oluşturma/silme/düzenleme artık yalnızca platform admin | Manager→Manager create **403**, delete **403** (önce 201/204) |
+| P0-2/3 Manager→Manager create/delete | `auth.py`: Yönetici oluşturma/silme/düzenleme artık yalnızca geliştirici admin | Manager→Manager create **403**, delete **403** (önce 201/204) |
 | P0-4 Self-lock | Kendi hesabını pasif yapma engeli eklendi | Manager kendini pasifleştiremiyor — **403** |
 | P0-5 Stale JWT rol kontrolü | `dependencies.py`: `require_role`/`require_permission` artık canlı DB'den okuyor | Rol düşürüldükten sonra eski token ile korumalı endpoint → **401** (önce 200 ile çalışmaya devam ediyordu) |
 | P0-6 documents PATCH auth'suz | `get_current_user` + scope kontrolü eklendi | Tokensız istek → **401** (önce içerik değiştirilebiliyordu) |
@@ -100,10 +100,10 @@ Canlı test: test-manager hesabıyla `POST /auth/users` `roles=["manager"]` → 
 
 **[P0-3] MANAGER başka bir MANAGER'ı silebiliyor.**
 Canlı test: test-manager hesabıyla, önceden oluşturulan test-manager2 hesabına `DELETE /auth/users/{id}` → **HTTP 204, başarılı.** Aynı kök neden (`_is_manager` her iki tarafta da true). `delete_user_account` sadece `platform_admin` hedefini ve kendi hesabını koruyor — başka bir manager'ı korumuyor.
-→ **Frontend'de de doğrulandı:** Manager'ın "Kullanıcılar" ekranında diğer Yönetici hesaplarının (hatta platform admin ile aynı satırda görünen "Yönetici" etiketli hesapların) yanında "Hesabı sil" butonu **tıklanabilir durumda** görünüyor.
+→ **Frontend'de de doğrulandı:** Manager'ın "Kullanıcılar" ekranında diğer Yönetici hesaplarının (hatta geliştirici admin ile aynı satırda görünen "Yönetici" etiketli hesapların) yanında "Hesabı sil" butonu **tıklanabilir durumda** görünüyor.
 
 **[P0-4] Kendi kendini pasif yapma (self-lock) engeli yok — tenant admin/manager için.**
-Canlı test: test-manager kendi hesabını `PATCH .../{kendi_id} {is_active:false}` ile pasif yaptı → **HTTP 200, başarılı.** Hemen ardından aynı token ile herhangi bir istek → 401 (anında kilitlendi, kurtarma yolu admin müdahalesi). Not: **platform_admin için bu risk yok** — `is_platform_admin(user)` kontrolü platform admin'in kendi hesabını da (başka biri de) bu endpoint'ten değiştirmesini tamamen engelliyor. Ama tenant admin/manager için hiçbir koruma yok.
+Canlı test: test-manager kendi hesabını `PATCH .../{kendi_id} {is_active:false}` ile pasif yaptı → **HTTP 200, başarılı.** Hemen ardından aynı token ile herhangi bir istek → 401 (anında kilitlendi, kurtarma yolu admin müdahalesi). Not: **platform_admin için bu risk yok** — `is_platform_admin(user)` kontrolü geliştirici adminin kendi hesabını da (başka biri de) bu endpoint'ten değiştirmesini tamamen engelliyor. Ama tenant admin/manager için hiçbir koruma yok.
 
 **[P0-5] `require_role()`/`require_permission()` canlı DB rolünü değil, JWT içindeki (login anında dondurulmuş) rolü kontrol ediyor.**
 Kod kanıtı (`apps/backend/app/core/dependencies.py:136-190`): `token_roles = payload.get("roles", [])` — DB'den taze rol çekilmiyor. Bu, `projects.py`'deki tüm `require_role("admin")` korumalı endpoint'leri (müşteri/bölge/şube CRUD'u) etkiliyor.

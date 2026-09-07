@@ -72,8 +72,8 @@ def resolve_tenant_preferences(tenant_settings: PlatformTenantSettings | None) -
 
 
 def resolve_tenant_email_identity(tenant_settings: PlatformTenantSettings | None) -> EmailIdentity:
-    default_from = _normalize_email(settings.EMAIL_FROM_DEFAULT) or "noreply@golabstek.com"
-    default_from_name = (settings.EMAIL_FROM_NAME_DEFAULT or "GOLABS ERP").strip()
+    default_from = _normalize_email(settings.EMAIL_FROM_DEFAULT) or "noreply@sismik.local"
+    default_from_name = (settings.EMAIL_FROM_NAME_DEFAULT or "SİSMİK").strip()
     default_reply_to = _normalize_email(settings.EMAIL_REPLY_TO_DEFAULT)
 
     if not tenant_settings:

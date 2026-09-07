@@ -245,8 +245,8 @@ function CreateReportModal({ woId, onClose, onDone }: {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-3 backdrop-blur-sm sm:items-center sm:p-4" role="dialog" aria-modal="true">
+      <div className="my-auto flex max-h-[calc(100dvh-1.5rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:max-h-[calc(100dvh-2rem)]">
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 shrink-0">
           <div>
             <h2 className="text-sm font-bold text-slate-900">Rapor Oluştur</h2>
@@ -356,7 +356,7 @@ function CreateReportModal({ woId, onClose, onDone }: {
           )}
         </div>
 
-        <div className="flex justify-between border-t border-slate-100 px-5 py-4 shrink-0">
+        <div className="flex shrink-0 justify-between gap-3 border-t border-slate-100 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-5 sm:py-4">
           <button onClick={onClose}
             className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
             Vazgeç
@@ -422,8 +422,8 @@ function StageUpdateModal({ stage, woId, hasCompletionPhoto, onClose, onDone }: 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-3 backdrop-blur-sm sm:items-center sm:p-4" role="dialog" aria-modal="true">
+      <div className="my-auto flex max-h-[calc(100dvh-1.5rem)] w-full max-w-sm flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:max-h-[calc(100dvh-2rem)]">
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
           <div>
             <h2 className="text-sm font-bold text-slate-900">{stage.stage_name}</h2>
@@ -431,7 +431,7 @@ function StageUpdateModal({ stage, woId, hasCompletionPhoto, onClose, onDone }: 
           </div>
           <button onClick={onClose}><X className="h-5 w-5 text-slate-400 hover:text-slate-700" /></button>
         </div>
-        <div className="p-5 space-y-4">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-5">
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-2">Durum</label>
             <div className="grid grid-cols-2 gap-2">
@@ -511,7 +511,7 @@ function StageUpdateModal({ stage, woId, hasCompletionPhoto, onClose, onDone }: 
           </div>
           {err && <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{err}</p>}
         </div>
-        <div className="flex justify-between border-t border-slate-100 px-5 py-4">
+        <div className="flex shrink-0 justify-between gap-3 border-t border-slate-100 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-5 sm:py-4">
           <button onClick={onClose}
             className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
             Vazgeç
@@ -562,8 +562,8 @@ function TransferModal({ woId, photoIds, reportPhotoIds, onClose, onDone }: {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-3 sm:items-center sm:p-4" role="dialog" aria-modal="true">
+      <div className="my-auto flex max-h-[calc(100dvh-1.5rem)] w-full max-w-sm flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:max-h-[calc(100dvh-2rem)]">
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
           <div>
             <h2 className="text-sm font-bold text-slate-900">Mağaza Kartına Ekle</h2>
@@ -571,7 +571,7 @@ function TransferModal({ woId, photoIds, reportPhotoIds, onClose, onDone }: {
           </div>
           <button onClick={onClose}><X className="h-5 w-5 text-slate-400 hover:text-slate-700" /></button>
         </div>
-        <div className="px-5 py-5 space-y-4">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Görsel Kategorisi</label>
             <div className="relative">

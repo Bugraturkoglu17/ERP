@@ -19,14 +19,11 @@ const buildVersion = readBuildVersion();
 
 const nextConfig = {
   output: "standalone",
+  // Yerel geliştirme süreci açıkken bağımsız doğrulama build'inin aynı
+  // lock/cache dizinine çarpmasını önlemek için testlerde değiştirilebilir.
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   poweredByHeader: false,
   productionBrowserSourceMaps: false,
-  // Repo'da önceden var olan ~15 kozmetik lint hatası (unescaped apostrophe,
-  // <img> yerine next/image önerisi vb.) prod build'i durdurmasın. `npm run
-  // lint` hâlâ tam sinyali veriyor, sadece build bunlar yüzünden kırılmasın.
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   env: {
     NEXT_PUBLIC_BUILD_VERSION: buildVersion,
   },

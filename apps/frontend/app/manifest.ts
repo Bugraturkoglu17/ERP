@@ -2,9 +2,9 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Sismik Mekanik ERP",
-    short_name: "Sismik ERP",
-    description: "Sismik Mekanik operasyon merkezi — iş emirleri, mağaza projeleri ve saha raporları.",
+    name: "SİSMİK Kurumsal Operasyon Sistemi",
+    short_name: "SİSMİK",
+    description: "İş emirleri, mağaza projeleri ve saha raporları için kurumsal operasyon sistemi.",
     start_url: "/",
     display: "standalone",
     background_color: "#f4f6f8",

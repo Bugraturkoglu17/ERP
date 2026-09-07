@@ -64,7 +64,7 @@ async def list_reports(
 ):
     query = select(FieldReport)
 
-    # Platform admin tüm raporları görür; diğerleri sadece kendi tenant'larını
+    # Geliştirici admin tüm raporları görür; diğerleri sadece kendi tenant'larını
     if not is_platform_admin(user):
         query = query.join(Project, FieldReport.project_id == Project.id)
         query = query.where(Project.tenant_id == user.tenant_id)

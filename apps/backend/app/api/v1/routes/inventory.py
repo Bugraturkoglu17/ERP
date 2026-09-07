@@ -276,7 +276,7 @@ async def create_material(
     user: User = Depends(get_current_user),
 ) -> Material:
     if not is_platform_admin(user):
-        raise HTTPException(status_code=403, detail="Malzeme kataloğu yönetimi yalnızca platform yöneticisi tarafından yapılabilir.")
+        raise HTTPException(status_code=403, detail="Malzeme kataloğu yönetimi yalnızca geliştirici admin tarafından yapılabilir.")
 
     # ── 1 · Malzemeyi Oluştur ────────────────────────────────────────────────────
     mat_data = body.model_dump(exclude={"warehouse_id", "initial_quantity"})
@@ -410,7 +410,7 @@ async def update_material(
     user:         User = Depends(get_current_user),
 ) -> Material:
     if not is_platform_admin(user):
-        raise HTTPException(status_code=403, detail="Malzeme kataloğu güncellemesi yalnızca platform yöneticisi tarafından yapılabilir.")
+        raise HTTPException(status_code=403, detail="Malzeme kataloğu güncellemesi yalnızca geliştirici admin tarafından yapılabilir.")
 
     try:
         uid = uuid.UUID(material_id)
@@ -440,7 +440,7 @@ async def delete_material(
     user:        User = Depends(get_current_user),
 ) -> Material:
     if not is_platform_admin(user):
-        raise HTTPException(status_code=403, detail="Malzeme kataloğu silme yalnızca platform yöneticisi tarafından yapılabilir.")
+        raise HTTPException(status_code=403, detail="Malzeme kataloğu silme yalnızca geliştirici admin tarafından yapılabilir.")
 
     try:
         uid = uuid.UUID(material_id)

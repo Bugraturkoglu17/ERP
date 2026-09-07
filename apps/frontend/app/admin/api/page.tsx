@@ -1,7 +1,7 @@
 'use client';
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Golabs ERP — API Yönetim & Sistem Entegrasyon Kontrol Paneli
+//  SİSMİK — API Yönetim & Sistem Entegrasyon Kontrol Paneli
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useState, useEffect } from 'react';
@@ -223,7 +223,7 @@ export default function ApiControlPanel() {
               <iframe 
                 src="http://localhost:8000/api/docs" 
                 className="w-full h-full min-h-[600px] border-0"
-                title="Golabs ERP API Swagger"
+                title="SİSMİK API Swagger"
               />
             </div>
           </div>
@@ -304,15 +304,15 @@ export default function ApiControlPanel() {
                   
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between font-semibold">
-                      <span className="text-slate-500">golabs-erp-backend</span>
+                      <span className="text-slate-500">sismik-erp-backend</span>
                       <span className="text-slate-900">Aktif (%0.4 CPU)</span>
                     </div>
                     <div className="flex justify-between font-semibold">
-                      <span className="text-slate-500">golabs-erp-db (Postgres)</span>
+                      <span className="text-slate-500">sismik-erp-db (Postgres)</span>
                       <span className="text-slate-900">Aktif (18 Bağlantı)</span>
                     </div>
                     <div className="flex justify-between font-semibold">
-                      <span className="text-slate-500">golabs-erp-redis</span>
+                      <span className="text-slate-500">sismik-erp-redis</span>
                       <span className="text-slate-900">Aktif (0.8 MB Önbellek)</span>
                     </div>
                   </div>

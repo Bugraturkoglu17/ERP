@@ -8,6 +8,8 @@ import {
   type ReactNode,
 } from "react";
 import { getTokenPayloadFromStorage } from "@/lib/auth";
+import { buildApiUrl } from "@/lib/api";
+import { clearClientSession } from "@/lib/client-session";
 import { type UserRole, ROLE_PERMISSIONS } from "@/lib/permissions";
 
 export interface AuthUser {
@@ -23,7 +25,7 @@ interface AuthState {
   user: AuthUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  logout: () => void;
+  logout: () => Promise<void>;
   hasRole: (role: UserRole | UserRole[]) => boolean;
   /** Gerçek güvenlik backend permission kontrolü ile sağlanacak. */
   hasPermission: (permission: string) => boolean;
@@ -72,11 +74,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const logout = () => {
+  const logout = async () => {
+    const token = localStorage.getItem("token");
     setUser(null);
-    localStorage.removeItem(AUTH_STORE_KEY);
-    localStorage.removeItem("token");
-    window.location.href = "/login";
+    try {
+      if (token) {
+        const controller = new AbortController();
+        const timeout = window.setTimeout(() => controller.abort(), 1500);
+        await fetch(buildApiUrl("/auth/logout"), {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal,
+          keepalive: true,
+        }).catch(() => undefined);
+        window.clearTimeout(timeout);
+      }
+    } finally {
+      clearClientSession();
+      window.location.replace("/login");
+    }
   };
 
   const hasRole = (role: UserRole | UserRole[]): boolean => {

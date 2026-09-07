@@ -70,24 +70,24 @@ export default function UploadModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-3 backdrop-blur-sm sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="archive-upload-title">
+      <div className="my-auto flex max-h-[calc(100dvh-1.5rem)] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-xl sm:max-h-[calc(100dvh-2rem)]">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-          <h2 className="text-sm font-bold text-slate-900">Genel Arşive Dosya Yükle</h2>
+          <h2 id="archive-upload-title" className="text-sm font-bold text-slate-900">Genel Arşive Dosya Yükle</h2>
           <button onClick={onClose} className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100">
             <X className="h-4 w-4" />
           </button>
         </div>
 
         {/* Body */}
-        <div className="p-5 space-y-4">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-5">
           {/* Drop zone */}
           <div
             onDrop={handleDrop}
             onDragOver={(e) => e.preventDefault()}
             onClick={() => inputRef.current?.click()}
-            className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 py-10 cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors"
+            className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 px-3 py-8 text-center transition-colors hover:border-blue-400 hover:bg-blue-50 sm:py-10"
           >
             <Upload className="h-7 w-7 text-slate-300" />
             <p className="text-sm font-medium text-slate-600">Dosyaları buraya sürükleyin veya tıklayın</p>
@@ -106,7 +106,7 @@ export default function UploadModal({
           {files.length > 0 && (
             <div className="space-y-1.5 max-h-48 overflow-y-auto">
               {files.map((f, i) => (
-                <div key={i} className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2">
+                <div key={i} className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-2 rounded-lg bg-slate-50 px-3 py-2">
                   <FileIcon className="h-4 w-4 shrink-0 text-slate-400" />
                   <span className="flex-1 text-xs text-slate-700 truncate">{f.name}</span>
                   <span className="text-[11px] text-slate-400 shrink-0">{fmtBytes(f.size)}</span>
@@ -137,7 +137,7 @@ export default function UploadModal({
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-2 border-t border-slate-100 px-5 py-4">
+        <div className="flex shrink-0 justify-end gap-2 border-t border-slate-100 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-5 sm:py-4">
           <button onClick={onClose} disabled={busy}
             className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40">
             İptal

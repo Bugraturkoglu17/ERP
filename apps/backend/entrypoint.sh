@@ -51,10 +51,10 @@ if [ "$AUTO_MIGRATE" = "true" ]; then
 
   if [ "$AUTO_BOOTSTRAP_PLATFORM_ADMIN" = "true" ]; then
     if [ -n "${PLATFORM_ADMIN_EMAIL:-}" ] && [ -n "${PLATFORM_ADMIN_PASSWORD:-}" ]; then
-      log "Bootstrapping platform admin"
+      log "Bootstrapping developer admin"
       python -m app.bootstrap_admin
     else
-      log "Skipping platform admin bootstrap (missing PLATFORM_ADMIN_EMAIL/PLATFORM_ADMIN_PASSWORD)"
+      log "Skipping developer admin bootstrap (missing PLATFORM_ADMIN_EMAIL/PLATFORM_ADMIN_PASSWORD)"
     fi
   fi
 else

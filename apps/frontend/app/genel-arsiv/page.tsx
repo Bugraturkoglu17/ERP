@@ -288,7 +288,8 @@ export default function GenelArsivPage() {
             </p>
           </div>
         ) : (
-          <table className="w-full text-xs">
+          <div className="overflow-x-auto overscroll-x-contain">
+          <table className="min-w-[720px] w-full text-xs">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50">
                 <th className="w-10 px-4 py-3">
@@ -406,6 +407,7 @@ export default function GenelArsivPage() {
               })}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 

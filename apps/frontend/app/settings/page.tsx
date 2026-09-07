@@ -746,7 +746,7 @@ export default function SettingsPage() {
                     <label className="text-xs font-bold text-slate-500">Firma Resmi Adı *</label>
                     {!isPlatformAdmin && (
                       <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50/50 border border-amber-200/40 rounded-full px-2.5 py-0.5 animate-in fade-in duration-200">
-                        <Lock className="h-2.5 w-2.5 text-amber-500 animate-pulse" /> Resmi Kayıt - Platform Kontrollü
+                        <Lock className="h-2.5 w-2.5 text-amber-500 animate-pulse" /> Resmi Kayıt - Sistem Kontrollü
                       </span>
                     )}
                   </div>
@@ -763,7 +763,7 @@ export default function SettingsPage() {
                     <label className="text-xs font-bold text-slate-500">Vergi Numarası</label>
                     {!isPlatformAdmin && (
                       <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50/50 border border-amber-200/40 rounded-full px-2.5 py-0.5 animate-in fade-in duration-200">
-                        <Lock className="h-2.5 w-2.5 text-amber-500" /> Resmi Kayıt - Platform Kontrollü
+                        <Lock className="h-2.5 w-2.5 text-amber-500" /> Resmi Kayıt - Sistem Kontrollü
                       </span>
                     )}
                   </div>
@@ -1363,11 +1363,11 @@ export default function SettingsPage() {
                     }`}
                   >
                     <span className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                      Platform Varsayılanı
+                      Sistem Varsayılanı
                       {settings.emailMode === "platform" && <span className="h-2 w-2 rounded-full bg-indigo-600" />}
                     </span>
                     <span className="text-xs text-slate-500 mt-1 leading-relaxed">
-                      E-postalar platform sunucusu (info@golabserp.com) üzerinden markalanarak yasal gönderim limitleriyle iletilir.
+                      E-postalar kurumsal sistem sunucusu üzerinden markalanarak yasal gönderim limitleriyle iletilir.
                     </span>
                   </button>
 
@@ -1489,7 +1489,7 @@ export default function SettingsPage() {
                       <label className="text-xs font-bold text-slate-500">Yedekleme Sıklığı</label>
                       {!isPlatformAdmin && (
                         <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 bg-indigo-50/50 border border-indigo-200/40 rounded-full px-2.5 py-0.5 animate-in fade-in duration-200">
-                          <Lock className="h-2.5 w-2.5 text-indigo-500 animate-pulse" /> Altyapı - Platform Kontrollü
+                          <Lock className="h-2.5 w-2.5 text-indigo-500 animate-pulse" /> Altyapı - Sistem Kontrollü
                         </span>
                       )}
                     </div>
@@ -1508,7 +1508,7 @@ export default function SettingsPage() {
                       <label className="text-xs font-bold text-slate-500">Yedek Saklama Süresi (Gün)</label>
                       {!isPlatformAdmin && (
                         <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 bg-indigo-50/50 border border-indigo-200/40 rounded-full px-2.5 py-0.5 animate-in fade-in duration-200">
-                          <Lock className="h-2.5 w-2.5 text-indigo-500 animate-pulse" /> Altyapı - Platform Kontrollü
+                          <Lock className="h-2.5 w-2.5 text-indigo-500 animate-pulse" /> Altyapı - Sistem Kontrollü
                         </span>
                       )}
                     </div>

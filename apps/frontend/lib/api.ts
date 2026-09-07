@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { clearClientSession } from '@/lib/client-session';
 
 const API_PREFIX = '/api/v1';
 
@@ -78,11 +79,10 @@ api.interceptors.response.use(
     }
 
     if (status === 401 && typeof window !== 'undefined') {
-      localStorage.removeItem('token');
-      localStorage.removeItem('auth_store');
+      clearClientSession();
       const pathname = window.location.pathname;
       if (pathname !== '/login' && pathname !== '/password-reset') {
-        window.location.href = '/login';
+        window.location.replace('/login');
       }
     }
     return Promise.reject(error);

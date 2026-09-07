@@ -82,7 +82,7 @@ When preferences block delivery, mail is marked as `skipped` (business flow stil
 
 ### Current notification triggers
 
-- Platform admin provisioning and admin password reset
+- Geliştirici admin oluşturma ve admin parola sıfırlama
 - Tenant status updates
 - Project user assignment
 - Invoice creation

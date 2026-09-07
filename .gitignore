@@ -2,6 +2,7 @@
 node_modules/
 .kilo/node_modules/
 .next/
+.next-*/
 out/
 build/
 .npm

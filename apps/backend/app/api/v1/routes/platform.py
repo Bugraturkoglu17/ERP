@@ -66,7 +66,7 @@ VALID_TENANT_STATUSES = {"trial", "active", "suspended", "archived"}
 
 def _ensure_platform_admin(user: User) -> None:
     if not is_platform_admin(user):
-        raise HTTPException(status_code=403, detail="Sadece platform yöneticisi erişebilir.")
+        raise HTTPException(status_code=403, detail="Sadece geliştirici admin erişebilir.")
 
 
 def _normalize_tenant_status(value: str) -> TenantStatus:

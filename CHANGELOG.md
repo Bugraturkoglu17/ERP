@@ -40,7 +40,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 ## [Unreleased — prior]
 
 ### Added
-- Multi-tenant platform administration backend route group (`/api/v1/platform/*`).
+- Çok kiracılı sistem yönetimi backend route grubu (`/api/v1/platform/*`).
 - Tenant baseline migration (`apps/backend/alembic/versions/20260518_01_tenant_baseline.py`).
 - Platform bootstrap utility for admin setup (`apps/backend/app/bootstrap_admin.py`).
 - Frontend tenant management page (`apps/frontend/app/platform/tenants/page.tsx`).
@@ -63,8 +63,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   - Project assignment (`project_assignment`)
   - Invoice creation and near-due reminders (`invoice_created`, `invoice_due_soon`)
   - Inventory low stock alerts (`inventory_low_stock`)
-- Platform admin password reset now supports targeted admin selection via `admin_user_id` (instead of implicit first-admin reset).
-- Frontend navigation and sidebar updated to expose platform admin flows:
+- Geliştirici admin parola sıfırlama artık `admin_user_id` ile hedef admin seçimini destekliyor.
+- Frontend navigasyonu ve yan menü geliştirici admin akışlarını gösterecek şekilde güncellendi:
   - `apps/frontend/components/layout/sidebar.tsx`
   - `apps/frontend/lib/navigation.ts`
 - Frontend API and generated types updated for new endpoints:

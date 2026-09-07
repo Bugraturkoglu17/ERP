@@ -8,6 +8,8 @@ import { cn } from "@/lib/utils";
 import { getVisibleNavEntries, isNavGroup, type NavGroup } from "@/lib/navigation";
 import { getRoles, getTokenPayloadFromStorage } from "@/lib/auth";
 import { apiGet } from "@/lib/api";
+import { useAuth } from "@/contexts/auth-context";
+import { BrandMark } from "@/components/brand/brand-mark";
 
 type SidebarProps = {
   mobileOpen?: boolean;
@@ -25,6 +27,7 @@ function findActiveGroup(groups: NavGroup[], pathname: string): string | null {
 }
 
 export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
+  const { logout } = useAuth();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [roles, setRoles]       = useState<string[]>([]);
@@ -72,13 +75,6 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
     return true;
   };
 
-  const handleLogout = () => {
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("token");
-      window.location.href = "/login";
-    }
-  };
-
   return (
     <>
       <div
@@ -97,9 +93,7 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
         {/* Logo */}
         <div className="flex h-14 shrink-0 items-center justify-between border-b border-slate-100 px-4">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-white text-xs font-bold shrink-0">
-              S
-            </div>
+            <BrandMark animated className="h-7 w-7 shrink-0" />
             <div>
               <p className="text-sm font-bold text-slate-900 leading-none">Sismik ERP</p>
               <p className="text-[10px] text-slate-400 mt-0.5">Mağaza Takip</p>
@@ -191,7 +185,7 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
             <p className="text-xs font-medium text-slate-900 truncate flex-1">{fullName}</p>
           </div>
           <button
-            onClick={handleLogout}
+            onClick={() => void logout()}
             className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors"
           >
             <LogOut className="h-3.5 w-3.5 shrink-0" />

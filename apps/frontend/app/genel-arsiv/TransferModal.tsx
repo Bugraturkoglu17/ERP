@@ -121,13 +121,13 @@ export default function TransferModal({
   const stepLabel = ["Dosyalar", "Mağaza Seç", "Kategori"];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-3 backdrop-blur-sm sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="archive-transfer-title">
+      <div className="my-auto flex max-h-[calc(100dvh-1.5rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-xl sm:max-h-[calc(100dvh-2rem)]">
 
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
           <div>
-            <h2 className="text-sm font-bold text-slate-900">Dosyaları Mağaza Kartına Aktar</h2>
+            <h2 id="archive-transfer-title" className="text-sm font-bold text-slate-900">Dosyaları Mağaza Kartına Aktar</h2>
             <p className="text-xs text-slate-400 mt-0.5">{docs.length} dosya seçildi</p>
           </div>
           <button onClick={onClose} className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100">
@@ -160,7 +160,7 @@ export default function TransferModal({
         </div>
 
         {/* Body */}
-        <div className="p-5 min-h-[200px]">
+        <div className="min-h-[200px] flex-1 overflow-y-auto p-4 sm:p-5">
 
           {/* Step 1 — Seçilen dosyalar */}
           {step === 1 && (

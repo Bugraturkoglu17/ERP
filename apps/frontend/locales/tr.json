@@ -20,11 +20,11 @@
     "status": "Durum",
     "systemHealthDiagnosticLogs": "Sistem Sağlık Tanı Logları",
     "dockerLiveHealthReport": "Docker konteynerleri ve mikroservislerin canlı sağlık raporu.",
-    "golabsErpBackend": "golabs-erp-backend",
+    "sismikErpBackend": "sismik-erp-backend",
     "activeCpu": "Aktif (%0.4 CPU)",
-    "golabsErpDbPostgres": "golabs-erp-db (Postgres)",
+    "sismikErpDbPostgres": "sismik-erp-db (Postgres)",
     "activeConnections": "Aktif (18 Bağlantı)",
-    "golabsErpRedis": "golabs-erp-redis",
+    "sismikErpRedis": "sismik-erp-redis",
     "activeCache": "Aktif (0.8 MB Önbellek)",
     "openApiDescriptionText": "Sistemimiz, OpenAPI standartlarında çalışmaktadır. Herhangi bir tip değişimi yapıldığında Next.js çalışma anında hata üretilmesi garantilenmiştir. Ölü ve geçersiz API uçları derleme adımında bloklanır."
   },
@@ -272,7 +272,7 @@
   },
   "inventory": {
     "loading": "Envanter modülü verileri yükleniyor...",
-    "title": "Golabs ERP Stok Portalı",
+    "title": "SİSMİK Stok Yönetimi",
     "skuCode": "SKU (Kod)",
     "materialDescription": "Malzeme Tanımı (Adı)",
     "trackingUnit": "Takip Birimi",
@@ -341,7 +341,7 @@
     "physicalLocation": "Fiziksel Konum / Adres"
   },
   "login": {
-    "title": "Golabs ERP",
+    "title": "SİSMİK",
     "prompt": "Lütfen hesabınıza giriş yapın",
     "email": "E-posta",
     "password": "Şifre",
@@ -364,7 +364,7 @@
     "errorMessage": "Parola güncellenemedi."
   },
   "platform": {
-    "owner": "Platform Owner",
+    "owner": "Geliştirici Admin",
     "title": "Platform Yönetim Dashboardu",
     "description": "Firma yaşam döngüsü, lisans sağlığı, yönetici güvenliği ve denetim görünürlüğü.",
     "goFirmManagement": "Firma Yönetimine Git",
@@ -389,7 +389,7 @@
     "defaultLandingPage": "Bu panel platform_admin için varsayılan açılış sayfası olarak tanımlandı."
   },
   "platformTenants": {
-    "owner": "Platform Owner",
+    "owner": "Geliştirici Admin",
     "title": "Super Admin Paneli",
     "description": "Firma yaşam döngüsü, yönetici, lisans ve denetim.",
     "firmColon": "Firma: ",
@@ -607,7 +607,7 @@
     "generalHeading": "Kurumsal Profil & Arayüz Markalama",
     "generalSub": "Firma resmi yasal bilgilerini ve panel marka görsel ayarlarını buradan yönetebilirsiniz.",
     "companyName": "Firma Resmi Adı *",
-    "companyNameHelp": "Resmi Kayıt - Platform Kontrollü",
+    "companyNameHelp": "Resmi Kayıt - Sistem Kontrollü",
     "vatNumber": "Vergi Numarası",
     "sector": "Sektör",
     "sectorPlaceholder": "Örn: İnşaat, Mekanik, Lojistik",

@@ -6,7 +6,7 @@ const SECTIONS = [
   {
     title: "Genel Ayarlar",
     items: [
-      { label: "Uygulama Adı", value: "Golabs ERP", editable: false },
+      { label: "Uygulama Adı", value: "SİSMİK Kurumsal Operasyon Sistemi", editable: false },
       { label: "Tenant Sayısı", value: "—", editable: false },
       { label: "Token Süresi", value: "24 saat", editable: false },
     ],

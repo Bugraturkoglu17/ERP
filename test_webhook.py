@@ -6,7 +6,7 @@ payload = {
     "phone_number": "905550000000",
     "technician_name": "Test Uzmani",
     "project_name": "Canli Santiyesi",
-    "form_url": "https://erp.golabstek.com/forms/srv-1234"
+    "form_url": "https://erp.sismik.local/forms/srv-1234"
 }
 headers = {"Content-Type": "application/json"}
 

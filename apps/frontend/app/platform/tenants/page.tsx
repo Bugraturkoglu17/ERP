@@ -329,7 +329,7 @@ function PlatformTenantsPageContent() {
       try {
         await loadCore();
       } catch (err: any) {
-        setError(err?.response?.data?.detail || "Platform verileri yüklenemedi.");
+        setError(err?.response?.data?.detail || "Sistem verileri yüklenemedi.");
       } finally {
         setLoading(false);
       }
@@ -647,7 +647,7 @@ function PlatformTenantsPageContent() {
       <section className="corp-header">
         <div className="flex flex-wrap items-center justify-between gap-4 relative z-10">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-wider text-slate-350">Platform Owner</p>
+            <p className="text-[10px] font-black uppercase tracking-wider text-slate-350">Geliştirici Admin</p>
             <h1 className="mt-1.5 text-2xl font-bold tracking-tight">Super Admin Paneli</h1>
             <p className="mt-1 text-xs text-slate-350">Firma yaşam döngüsü, yönetici, lisans ve denetim.</p>
           </div>
