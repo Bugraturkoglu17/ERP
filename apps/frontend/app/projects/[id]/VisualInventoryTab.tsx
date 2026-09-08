@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { apiGet } from "@/lib/api";
+import { ZoomableImage } from "@/components/ui/zoomable-image";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -175,9 +176,9 @@ function Lightbox({
       )}
 
       <div className="flex flex-col items-center gap-4 max-w-4xl w-full px-16" onClick={(e) => e.stopPropagation()}>
-        <div className="relative w-full max-h-[70vh] flex items-center justify-center">
+        <div className="relative w-full h-[70vh] flex items-center justify-center">
           {url ? (
-            <img src={url} alt={meta.t ?? doc.original_name}
+            <ZoomableImage src={url} alt={meta.t ?? doc.original_name}
               className="max-h-[70vh] max-w-full rounded-xl object-contain shadow-2xl" />
           ) : (
             <div className="flex h-64 w-64 items-center justify-center rounded-xl bg-white/10">

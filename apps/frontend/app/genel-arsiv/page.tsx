@@ -6,6 +6,7 @@ import {
   Square, Trash2, Upload, ArrowRightCircle, Filter, AlertCircle, RefreshCw,
 } from "lucide-react";
 import { apiGet, buildApiUrl } from "@/lib/api";
+import { downloadFile } from "@/lib/download";
 import UploadModal   from "./UploadModal";
 import TransferModal from "./TransferModal";
 import { useAuth } from "@/contexts/auth-context";
@@ -163,7 +164,9 @@ export default function GenelArsivPage() {
   const handleDownload = async (doc: ArchiveDoc) => {
     try {
       const res = await apiGet<{ url: string }>(`/documents/${doc.id}/download`);
-      window.open(res.url, "_blank");
+      // Backend farklı origin'de olduğu için <a download> tek başına yeterli
+      // değil — dosyayı blob olarak çekip gerçek bir indirme tetikliyoruz.
+      await downloadFile(res.url, doc.original_name);
     } catch { /* ignore */ }
   };
 

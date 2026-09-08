@@ -1,116 +1,33 @@
-"use client";
-
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { Menu } from "lucide-react";
-import { Suspense, useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
-import { Sidebar } from "@/components/layout/sidebar";
-import { fetchTenantContext } from "@/lib/tenant-context";
 import { AuthProvider } from "@/contexts/auth-context";
+import { AppShell } from "@/components/layout/app-shell";
 import { UpdateAvailableBanner } from "@/components/pwa/UpdateAvailableBanner";
 import { ServiceWorkerManager } from "@/components/pwa/ServiceWorkerManager";
 import { EdgeSwipeGuard } from "@/components/pwa/EdgeSwipeGuard";
 
-function AppShell({ children }: { children: React.ReactNode }) {
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [title, setTitle] = useState("Sismik Mağaza Kartı");
-  const pathname = usePathname();
-  const [mounted, setMounted] = useState(false);
+// Next.js'in kendi otomatik viewport meta enjeksiyonunu devre dışı bırakıp
+// buradan tek, kesin bir viewport tanımlar — iki çakışan <meta viewport>
+// etiketi (biri kısıtlayıcı, biri Next'in varsayılanı) tarayıcıların zoom
+// davranışını tutarsız uygulamasına neden oluyordu.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
+};
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const isPublicRoute =
-    pathname === "/login" ||
-    pathname === "/403" ||
-    pathname === "/password-reset" ||
-    pathname === "/platform" ||
-    pathname.startsWith("/platform/") ||
-    pathname.startsWith("/is-emri/") ||
-    pathname === "/admin" ||
-    pathname.startsWith("/admin/") ||
-    pathname === "/manager" ||
-    pathname.startsWith("/manager/") ||
-    pathname === "/user" ||
-    pathname.startsWith("/user/");
-  const hasToken = typeof window !== "undefined" && (!!localStorage.getItem("token") || !!localStorage.getItem("auth_store"));
-
-  useEffect(() => {
-    if (!mounted) return;
-    const isPlatformRoute = pathname === "/platform" || pathname.startsWith("/platform/");
-    if (!isPublicRoute && !isPlatformRoute && !hasToken) {
-      window.location.href = "/login";
-    }
-  }, [mounted, isPublicRoute, hasToken, pathname]);
-
-  useEffect(() => {
-    if (pathname === "/login" || pathname === "/password-reset") {
-      return;
-    }
-    if (!hasToken) {
-      return;
-    }
-    (async () => {
-      const ctx = await fetchTenantContext();
-      if (ctx?.tenant_name) {
-        setTitle(`${ctx.tenant_name} — Mağaza Kartı`);
-      }
-    })();
-  }, [pathname, hasToken]);
-
-  // Prevent hydration mismatch and rendering layout components before path is determined
-  if (!mounted) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
-      </div>
-    );
-  }
-
-  const isPlatformRoute = pathname === "/platform" || pathname.startsWith("/platform/");
-  // Redirecting state
-  if (!isPublicRoute && !isPlatformRoute && !hasToken) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
-      </div>
-    );
-  }
-
-  if (isPublicRoute) {
-    return <>{children}</>;
-  }
-
-  return (
-    <div className="flex min-h-screen bg-slate-50 text-slate-900 w-full">
-      <Suspense fallback={<div className="w-64 shrink-0" />}>
-        <Sidebar mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
-      </Suspense>
-      <main className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-16 shrink-0 items-center justify-between border-b bg-white px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setMobileOpen(true)}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 text-slate-700 hover:bg-slate-100 lg:hidden"
-              aria-label="Menüyü aç"
-            >
-              <Menu className="h-4 w-4" />
-            </button>
-            <h1 className="truncate text-sm font-semibold text-slate-800 sm:text-base lg:text-lg">
-              {title}
-            </h1>
-          </div>
-          <div className="flex items-center gap-3 sm:gap-4">
-            <div className="h-8 w-8 rounded-full bg-slate-200" />
-          </div>
-        </header>
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">{children}</div>
-      </main>
-    </div>
-  );
-}
+export const metadata: Metadata = {
+  title: "SİSMİK · Kurumsal Operasyon Sistemi",
+  description: "İş emirleri, mağaza projeleri ve saha raporları için kurumsal operasyon sistemi.",
+  applicationName: "SİSMİK",
+  appleWebApp: {
+    title: "SİSMİK",
+    capable: true,
+  },
+  manifest: "/manifest.webmanifest",
+};
 
 export default function RootLayout({
   children,
@@ -119,21 +36,6 @@ export default function RootLayout({
 }) {
   return (
     <html lang="tr" suppressHydrationWarning>
-      <head>
-        <title>SİSMİK · Kurumsal Operasyon Sistemi</title>
-        <meta
-          name="description"
-          content="İş emirleri, mağaza projeleri ve saha raporları için kurumsal operasyon sistemi."
-        />
-        <meta name="application-name" content="SİSMİK" />
-        <meta name="apple-mobile-web-app-title" content="SİSMİK" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <link rel="manifest" href="/manifest.webmanifest" />
-        <meta
-          name="viewport"
-          content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
-        />
-      </head>
       <body className="min-h-screen bg-slate-50 text-slate-900">
         <AuthProvider>
           <AppShell>{children}</AppShell>

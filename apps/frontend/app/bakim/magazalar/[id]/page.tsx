@@ -9,6 +9,7 @@ import {
   Trash2, Upload, Wrench, X,
 } from "lucide-react";
 import { apiDelete, apiGet, apiPost, buildApiUrl } from "@/lib/api";
+import { downloadFile } from "@/lib/download";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -91,8 +92,13 @@ async function downloadDoc(docId: string, fileName?: string) {
   });
   if (!res.ok) { alert("İndirilemiyor."); return; }
   const { url } = await res.json();
-  const a = document.createElement("a");
-  a.href = url; a.download = fileName ?? "dosya"; a.click();
+  // Backend farklı origin'de olduğu için <a download> tek başına yeterli
+  // değil — dosyayı blob olarak çekip gerçek bir indirme tetikliyoruz.
+  try {
+    await downloadFile(url, fileName ?? "dosya");
+  } catch {
+    alert("İndirilemiyor.");
+  }
 }
 
 // ── Upload Modal ───────────────────────────────────────────────────────────────

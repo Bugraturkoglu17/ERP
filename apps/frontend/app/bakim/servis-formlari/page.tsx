@@ -6,6 +6,7 @@ import {
   CheckCircle2, Clock, Download, Eye, FileText, FolderOpen, Search, Store, Wrench,
 } from "lucide-react";
 import { apiGet, buildApiUrl } from "@/lib/api";
+import { downloadFile } from "@/lib/download";
 
 type Project = { id: string; name: string; project_no?: string; status: string; scope_codes?: string[] };
 
@@ -61,10 +62,9 @@ async function openDoc(fileUrlOrDocId: string) {
 async function downloadDoc(fileUrlOrDocId: string, fileName?: string) {
   try {
     const url = await resolveFileUrl(fileUrlOrDocId);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = fileName ?? "servis-formu";
-    a.click();
+    // Backend farklı origin'de olduğu için <a download> tek başına yeterli
+    // değil — dosyayı blob olarak çekip gerçek bir indirme tetikliyoruz.
+    await downloadFile(url, fileName ?? "servis-formu");
   } catch {
     alert("Dosya indirilemedi.");
   }

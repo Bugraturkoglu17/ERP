@@ -39,6 +39,15 @@
         ],
         "createdAt": "2026-08-15T00:00:00.000Z",
         "reason": "Conditional tab-count badge: blue-700/blue-100 (active) and slate-500/slate-200 (inactive) never coexist; both pass WCAG AA. Pre-existing code, not touched by this change."
+      },
+      {
+        "rule": "gray-on-color",
+        "value": "*",
+        "files": [
+          "apps/frontend/components/dashboard/document-quick-search.tsx"
+        ],
+        "createdAt": "2026-09-09T00:00:00.000Z",
+        "reason": "Quick-filter chip (slate-600/slate-100 base, hover:blue-700/blue-50) and delete button (slate-400 base, hover:red-600/red-50) are hover-paired: the gray tone and the colored background never render together, only the colored hover pair does. Both states pass WCAG AA."
       }
     ]
   }

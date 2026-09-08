@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Download, ExternalLink, FileSearch, Loader2, Search, X } from "lucide-react";
-import { apiGet } from "@/lib/api";
+import { Download, ExternalLink, FileSearch, Loader2, Search, Trash2, X } from "lucide-react";
+import { apiGet, apiDelete } from "@/lib/api";
+import { downloadFile } from "@/lib/download";
 
 type ArchiveDocument = {
   id: string;
@@ -106,17 +107,11 @@ export default function DocumentQuickSearch() {
     // permission. Mobile Safari blocks window.open calls made after an await.
     const previewWindow = download ? null : window.open("", "_blank");
     try {
-      const suffix = download ? "?download=true" : "";
-      const { url } = await apiGet<{ url: string }>(`/documents/${doc.id}/download${suffix}`);
+      const { url } = await apiGet<{ url: string }>(`/documents/${doc.id}/download`);
       if (download) {
-        const anchor = document.createElement("a");
-        anchor.href = url;
-        anchor.download = doc.original_name;
-        anchor.target = "_blank";
-        anchor.rel = "noopener noreferrer";
-        document.body.appendChild(anchor);
-        anchor.click();
-        anchor.remove();
+        // Farklı origin'deki (backend) URL'de <a download> yok sayılır —
+        // dosyayı blob olarak çekip sayfanın kendi origin'inden indiriyoruz.
+        await downloadFile(url, doc.original_name);
       } else if (previewWindow) {
         previewWindow.opener = null;
         previewWindow.location.replace(url);
@@ -125,7 +120,21 @@ export default function DocumentQuickSearch() {
       }
     } catch {
       previewWindow?.close();
-      setError("Dosya bağlantısı oluşturulamadı.");
+      setError(download ? "Dosya indirilemedi." : "Dosya bağlantısı oluşturulamadı.");
+    } finally {
+      setActiveDocument(null);
+    }
+  };
+
+  const deleteDocument = async (doc: ArchiveDocument) => {
+    if (!window.confirm(`"${doc.original_name}" dosyasını arşivden kaldırmak istediğinize emin misiniz?`)) return;
+    setActiveDocument(doc.id);
+    setError("");
+    try {
+      await apiDelete(`/documents/${doc.id}`);
+      setDocuments((prev) => prev.filter((d) => d.id !== doc.id));
+    } catch {
+      setError("Dosya silinemedi.");
     } finally {
       setActiveDocument(null);
     }
@@ -140,7 +149,7 @@ export default function DocumentQuickSearch() {
           <Search className="ml-1 h-5 w-5 shrink-0 text-slate-400" />
           <input
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => { setQuery(event.target.value); setError(""); }}
             onFocus={() => setFocused(true)}
             onKeyDown={(event) => { if (event.key === "Escape") setFocused(false); }}
             placeholder="Dosya, mağaza veya tür ara... Örn: DWG, PDF, PNG, mağaza kodu"
@@ -197,6 +206,9 @@ export default function DocumentQuickSearch() {
                     <button onClick={() => openDocument(doc, true)} title="Hemen indir" aria-label={`${doc.original_name} dosyasını indir`} className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50" disabled={activeDocument === doc.id}>
                       {activeDocument === doc.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
                       <span className="hidden sm:inline">İndir</span>
+                    </button>
+                    <button onClick={() => deleteDocument(doc)} title="Dosyayı sil" aria-label={`${doc.original_name} dosyasını sil`} className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50" disabled={activeDocument === doc.id}>
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
                 );

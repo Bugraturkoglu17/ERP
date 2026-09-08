@@ -13,6 +13,7 @@ import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
 import { uploadFormData } from "@/lib/upload";
 import { Tabs, type TabItem } from "@/components/ui/Tabs";
 import { CountBadge } from "@/components/ui/CountBadge";
+import { ZoomableImage } from "@/components/ui/zoomable-image";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -187,7 +188,9 @@ function Lightbox({ urls, names, index, onClose, onPrev, onNext }: {
         </button>
       )}
       <div className="flex flex-col items-center gap-4 max-w-4xl w-full px-16" onClick={e => e.stopPropagation()}>
-        <img src={url} alt={names[index] ?? "foto"} className="max-h-[75vh] max-w-full rounded-xl object-contain shadow-2xl" />
+        <div className="h-[75vh] w-full">
+          <ZoomableImage src={url} alt={names[index] ?? "foto"} className="max-h-[75vh] max-w-full rounded-xl object-contain shadow-2xl" />
+        </div>
         <p className="text-xs text-white/40">{index + 1} / {urls.length}</p>
       </div>
       {index < urls.length - 1 && (
