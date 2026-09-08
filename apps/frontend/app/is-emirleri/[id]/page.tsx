@@ -11,6 +11,8 @@ import {
 } from "lucide-react";
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
 import { uploadFormData } from "@/lib/upload";
+import { Tabs, type TabItem } from "@/components/ui/Tabs";
+import { CountBadge } from "@/components/ui/CountBadge";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -1088,38 +1090,42 @@ export default function WorkOrderDetailPage() {
 
     return (
       <div className="space-y-4">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Camera className="h-4 w-4 text-slate-400" />
-            <p className="text-sm font-semibold text-slate-800">Saha Fotoğrafları</p>
-            <span className="text-xs text-slate-400">{allPhotoItems.length} adet</span>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2">
+            <Camera className="h-4 w-4 shrink-0 text-slate-400" />
+            <p className="truncate text-sm font-semibold text-slate-800">Saha Fotoğrafları</p>
+            <CountBadge count={allPhotoItems.length} />
           </div>
-          <div className="flex items-center gap-2">
-            {isUser && (
-              <>
-                <select value={photoType} onChange={(event) => setPhotoType(event.target.value)} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600">
-                  <option value="before">Hazırlık</option>
-                  <option value="after">Uygulama / İmalat</option>
-                  <option value="issue">Kontrol / Test</option>
-                  <option value="completion">Tamamlandı</option>
-                </select>
-                <PhotoPickerButtons onFiles={handlePhotoUpload} disabled={uploading} compact />
-              </>
-            )}
+          <div className="flex flex-wrap items-center gap-2">
             {isManager && eligiblePhotos.length > 0 && (
               <button onClick={toggleAll}
-                className="text-xs text-slate-500 border border-slate-200 rounded-lg px-2.5 py-1.5 hover:bg-slate-50">
+                className="whitespace-nowrap rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-500 hover:bg-slate-50">
                 {allEligibleSelected ? "Seçimi Kaldır" : "Tümünü Seç"}
               </button>
             )}
             {isManager && selected.size > 0 && (
               <button onClick={() => setTransferOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-blue-700">
+                className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl bg-blue-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-blue-700">
                 <Store className="h-3.5 w-3.5" /> {selected.size} Fotoğrafı Ekle
               </button>
             )}
           </div>
         </div>
+        {isUser && (
+          <div className="space-y-2 rounded-xl border border-slate-100 bg-slate-50/60 p-3">
+            <select
+              value={photoType}
+              onChange={(event) => setPhotoType(event.target.value)}
+              className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs text-slate-600 sm:w-auto"
+            >
+              <option value="before">Hazırlık</option>
+              <option value="after">Uygulama / İmalat</option>
+              <option value="issue">Kontrol / Test</option>
+              <option value="completion">Tamamlandı</option>
+            </select>
+            <PhotoPickerButtons onFiles={handlePhotoUpload} disabled={uploading} />
+          </div>
+        )}
         {uploadQueue.length > 0 && (
           <div className="space-y-2 rounded-xl border border-slate-100 bg-slate-50/60 p-3">
             <div className="flex items-center justify-between">
@@ -1381,32 +1387,14 @@ export default function WorkOrderDetailPage() {
         </div>
       )}
 
-      {/* Sekmeler — mobilde tek satıra sığsın diye kısa etiket + esnek genişlik;
-          ekran gerçekten yetmezse yalnızca bu şerit kendi içinde kayar, sayfa değil. */}
-      <div className="flex gap-0.5 overflow-x-auto border-b border-slate-200 pb-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-        {TABS.map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`flex flex-1 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-t-xl border-b-2 px-2 py-2.5 text-xs font-medium transition-colors sm:flex-none sm:gap-2 sm:px-4 sm:text-sm ${
-              activeTab === tab.key
-                ? "border-blue-600 text-blue-700 bg-blue-50/50"
-                : "border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50"
-            }`}
-          >
-            {tab.icon}
-            <span className="sm:hidden">{tab.shortLabel}</span>
-            <span className="hidden sm:inline">{tab.label}</span>
-            {tab.count !== null && tab.count > 0 && (
-              <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-                tab.badge === "critical" ? "bg-red-100 text-red-600" : "bg-slate-100 text-slate-600"
-              }`}>
-                {tab.count}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        items={TABS.map((tab): TabItem<typeof tab.key> => ({
+          key: tab.key, label: tab.label, shortLabel: tab.shortLabel,
+          icon: tab.icon, count: tab.count, tone: tab.badge === "critical" ? "critical" : "neutral",
+        }))}
+        active={activeTab}
+        onChange={setActiveTab}
+      />
 
       {/* Sekme İçeriği */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
