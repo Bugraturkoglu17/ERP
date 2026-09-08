@@ -96,10 +96,10 @@ export default function UserDashboardPage() {
   );
 
   const stats = [
-    { label: "Planlanacak", value: planned.length, description: "Başlatılmayı bekleyen", icon: CircleDashed, tone: "blue" as const },
-    { label: "Devam Eden", value: active.length, description: "Sahada işlem gören", icon: Clock3, tone: "amber" as const },
-    { label: "Tamamlanan", value: completed.length, description: "Süreci kapanan", icon: CheckCircle2, tone: "emerald" as const },
-    { label: "İptal Edilen", value: cancelled.length, description: "İşlemden kaldırılan", icon: Ban, tone: "slate" as const },
+    { label: "Planlanacak", value: planned.length, description: "Başlatılmayı bekleyen", icon: CircleDashed, tone: "blue" as const, href: "/user/islerim?durum=planned" },
+    { label: "Devam Eden", value: active.length, description: "Sahada işlem gören", icon: Clock3, tone: "amber" as const, href: "/user/islerim?durum=active" },
+    { label: "Tamamlanan", value: completed.length, description: "Süreci kapanan", icon: CheckCircle2, tone: "emerald" as const, href: "/user/islerim?durum=completed" },
+    { label: "İptal Edilen", value: cancelled.length, description: "İşlemden kaldırılan", icon: Ban, tone: "slate" as const, href: "/user/islerim?durum=cancelled" },
   ];
 
   return (

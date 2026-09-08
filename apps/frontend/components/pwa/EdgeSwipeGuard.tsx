@@ -1,56 +1,35 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 
-// iOS Safari, ekranın sol/sağ kenarına yakın başlayan tek-parmak kaydırmayı
-// "tarayıcı geçmişinde geri/ileri git" jesti olarak yorumluyor — sayfa kayıp
-// bir önceki route'a düşüyor. CSS (touch-action/overscroll-behavior) bu jesti
-// tüm iOS sürümlerinde güvenilir şekilde engellemiyor; jest WebKit'in kendi
-// edge-recognizer'ı tarafından yönetiliyor.
+// iOS Safari (ve Android Chrome) ekranın sol/sağ kenarına yakın başlayan
+// tek-parmak sürüklemeyi "tarayıcı geçmişinde geri/ileri git" jesti olarak
+// yorumluyor — sayfa kayıp bir önceki route'a düşüyor.
 //
-// touchstart anında engellemiyoruz — kenara yakın bir buton (örn. hamburger
-// menü) dokunuşunu bozar. Bunun yerine touchmove'da hareketin gerçekten
-// yatay olduğunu görene kadar bekliyoruz; sadece o zaman preventDefault
-// çağırıyoruz. Böylece taplar ve dikey scroll'lar etkilenmez.
-const EDGE_THRESHOLD_PX = 24;
-const DIRECTION_LOCK_PX = 8;
+// ÖNEMLİ: WebKit'in kendi kenar-jesti tanıyıcısı (edge gesture recognizer)
+// dokunuş başladığı anda (touchstart) takibe geçiyor ve JS tarafında
+// touchmove'u bekleyip "yatay mı?" diye karar vermek ÇOK GEÇ kalıyor —
+// jest o ana kadar zaten WebKit tarafına "kapılmış" oluyor. Bu yüzden
+// touchstart anında, dokunuş kenara EDGE_THRESHOLD_PX kadar yakınsa hemen
+// preventDefault çağırıyoruz. Eşik, gerçek buton/link dokunma alanlarını
+// bozmayacak kadar dar tutuluyor (iOS'un kendi jest tanıma bandı da
+// benzer genişlikte, ~15-20px).
+const EDGE_THRESHOLD_PX = 16;
 
 export function EdgeSwipeGuard() {
-  const startRef = useRef<{ x: number; y: number; edge: boolean } | null>(null);
-
   useEffect(() => {
     const onTouchStart = (event: TouchEvent) => {
       const touch = event.touches[0];
       if (!touch) return;
-      const edge = touch.clientX <= EDGE_THRESHOLD_PX || touch.clientX >= window.innerWidth - EDGE_THRESHOLD_PX;
-      startRef.current = { x: touch.clientX, y: touch.clientY, edge };
-    };
-
-    const onTouchMove = (event: TouchEvent) => {
-      const start = startRef.current;
-      const touch = event.touches[0];
-      if (!start || !start.edge || !touch) return;
-      const dx = touch.clientX - start.x;
-      const dy = touch.clientY - start.y;
-      if (Math.abs(dx) > DIRECTION_LOCK_PX && Math.abs(dx) > Math.abs(dy)) {
+      const nearEdge = touch.clientX <= EDGE_THRESHOLD_PX || touch.clientX >= window.innerWidth - EDGE_THRESHOLD_PX;
+      if (nearEdge && event.cancelable) {
         event.preventDefault();
       }
     };
 
-    const onTouchEnd = () => {
-      startRef.current = null;
-    };
-
-    document.addEventListener("touchstart", onTouchStart, { passive: true });
-    document.addEventListener("touchmove", onTouchMove, { passive: false });
-    document.addEventListener("touchend", onTouchEnd, { passive: true });
-    document.addEventListener("touchcancel", onTouchEnd, { passive: true });
-    return () => {
-      document.removeEventListener("touchstart", onTouchStart);
-      document.removeEventListener("touchmove", onTouchMove);
-      document.removeEventListener("touchend", onTouchEnd);
-      document.removeEventListener("touchcancel", onTouchEnd);
-    };
+    // passive:false zorunlu — aksi halde preventDefault etkisiz kalır.
+    document.addEventListener("touchstart", onTouchStart, { passive: false, capture: true });
+    return () => document.removeEventListener("touchstart", onTouchStart, { capture: true });
   }, []);
 
   return null;

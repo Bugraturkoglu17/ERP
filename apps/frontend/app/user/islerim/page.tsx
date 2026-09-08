@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { Suspense, useEffect, useState, useMemo } from "react";
 import Link from "next/link";
-import { Search } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Search, X } from "lucide-react";
 import { apiGet } from "@/lib/api";
 
 type WorkOrder = {
@@ -34,16 +35,30 @@ function statusLabel(status: string) {
   return status;
 }
 
+// Genel Bakış'taki durum kartlarının filtrelediği gruplar — /user/islerim?durum=... ile eşleşir.
+const STATUS_GROUPS: Record<string, string[]> = {
+  planned:   ["planned", "draft", "sent", "approval_pending"],
+  active:    ["started", "material_waiting", "revisit"],
+  completed: ["completed", "approved"],
+  cancelled: ["cancelled", "failed"],
+};
+const STATUS_GROUP_LABEL: Record<string, string> = {
+  planned: "Planlanacak", active: "Devam Eden", completed: "Tamamlanan", cancelled: "İptal Edilen",
+};
+
 const PRIORITY_DOT: Record<string, string> = {
   normal:   "bg-slate-400",
   urgent:   "bg-amber-400",
   critical: "bg-red-500",
 };
 
-export default function UserIslerimPage() {
+function IslerimContent() {
   const [orders,  setOrders]  = useState<WorkOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const statusFilter = searchParams.get("durum");
 
   useEffect(() => {
     apiGet<WorkOrder[]>("/work-orders")
@@ -52,19 +67,33 @@ export default function UserIslerimPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const filtered = useMemo(
-    () => orders.filter((wo) => wo.title.toLowerCase().includes(q.toLowerCase())),
-    [orders, q]
-  );
+  const filtered = useMemo(() => {
+    const group = statusFilter ? STATUS_GROUPS[statusFilter] : null;
+    return orders.filter((wo) =>
+      wo.title.toLowerCase().includes(q.toLowerCase()) &&
+      (!group || group.includes(wo.status))
+    );
+  }, [orders, q, statusFilter]);
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">İşlerim</h1>
         <p className="mt-1 text-sm text-slate-500">
-          {loading ? "Yükleniyor..." : `${orders.length} iş emri atanmış`}
+          {loading ? "Yükleniyor..." : `${filtered.length} iş emri${statusFilter ? ` — ${STATUS_GROUP_LABEL[statusFilter] ?? statusFilter}` : " atanmış"}`}
         </p>
       </div>
+
+      {statusFilter && (
+        <button
+          type="button"
+          onClick={() => router.push("/user/islerim")}
+          className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+        >
+          {STATUS_GROUP_LABEL[statusFilter] ?? statusFilter}
+          <X className="h-3.5 w-3.5" />
+        </button>
+      )}
 
       <div className="relative">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -86,7 +115,11 @@ export default function UserIslerimPage() {
       ) : filtered.length === 0 ? (
         <div className="rounded-xl border border-slate-200 bg-white py-20 text-center">
           <p className="text-sm text-slate-400">
-            {q ? "Aramayla eşleşen iş emri bulunamadı." : "Henüz atanmış iş emri yok."}
+            {q
+              ? "Aramayla eşleşen iş emri bulunamadı."
+              : statusFilter
+                ? `${STATUS_GROUP_LABEL[statusFilter] ?? statusFilter} durumunda iş emri yok.`
+                : "Henüz atanmış iş emri yok."}
           </p>
         </div>
       ) : (
@@ -114,5 +147,13 @@ export default function UserIslerimPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function UserIslerimPage() {
+  return (
+    <Suspense fallback={<div className="space-y-6" />}>
+      <IslerimContent />
+    </Suspense>
   );
 }
