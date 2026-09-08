@@ -26,7 +26,7 @@ const QUICK_ACCOUNTS: {
   { role: "USER", target: "user", label: "Kullanıcı", home: "/user/dashboard" },
 ];
 
-export function QuickSwitch() {
+export function QuickSwitch({ onNavigate }: { onNavigate?: () => void }) {
   const { user, logout } = useAuth();
   const pathname = usePathname();
   const [switching, setSwitching] = useState<UserRole | null>(null);
@@ -42,7 +42,7 @@ export function QuickSwitch() {
     return (
       <div className="border-t border-white/[0.06] px-3 py-3">
         <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-white/30">Panel Görünümü</p>
-        <div className="space-y-0.5">{views.map((view) => <Link key={view.href} href={view.href} className={`flex items-center gap-2.5 rounded-lg px-2 py-2 text-xs transition-colors ${pathname.startsWith(view.href.split("/dashboard")[0]) ? "bg-white/[0.08] text-white" : "text-slate-400 hover:bg-white/[0.06] hover:text-white"}`}><LayoutDashboard className="h-3.5 w-3.5" />{view.label}</Link>)}</div>
+        <div className="space-y-0.5">{views.map((view) => <Link key={view.href} href={view.href} draggable={false} onClick={onNavigate} className={`flex items-center gap-2.5 rounded-lg px-2 py-2 text-xs transition-colors ${pathname.startsWith(view.href.split("/dashboard")[0]) ? "bg-white/[0.08] text-white" : "text-slate-400 hover:bg-white/[0.06] hover:text-white"}`}><LayoutDashboard className="h-3.5 w-3.5" />{view.label}</Link>)}</div>
         <button onClick={logout} className="mt-3 flex w-full items-center gap-2 border-t border-white/[0.06] px-2 pt-3 text-xs text-slate-400 hover:text-white"><LogOut className="h-3.5 w-3.5" />Çıkış Yap</button>
       </div>
     );
@@ -55,6 +55,7 @@ export function QuickSwitch() {
   const switchTo = async (acc: (typeof QUICK_ACCOUNTS)[0]) => {
     setSwitching(acc.role);
     try {
+      onNavigate?.();
       localStorage.removeItem(AUTH_STORE_KEY);
       const result = await demoLogin(acc.target);
       if (!result.ok) throw new Error(result.error ?? "Hesap değiştirilemedi.");

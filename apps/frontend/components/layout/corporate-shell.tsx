@@ -1,6 +1,6 @@
 "use client";
 
-import { type CSSProperties, type ReactNode } from "react";
+import { type CSSProperties, type PointerEventHandler, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X, type LucideIcon } from "lucide-react";
@@ -20,6 +20,9 @@ function CorporateSidebar({
   title,
   navItems,
   dragX,
+  edgeSwipeEnabled,
+  edgeGestureProps,
+  drawerGestureProps,
 }: {
   mobileOpen: boolean;
   onClose: () => void;
@@ -27,14 +30,38 @@ function CorporateSidebar({
   title: string;
   navItems: CorporateNavItem[];
   dragX: number | null;
+  edgeSwipeEnabled: boolean;
+  edgeGestureProps: {
+    onPointerDown: PointerEventHandler<HTMLElement>;
+    onPointerMove: PointerEventHandler<HTMLElement>;
+    onPointerUp: PointerEventHandler<HTMLElement>;
+    onPointerCancel: PointerEventHandler<HTMLElement>;
+    onLostPointerCapture: PointerEventHandler<HTMLElement>;
+  };
+  drawerGestureProps: {
+    onPointerDown: PointerEventHandler<HTMLElement>;
+    onPointerMove: PointerEventHandler<HTMLElement>;
+    onPointerUp: PointerEventHandler<HTMLElement>;
+    onPointerCancel: PointerEventHandler<HTMLElement>;
+    onLostPointerCapture: PointerEventHandler<HTMLElement>;
+    onClickCapture: React.MouseEventHandler<HTMLElement>;
+  };
 }) {
   const pathname = usePathname();
+  const backdropProgress = mobileOpen
+    ? Math.max(0, 1 - Math.abs(dragX ?? 0) / 360)
+    : Math.min(1, Math.max(0, (dragX ?? 0) / 360));
 
   const inner = (
     <div className={`flex h-full flex-col border-t-[3px] bg-[#0c1520] ${brandTone === "amber" ? "border-t-amber-400" : "border-t-[#ff3131]"}`}>
       <div className="flex h-16 items-center justify-between border-b border-white/[0.06] px-4">
         <div className="flex items-center gap-2.5">
-          <BrandMark tone={brandTone} animated className="h-9 w-9 shrink-0" />
+          <BrandMark
+            key={`sidebar-brand-${mobileOpen ? "open" : "closed"}`}
+            tone={brandTone}
+            animated
+            className="h-9 w-9 shrink-0"
+          />
           <div>
             <span className="text-sm font-semibold tracking-[-0.02em] text-white leading-none">{title}</span>
             <span className="block text-[10px] text-white/40 mt-0.5 uppercase tracking-widest">ERP Sistemi</span>
@@ -52,6 +79,7 @@ function CorporateSidebar({
             <Link
               key={href}
               href={href}
+              draggable={false}
               onClick={onClose}
               className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 ${
                 active
@@ -67,13 +95,20 @@ function CorporateSidebar({
         })}
       </nav>
 
-      <QuickSwitch />
+      <QuickSwitch onNavigate={onClose} />
     </div>
   );
 
   return (
     <>
       <aside className="hidden lg:block w-60 shrink-0">{inner}</aside>
+      {edgeSwipeEnabled && !mobileOpen && (
+        <div
+          className="fixed bottom-0 left-0 top-0 z-30 w-8 touch-pan-y lg:hidden"
+          aria-hidden="true"
+          {...edgeGestureProps}
+        />
+      )}
       <div
         className={`fixed inset-0 z-40 lg:hidden ${mobileOpen || dragX !== null ? "pointer-events-auto" : "pointer-events-none"}`}
         aria-hidden={!mobileOpen && dragX === null}
@@ -81,12 +116,18 @@ function CorporateSidebar({
         <button
           type="button"
           aria-label="Menüyü kapat"
-          className="absolute inset-0 h-full w-full bg-black/60 transition-opacity duration-200"
-          style={{ opacity: mobileOpen ? Math.max(0, 1 - Math.abs(dragX ?? 0) / 320) : Math.min(0.6, (dragX ?? 0) / 320) }}
+          className={`absolute inset-0 h-full w-full bg-slate-950/30 will-change-[opacity,backdrop-filter] ${dragX === null ? "transition-[opacity,backdrop-filter] duration-[240ms] ease-out" : ""}`}
+          style={{
+            opacity: backdropProgress,
+            backdropFilter: `blur(${backdropProgress * 3}px)`,
+            WebkitBackdropFilter: `blur(${backdropProgress * 3}px)`,
+          } as CSSProperties}
           onClick={onClose}
         />
         <aside
-          className={`absolute inset-y-0 left-0 w-[86vw] max-w-80 overscroll-contain ${dragX === null ? "transition-transform duration-200 ease-out" : ""}`}
+          className={`absolute inset-y-0 left-0 m-0 w-[86vw] max-w-[360px] touch-pan-y select-none overflow-hidden overscroll-contain ${dragX === null ? "transition-transform duration-[260ms] ease-out" : ""}`}
+          {...drawerGestureProps}
+          onDragStart={(event) => event.preventDefault()}
           style={{
             transform: mobileOpen
               ? `translate3d(${Math.min(0, dragX ?? 0)}px, 0, 0)`
@@ -125,21 +166,24 @@ export function CorporateShell({
     <RoleGuard allowedRoles={allowedRoles} spinnerBg="bg-slate-50">
       <AppLaunch tone={brandTone} scope={allowedRoles.join("-")} />
       <div
-        className="flex min-h-dvh overflow-hidden bg-slate-50"
-        {...drawer.gestureProps}
+        className="flex min-h-dvh max-w-full overflow-x-clip bg-slate-50"
+        style={{ transform: "none" }}
       >
         <CorporateSidebar
           mobileOpen={drawer.open}
-          onClose={() => drawer.setOpen(false)}
+          onClose={drawer.close}
           brandTone={brandTone}
           title={title}
           navItems={navItems}
           dragX={drawer.dragX}
+          edgeSwipeEnabled={drawer.edgeSwipeEnabled}
+          edgeGestureProps={drawer.edgeGestureProps}
+          drawerGestureProps={drawer.drawerGestureProps}
         />
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex min-w-0 max-w-full flex-1 flex-col" style={{ transform: "none" }}>
           <header className="flex min-h-16 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/90 px-4 pb-0 pt-[env(safe-area-inset-top)] backdrop-blur-xl sm:px-6">
             <button
-              onClick={() => drawer.setOpen(true)}
+              onClick={drawer.openDrawer}
               className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 shadow-sm transition hover:bg-slate-50 active:scale-[0.98] lg:hidden"
               aria-label="Menüyü aç"
             >

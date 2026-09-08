@@ -5,7 +5,14 @@
 html {
   touch-action: pan-x pan-y;
   overflow-x: hidden;
+  overscroll-behavior-x: none;
   scroll-behavior: smooth;
+}
+
+body > div {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 /* iOS Safari, odaklanılan input'un font-size'ı 16px altındaysa otomatik
@@ -53,9 +60,10 @@ html {
 }
 
 @keyframes brand-sheen-sweep {
-  0%, 100% { transform: translateX(-220px) rotate(20deg); opacity: 0; }
-  2% { opacity: 0.7; }
-  16% { transform: translateX(1720px) rotate(20deg); opacity: 0; }
+  0%, 5% { transform: translateX(-220px) rotate(20deg); opacity: 0; }
+  9% { opacity: 0.92; }
+  40% { transform: translateX(1720px) rotate(20deg); opacity: 0.92; }
+  46%, 100% { transform: translateX(1720px) rotate(20deg); opacity: 0; }
 }
 
 @keyframes launch-screen-exit {
@@ -254,7 +262,7 @@ html {
   }
 
   .erp-brand-sheen {
-    mix-blend-mode: overlay;
+    mix-blend-mode: screen;
     animation: brand-sheen-sweep 5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
   }
 

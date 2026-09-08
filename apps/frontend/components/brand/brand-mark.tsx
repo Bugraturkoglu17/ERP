@@ -37,7 +37,9 @@ export function BrandMark({ tone = "red", className = "h-8 w-8", animated = fals
           </clipPath>
           <linearGradient id={sheenId} x1="0" y1="0" x2="1" y2="1">
             <stop offset="0%" stopColor="white" stopOpacity="0" />
-            <stop offset="48%" stopColor="white" stopOpacity="0.85" />
+            <stop offset="38%" stopColor="white" stopOpacity="0" />
+            <stop offset="50%" stopColor="white" stopOpacity="0.95" />
+            <stop offset="62%" stopColor="white" stopOpacity="0" />
             <stop offset="100%" stopColor="white" stopOpacity="0" />
           </linearGradient>
         </defs>
