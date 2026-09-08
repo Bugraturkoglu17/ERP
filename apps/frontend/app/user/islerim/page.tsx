@@ -18,6 +18,7 @@ type WorkOrder = {
 };
 
 const STATUS_COLOR: Record<string, string> = {
+  planned:   "bg-blue-100 text-blue-700",
   draft:     "bg-slate-100 text-slate-600",
   sent:      "bg-blue-100 text-blue-700",
   started:   "bg-orange-100 text-orange-700",
@@ -26,7 +27,7 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 function statusLabel(status: string) {
-  if (["draft", "sent", "approval_pending"].includes(status)) return "Planlanacak";
+  if (["planned", "draft", "sent", "approval_pending"].includes(status)) return "Planlanacak";
   if (["started", "material_waiting", "revisit"].includes(status)) return "Devam Ediyor";
   if (["completed", "approved"].includes(status)) return "Tamamlandı";
   if (["cancelled", "failed"].includes(status)) return "İptal Edildi";

@@ -13,12 +13,13 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy import func, or_, select, update
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, is_platform_admin
 from app.core.security import create_access_token, create_refresh_token, get_user_permissions, get_user_roles, hash_password, verify_password
+from app.core.session_versions import bump_session_version, get_session_version
 from app.db.models import PlatformTenantSettings, Role, Tenant, TenantEmailMode, User, UserRole, UserSecurityPolicy
 from app.db.schemas import CompletePasswordResetRequest, MessageResponse, TenantContextRead, TenantProfileUpdate, TenantSettingsUpsert, Token, TokenRefresh, UserRead
 
@@ -123,13 +124,14 @@ async def login(
     permissions = await get_user_permissions(db, user.id)
     force_change = await _password_change_required(db, user.id)
 
+    token_version = await get_session_version(db, user.id)
     access_token  = create_access_token(
         sub=str(user.id), roles=roles, permissions=permissions,
         tenant_id=str(user.tenant_id) if user.tenant_id else None,
         force_password_change=force_change,
-        token_version=user.token_version,
+        token_version=token_version,
     )
-    refresh_token = create_refresh_token(sub=str(user.id), token_version=user.token_version)
+    refresh_token = create_refresh_token(sub=str(user.id), token_version=token_version)
 
     return Token(
         access_token  = access_token,
@@ -156,7 +158,8 @@ async def refresh_token(
     user = user_result.scalar_one_or_none()
     if not user or not user.is_active:
         raise HTTPException(status_code=401, detail="Kullanıcı bulunamadı.")
-    if payload.get("tv", 0) != user.token_version:
+    token_version = await get_session_version(db, user.id)
+    if payload.get("tv", 0) != token_version:
         raise HTTPException(status_code=401, detail="Oturum sona ermiş, lütfen tekrar giriş yapın.")
 
     roles       = await get_user_roles(db, user.id)
@@ -169,9 +172,9 @@ async def refresh_token(
         permissions=permissions,
         tenant_id=str(user.tenant_id) if user.tenant_id else None,
         force_password_change=force_change,
-        token_version=user.token_version,
+        token_version=token_version,
     )
-    refresh_token = create_refresh_token(sub=str(user.id), token_version=user.token_version)
+    refresh_token = create_refresh_token(sub=str(user.id), token_version=token_version)
 
     return Token(
         access_token  = access_token,
@@ -190,9 +193,7 @@ async def logout(
     # user, get_current_user'ın kendi (farklı) DB session'ına bağlı — ORM
     # nesnesini burada başka bir session'a (db) eklemek yerine doğrudan UPDATE
     # çalıştırıyoruz (iki session'a aynı anda attach olma hatasını önler).
-    await db.execute(
-        update(User).where(User.id == user.id).values(token_version=User.token_version + 1)
-    )
+    await bump_session_version(db, user.id)
     await db.commit()
     return MessageResponse(message="Çıkış yapıldı, tüm oturumlar sonlandırıldı.")
 
@@ -502,10 +503,10 @@ async def update_user_details(
         user.default_role = role_name
         # Rol değişikliği sonrası eldeki eski token'lar geçersiz kılınır —
         # kullanıcı yeni yetkileriyle tekrar giriş yapmak zorunda kalır.
-        user.token_version = (user.token_version or 0) + 1
+        await bump_session_version(db, user.id)
     if user_in.is_active is False:
         # Pasif yapılan hesabın eldeki token'ları da anında geçersiz kılınır.
-        user.token_version = (user.token_version or 0) + 1
+        await bump_session_version(db, user.id)
 
     db.add(user)
     await db.commit()

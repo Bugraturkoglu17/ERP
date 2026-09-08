@@ -11,9 +11,21 @@ import unicodedata
 from botocore.client import Config
 from botocore.exceptions import ClientError
 import os
+import shutil
 from typing import Optional
 
 from app.core.config import settings
+
+
+def get_local_upload_dir() -> str:
+    """Return a durable, user-writable directory for development uploads."""
+    configured = os.getenv("SISMIK_LOCAL_UPLOAD_DIR", "").strip()
+    if configured:
+        return os.path.abspath(os.path.expanduser(configured))
+    if os.name == "nt" and os.getenv("LOCALAPPDATA"):
+        return os.path.join(os.environ["LOCALAPPDATA"], "SismikERP", "uploads")
+    data_home = os.getenv("XDG_DATA_HOME") or os.path.join(os.path.expanduser("~"), ".local", "share")
+    return os.path.join(data_home, "sismik-erp", "uploads")
 
 
 def sanitize_filename(name: str) -> str:
@@ -61,12 +73,17 @@ class StorageService:
         
         if self.local_mode:
             print("[WARN] OCI Object Storage credentials missing! Running in LOCAL FALLBACK mode.")
-            self.local_base_dir = os.path.join(
+            legacy_base_dir = os.path.join(
                 os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
                 "static", 
                 "uploads"
             )
+            self.local_base_dir = get_local_upload_dir()
             os.makedirs(self.local_base_dir, exist_ok=True)
+            # Preserve files created by older local builds. Copy only; never
+            # remove or overwrite business data in the legacy directory.
+            if os.path.isdir(legacy_base_dir) and os.path.abspath(legacy_base_dir) != os.path.abspath(self.local_base_dir):
+                shutil.copytree(legacy_base_dir, self.local_base_dir, dirs_exist_ok=True)
             self.s3_client = None
         else:
             try:
@@ -79,13 +96,11 @@ class StorageService:
                     config=Config(signature_version="s3v4"),
                 )
             except Exception as e:
+                if settings.is_production:
+                    raise RuntimeError("Object storage could not be initialized in production.") from e
                 print(f"[WARN] Failed to init boto3 client: {e}. Falling back to local storage.")
                 self.local_mode = True
-                self.local_base_dir = os.path.join(
-                    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
-                    "static", 
-                    "uploads"
-                )
+                self.local_base_dir = get_local_upload_dir()
                 os.makedirs(self.local_base_dir, exist_ok=True)
                 self.s3_client = None
 

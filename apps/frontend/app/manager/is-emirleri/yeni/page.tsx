@@ -13,7 +13,8 @@ import {
   CATEGORY_LABEL, PRIORITY_LABEL, createWorkOrder, getManagerWorkOrders,
   getTeamUsers, type TeamUser, type WorkOrderCategory, type WorkOrderPriority,
 } from "@/services/managerWorkOrders";
-import { buildApiUrl } from "@/lib/api";
+import { getRequestErrorMessage } from "@/lib/api";
+import { uploadFormData } from "@/lib/upload";
 
 type FormState = {
   category: WorkOrderCategory | "";
@@ -30,7 +31,7 @@ const initialForm: FormState = {
   title: "", description: "", dueDate: "", assigneeId: "",
 };
 
-const steps = ["İş ve Mağaza", "İş Detayları", "Atama ve Onay"];
+const steps = ["İş & Mağaza", "İş Detayları", "Atama & Onay"];
 
 export default function NewWorkOrderPage() {
   const params = useSearchParams();
@@ -41,6 +42,7 @@ export default function NewWorkOrderPage() {
   const [attachment, setAttachment] = useState<File | null>(null);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [createdId, setCreatedId] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -100,12 +102,11 @@ export default function NewWorkOrderPage() {
     const body = new FormData();
     body.append("photo_type", "before");
     body.append("file", attachment);
-    const response = await fetch(buildApiUrl(`/work-orders/${workOrderId}/photos`), {
-      method: "POST",
-      headers: { Authorization: `Bearer ${localStorage.getItem("token") ?? ""}` },
-      body,
+    setUploadProgress(0);
+    await uploadFormData(`/work-orders/${workOrderId}/photos`, {
+      formData: body,
+      onProgress: setUploadProgress,
     });
-    if (!response.ok) throw new Error("Başlangıç eki yüklenemedi.");
   }
 
   async function submit() {
@@ -124,7 +125,7 @@ export default function NewWorkOrderPage() {
       sessionStorage.removeItem("manager_work_order_draft");
       setCreatedId(created.id);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "İş emri oluşturulamadı.");
+      setError(getRequestErrorMessage(reason, "İş emri oluşturulamadı. Lütfen tekrar deneyin."));
     } finally { setSaving(false); }
   }
 
@@ -154,7 +155,7 @@ export default function NewWorkOrderPage() {
         {steps.map((label, index) => (
           <li key={label} className={`flex items-center gap-2 border-r border-slate-100 px-3 py-3 text-xs font-semibold last:border-r-0 sm:text-sm ${index === step ? "bg-slate-950 text-white" : index < step ? "text-emerald-700" : "text-slate-400"}`}>
             <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] ${index === step ? "bg-white text-slate-950" : index < step ? "bg-emerald-100" : "bg-slate-100"}`}>{index < step ? <Check className="h-3.5 w-3.5" /> : index + 1}</span>
-            <span className="hidden sm:inline">{label}</span>
+            <span className="min-w-0 text-center text-[10px] leading-tight sm:text-left sm:text-sm">{label}</span>
           </li>
         ))}
       </ol>
@@ -184,8 +185,8 @@ export default function NewWorkOrderPage() {
           <div className="space-y-5">
             <label className="block"><span className="text-sm font-semibold text-slate-800">İş Başlığı</span><input value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} placeholder="Örnek: Soğutma ünitesi arızası" className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-500" /></label>
             <label className="block"><span className="text-sm font-semibold text-slate-800">İş Açıklaması</span><textarea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} rows={5} placeholder="Yapılacak işi ve beklenen sonucu açıklayın." className="mt-2 w-full resize-none rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-500" /></label>
-            <label className="block"><span className="text-sm font-semibold text-slate-800">Termin Tarihi</span><div className="relative mt-2 max-w-sm"><CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input type="date" value={form.dueDate} onChange={(event) => setForm((current) => ({ ...current, dueDate: event.target.value }))} className="w-full rounded-xl border border-slate-200 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-blue-500" /></div></label>
-            <div><span className="text-sm font-semibold text-slate-800">Başlangıç Eki</span><p className="mt-1 text-xs text-slate-500">İsteğe bağlı JPG, PNG veya PDF dosyası.</p><button type="button" onClick={() => fileRef.current?.click()} className="mt-2 inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"><FileUp className="h-4 w-4" />{attachment ? attachment.name : "Dosya Seç"}</button>{attachment && <button type="button" onClick={() => setAttachment(null)} className="ml-2 p-2 text-slate-400 hover:text-red-600"><X className="h-4 w-4" /></button>}<input ref={fileRef} type="file" accept="image/jpeg,image/png,application/pdf" className="hidden" onChange={(event) => setAttachment(event.target.files?.[0] ?? null)} /></div>
+            <label className="block min-w-0"><span className="text-sm font-semibold text-slate-800">Termin Tarihi</span><div className="relative mt-2 w-full min-w-0 max-w-sm overflow-hidden"><CalendarDays className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-slate-400" /><input type="date" value={form.dueDate} onChange={(event) => setForm((current) => ({ ...current, dueDate: event.target.value }))} className="block w-full min-w-0 max-w-full appearance-none rounded-xl border border-slate-200 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-blue-500" /></div></label>
+            <div><span className="text-sm font-semibold text-slate-800">Başlangıç Eki</span><p className="mt-1 text-xs text-slate-500">İsteğe bağlı JPG, PNG veya PDF dosyası.</p><button type="button" disabled={saving} onClick={() => fileRef.current?.click()} className="mt-2 inline-flex max-w-full items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"><FileUp className="h-4 w-4 shrink-0" /><span className="truncate">{attachment ? attachment.name : "Dosya Seç"}</span></button>{attachment && <button type="button" disabled={saving} onClick={() => setAttachment(null)} className="ml-2 p-2 text-slate-400 hover:text-red-600 disabled:opacity-50"><X className="h-4 w-4" /></button>}<input ref={fileRef} type="file" accept="image/jpeg,image/png,application/pdf" className="hidden" onChange={(event) => setAttachment(event.target.files?.[0] ?? null)} />{uploadProgress !== null && <div className="mt-3 max-w-sm"><div className="h-1.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full bg-blue-600 transition-[width]" style={{ width: `${uploadProgress}%` }} /></div><p className="mt-1 text-right text-xs text-slate-500">Başlangıç eki %{uploadProgress}</p></div>}</div>
           </div>
         )}
 

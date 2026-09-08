@@ -18,20 +18,20 @@ interface WorkOrder {
   updated_at?: string;
 }
 
-const PLANNED_STATUSES = ["draft", "sent", "approval_pending"];
+const PLANNED_STATUSES = ["planned", "draft", "sent", "approval_pending"];
 const ACTIVE_STATUSES = ["started", "material_waiting", "revisit"];
 const COMPLETED_STATUSES = ["completed", "approved"];
 const CANCELLED_STATUSES = ["cancelled", "failed"];
 
 const STATUS_LABEL: Record<string, string> = {
-  draft: "Planlanacak", sent: "Planlanacak", approval_pending: "Planlanacak",
+  planned: "Planlanacak", draft: "Planlanacak", sent: "Planlanacak", approval_pending: "Planlanacak",
   started: "Devam Ediyor", material_waiting: "Malzeme Bekliyor", revisit: "Tekrar Ziyaret",
   completed: "Tamamlandı", approved: "Tamamlandı",
   failed: "İptal Edildi", cancelled: "İptal Edildi",
 };
 
 const STATUS_COLOR: Record<string, string> = {
-  draft: "bg-slate-100 text-slate-700", sent: "bg-blue-50 text-blue-700",
+  planned: "bg-blue-50 text-blue-700", draft: "bg-slate-100 text-slate-700", sent: "bg-blue-50 text-blue-700",
   approval_pending: "bg-blue-50 text-blue-700", started: "bg-amber-50 text-amber-700",
   material_waiting: "bg-orange-50 text-orange-700", revisit: "bg-violet-50 text-violet-700",
   completed: "bg-emerald-50 text-emerald-700", approved: "bg-emerald-50 text-emerald-700",

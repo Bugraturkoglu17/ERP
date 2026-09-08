@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
-  ArrowRight, Check, ChevronRight, Loader2, Search, Store, X, AlertCircle, Info,
+  ArrowRight, Check, CheckCircle2, ChevronRight, Loader2, Search, Store, X, AlertCircle, Info,
 } from "lucide-react";
 import { buildApiUrl } from "@/lib/api";
 import { getStores } from "@/services/stores";
@@ -61,6 +61,7 @@ export default function TransferModal({
   const [category,   setCategory]   = useState<string>(allDwg ? "project_file" : "");
   const [busy,       setBusy]       = useState(false);
   const [err,        setErr]        = useState<string | null>(null);
+  const [success,    setSuccess]    = useState<string | null>(null);
 
   // Mağaza listesini yükle
   useEffect(() => {
@@ -91,7 +92,9 @@ export default function TransferModal({
     if (!selected || !category) return;
     setBusy(true);
     setErr(null);
+    setSuccess(null);
     let failed = 0;
+    let firstReason = "";
     for (const doc of docs) {
       try {
         const res = await fetch(buildApiUrl(`/documents/archive/${doc.id}/transfer`), {
@@ -106,16 +109,32 @@ export default function TransferModal({
           const body = await res.json().catch(() => ({}));
           throw new Error(body.detail ?? "Taşıma başarısız.");
         }
-      } catch {
+      } catch (error) {
         failed++;
+        if (!firstReason) {
+          const raw = error instanceof Error ? error.message : "";
+          firstReason = /uuid|integer|int|422|validation/i.test(raw)
+            ? "Dosya veya mağaza bilgisi geçersiz. Seçiminizi kontrol edin."
+            : raw || "Dosya aktarımı sırasında doğrulama hatası oluştu.";
+        }
       }
     }
     setBusy(false);
-    if (failed > 0) {
-      setErr(`${failed} dosya taşınamadı. Diğerleri başarıyla taşındı.`);
-    } else {
-      onDone();
+    const succeeded = docs.length - failed;
+    if (failed === 0) {
+      const message = docs.length === 1
+        ? "Dosya mağaza kartına aktarıldı."
+        : `${docs.length} dosya mağaza kartına aktarıldı.`;
+      setSuccess(message);
+      window.setTimeout(onDone, 800);
+      return;
     }
+    const summary = succeeded === 0
+      ? docs.length === 1
+        ? "Dosya mağaza kartına aktarılamadı."
+        : `${docs.length} dosyanın aktarımı başarısız oldu.`
+      : `${succeeded} dosya aktarıldı, ${failed} dosya aktarılamadı.`;
+    setErr(`${summary} ${firstReason}`.trim());
   };
 
   const stepLabel = ["Dosyalar", "Mağaza Seç", "Kategori"];
@@ -271,6 +290,12 @@ export default function TransferModal({
                 <div className="flex items-start gap-2 rounded-xl border border-red-100 bg-red-50 px-3 py-2.5">
                   <AlertCircle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
                   <p className="text-xs text-red-600">{err}</p>
+                </div>
+              )}
+              {success && (
+                <div className="flex items-start gap-2 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2.5">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                  <p className="text-xs text-emerald-700">{success}</p>
                 </div>
               )}
             </div>

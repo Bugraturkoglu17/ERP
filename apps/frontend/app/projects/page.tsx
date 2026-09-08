@@ -64,19 +64,6 @@ const STATUS_OPTS = [
 ];
 
 
-function getIstipi(codes: string[] = []) {
-  if (codes.includes("bakim"))      return { value: "bakim",      label: "Bakım"      };
-  if (codes.includes("tadilat"))    return { value: "tadilat",    label: "Tadilat"    };
-  if (codes.includes("yeni_yapim")) return { value: "yeni_yapim", label: "Yeni Yapım" };
-  return undefined;
-}
-
-const IS_TIPI_BADGE: Record<string, string> = {
-  bakim:      "bg-sky-50 text-sky-700",
-  tadilat:    "bg-amber-50 text-amber-700",
-  yeni_yapim: "bg-emerald-50 text-emerald-700",
-};
-
 function isCancelled(s: string) { return s === "cancelled" || s === "CANCELLED"; }
 
 // ── Mağaza Kartı ───────────────────────────────────────────────────────────────
@@ -89,7 +76,6 @@ function MagazaKart({ p, regionName, detailHrefBase, onEdit, onDeactivate, canMa
   const [menuOpen, setMenuOpen] = useState(false);
   const extra    = parseDesc(p.description);
   const stType   = STORE_TYPE_OPTS.find(o => o.value === extra.store_type);
-  const tipi     = getIstipi(p.scope_codes);
   const isCancl  = isCancelled(p.status);
 
   return (
@@ -137,16 +123,11 @@ function MagazaKart({ p, regionName, detailHrefBase, onEdit, onDeactivate, canMa
         </div>
       )}
 
-      {/* Badges — store_type + is_tipi */}
+      {/* Mağaza formatı operasyon türünden bağımsızdır. */}
       <div className="flex flex-wrap gap-1.5 mb-3 min-h-[22px]">
         {stType && (
           <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${STORE_TYPE_BADGE[stType.value] ?? "bg-slate-100 text-slate-600"}`}>
             {stType.label}
-          </span>
-        )}
-        {tipi && (
-          <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${IS_TIPI_BADGE[tipi.value] ?? "bg-slate-100 text-slate-600"}`}>
-            {tipi.label}
           </span>
         )}
       </div>
@@ -430,7 +411,6 @@ export default function MagazalarPage() {
   const [search,           setSearch]           = useState("");
   const [searchDebounced,  setSearchDebounced]  = useState("");
   const [filterStoreType,  setFilterStoreType]  = useState("all");
-  const [filterTipi,       setFilterTipi]       = useState("all");
   const [filterRegion,     setFilterRegion]     = useState("all");
   const [showCancelled,    setShowCancelled]    = useState(false);
   const [page,             setPage]             = useState(1);
@@ -474,7 +454,7 @@ export default function MagazalarPage() {
   // Arama veya filtre değiştiğinde ilk sayfaya dön.
   useEffect(() => {
     setPage(1);
-  }, [searchDebounced, filterStoreType, filterTipi, filterRegion, showCancelled]);
+  }, [searchDebounced, filterStoreType, filterRegion, showCancelled]);
 
   const filtered = useMemo(() => {
     const q = searchDebounced.toLowerCase();
@@ -483,12 +463,10 @@ export default function MagazalarPage() {
       const extra = parseDesc(p.description);
       const matchSearch  = !q || p.name.toLowerCase().includes(q) || (p.project_no ?? "").toLowerCase().includes(q);
       const matchType    = filterStoreType === "all" || extra.store_type === filterStoreType;
-      const tipi         = p.scope_codes?.find(c => ["bakim","tadilat","yeni_yapim"].includes(c)) ?? "";
-      const matchTipi    = filterTipi === "all" || tipi === filterTipi;
       const matchRegion  = filterRegion === "all" || p.region_id === filterRegion;
-      return matchSearch && matchType && matchTipi && matchRegion;
+      return matchSearch && matchType && matchRegion;
     });
-  }, [projects, searchDebounced, filterStoreType, filterTipi, filterRegion, showCancelled]);
+  }, [projects, searchDebounced, filterStoreType, filterRegion, showCancelled]);
 
   const cancelledCount = projects.filter(p => isCancelled(p.status)).length;
 
@@ -509,13 +487,13 @@ export default function MagazalarPage() {
               : loading ? "Yükleniyor..." : `${projects.length} mağaza · ${allRegions.length} bölge`}
           </p>
         </div>
-        {canManage && <div className="flex items-center gap-2 shrink-0 flex-wrap">
+        {canManage && <div className="grid w-full grid-cols-1 gap-2 min-[390px]:grid-cols-2 sm:w-auto">
           <Link href={importHref}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
+            className="inline-flex min-w-0 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 sm:px-4">
             <FileUp className="h-4 w-4" /> Excel&apos;den İçe Aktar
           </Link>
           <button onClick={() => setCreateOpen(true)}
-            className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 transition-colors">
+            className="inline-flex min-w-0 items-center justify-center gap-2 rounded-xl bg-slate-900 px-3 py-2.5 text-sm font-medium text-white transition-colors hover:bg-slate-800 sm:px-4">
             <Plus className="h-4 w-4" /> Yeni Mağaza Ekle
           </button>
         </div>}
@@ -535,14 +513,6 @@ export default function MagazalarPage() {
           className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:border-blue-500 focus:outline-none">
           <option value="all">Tüm Mağazalar</option>
           {STORE_TYPE_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
-
-        <select value={filterTipi} onChange={e => setFilterTipi(e.target.value)}
-          className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:border-blue-500 focus:outline-none">
-          <option value="all">Tüm İş Tipleri</option>
-          <option value="bakim">Bakım</option>
-          <option value="tadilat">Tadilat</option>
-          <option value="yeni_yapim">Yeni Yapım</option>
         </select>
 
         {allRegions.length > 0 && (

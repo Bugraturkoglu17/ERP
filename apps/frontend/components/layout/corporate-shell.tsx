@@ -1,6 +1,6 @@
 "use client";
 
-import { type CSSProperties, type PointerEventHandler, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X, type LucideIcon } from "lucide-react";
@@ -19,38 +19,14 @@ function CorporateSidebar({
   brandTone,
   title,
   navItems,
-  dragX,
-  edgeSwipeEnabled,
-  edgeGestureProps,
-  drawerGestureProps,
 }: {
   mobileOpen: boolean;
   onClose: () => void;
   brandTone: BrandTone;
   title: string;
   navItems: CorporateNavItem[];
-  dragX: number | null;
-  edgeSwipeEnabled: boolean;
-  edgeGestureProps: {
-    onPointerDown: PointerEventHandler<HTMLElement>;
-    onPointerMove: PointerEventHandler<HTMLElement>;
-    onPointerUp: PointerEventHandler<HTMLElement>;
-    onPointerCancel: PointerEventHandler<HTMLElement>;
-    onLostPointerCapture: PointerEventHandler<HTMLElement>;
-  };
-  drawerGestureProps: {
-    onPointerDown: PointerEventHandler<HTMLElement>;
-    onPointerMove: PointerEventHandler<HTMLElement>;
-    onPointerUp: PointerEventHandler<HTMLElement>;
-    onPointerCancel: PointerEventHandler<HTMLElement>;
-    onLostPointerCapture: PointerEventHandler<HTMLElement>;
-    onClickCapture: React.MouseEventHandler<HTMLElement>;
-  };
 }) {
   const pathname = usePathname();
-  const backdropProgress = mobileOpen
-    ? Math.max(0, 1 - Math.abs(dragX ?? 0) / 360)
-    : Math.min(1, Math.max(0, (dragX ?? 0) / 360));
 
   const inner = (
     <div className={`flex h-full flex-col border-t-[3px] bg-[#0c1520] ${brandTone === "amber" ? "border-t-amber-400" : "border-t-[#ff3131]"}`}>
@@ -67,7 +43,7 @@ function CorporateSidebar({
             <span className="block text-[10px] text-white/40 mt-0.5 uppercase tracking-widest">ERP Sistemi</span>
           </div>
         </div>
-        <button onClick={onClose} className="lg:hidden text-slate-600 hover:text-white transition-colors">
+        <button type="button" aria-label="Yan paneli kapat" onClick={onClose} className="lg:hidden rounded-lg p-2 text-slate-500 transition-colors hover:bg-white/[0.06] hover:text-white">
           <X className="h-4 w-4" />
         </button>
       </div>
@@ -102,37 +78,19 @@ function CorporateSidebar({
   return (
     <>
       <aside className="hidden lg:block w-60 shrink-0">{inner}</aside>
-      {edgeSwipeEnabled && !mobileOpen && (
-        <div
-          className="fixed bottom-0 left-0 top-0 z-30 w-8 touch-pan-y lg:hidden"
-          aria-hidden="true"
-          {...edgeGestureProps}
-        />
-      )}
       <div
-        className={`fixed inset-0 z-40 lg:hidden ${mobileOpen || dragX !== null ? "pointer-events-auto" : "pointer-events-none"}`}
-        aria-hidden={!mobileOpen && dragX === null}
+        className={`fixed inset-0 z-40 lg:hidden ${mobileOpen ? "pointer-events-auto visible" : "pointer-events-none invisible"}`}
+        aria-hidden={!mobileOpen}
       >
         <button
           type="button"
           aria-label="Menüyü kapat"
-          className={`absolute inset-0 h-full w-full bg-slate-950/30 will-change-[opacity,backdrop-filter] ${dragX === null ? "transition-[opacity,backdrop-filter] duration-[240ms] ease-out" : ""}`}
-          style={{
-            opacity: backdropProgress,
-            backdropFilter: `blur(${backdropProgress * 3}px)`,
-            WebkitBackdropFilter: `blur(${backdropProgress * 3}px)`,
-          } as CSSProperties}
+          className={`absolute inset-0 z-0 h-full w-full bg-slate-950/30 backdrop-blur-[3px] transition-opacity duration-200 ${mobileOpen ? "opacity-100" : "opacity-0"}`}
           onClick={onClose}
         />
         <aside
-          className={`absolute inset-y-0 left-0 m-0 w-[86vw] max-w-[360px] touch-pan-y select-none overflow-hidden overscroll-contain ${dragX === null ? "transition-transform duration-[260ms] ease-out" : ""}`}
-          {...drawerGestureProps}
-          onDragStart={(event) => event.preventDefault()}
-          style={{
-            transform: mobileOpen
-              ? `translate3d(${Math.min(0, dragX ?? 0)}px, 0, 0)`
-              : `translate3d(calc(-100% + ${Math.max(0, dragX ?? 0)}px), 0, 0)`,
-          } as CSSProperties}
+          className={`absolute inset-y-0 left-0 z-10 m-0 w-[86vw] max-w-[360px] overflow-hidden overscroll-contain transition-transform duration-200 ease-out ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
+          onClick={(event) => event.stopPropagation()}
         >
           {inner}
         </aside>
@@ -165,23 +123,16 @@ export function CorporateShell({
   return (
     <RoleGuard allowedRoles={allowedRoles} spinnerBg="bg-slate-50">
       <AppLaunch tone={brandTone} scope={allowedRoles.join("-")} />
-      <div
-        className="flex min-h-dvh max-w-full overflow-x-clip bg-slate-50"
-        style={{ transform: "none" }}
-      >
+      <div className="flex h-dvh max-w-full overflow-x-clip bg-slate-50">
         <CorporateSidebar
           mobileOpen={drawer.open}
           onClose={drawer.close}
           brandTone={brandTone}
           title={title}
           navItems={navItems}
-          dragX={drawer.dragX}
-          edgeSwipeEnabled={drawer.edgeSwipeEnabled}
-          edgeGestureProps={drawer.edgeGestureProps}
-          drawerGestureProps={drawer.drawerGestureProps}
         />
-        <div className="flex min-w-0 max-w-full flex-1 flex-col" style={{ transform: "none" }}>
-          <header className="flex min-h-16 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/90 px-4 pb-0 pt-[env(safe-area-inset-top)] backdrop-blur-xl sm:px-6">
+        <div className="flex min-w-0 max-w-full flex-1 flex-col overflow-hidden">
+          <header className="fixed inset-x-0 top-0 z-30 flex min-h-[calc(4rem+env(safe-area-inset-top))] shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/95 px-4 pb-0 pt-[env(safe-area-inset-top)] shadow-sm backdrop-blur-xl sm:px-6 lg:static lg:min-h-16 lg:shadow-none">
             <button
               onClick={drawer.openDrawer}
               className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 shadow-sm transition hover:bg-slate-50 active:scale-[0.98] lg:hidden"
@@ -198,7 +149,7 @@ export function CorporateShell({
               <span className="max-w-[11rem] truncate text-[11px] font-semibold tracking-wide text-slate-500 sm:max-w-none">{headerLabel}</span>
             </div>
           </header>
-          <main id="main-content" className="erp-workspace min-w-0 flex-1 overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6 lg:p-8">{children}</main>
+          <main id="main-content" className="erp-workspace min-w-0 flex-1 overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[calc(5rem+env(safe-area-inset-top))] sm:p-6 sm:pt-[calc(5rem+env(safe-area-inset-top))] lg:p-8">{children}</main>
         </div>
       </div>
     </RoleGuard>

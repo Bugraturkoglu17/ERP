@@ -30,9 +30,10 @@ if settings.is_production and settings.SECRET_KEY.startswith("change-me"):
 
 # ── Static Files Mount for Local Storage Fallback ──────────────────────────────
 from fastapi.staticfiles import StaticFiles
+from app.core.storage import get_local_upload_dir
 import os
 
-uploads_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "uploads")
+uploads_dir = get_local_upload_dir()
 os.makedirs(uploads_dir, exist_ok=True)
 app.mount("/static/uploads", StaticFiles(directory=uploads_dir), name="uploads")
 

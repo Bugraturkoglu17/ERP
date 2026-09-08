@@ -186,7 +186,6 @@ class User(SQLModel, table=True):
     is_verified:       bool          = Field(default=False)
     # Çıkış yapıldığında veya oturumlar zorla sonlandırılmak istendiğinde
     # artırılır; token'daki değer bununla eşleşmezse istek reddedilir.
-    token_version:     int           = Field(default=0)
     last_login_at:     Optional[datetime] = None
     created_at:        datetime      = Field(
         default_factory=utc_now, nullable=False
@@ -1189,6 +1188,7 @@ class WorkOrderType(str, Enum):
 
 
 class WorkOrderStatus(str, Enum):
+    PLANNED           = "planned"            # Planlanacak
     DRAFT             = "draft"              # Taslak
     SENT              = "sent"               # WhatsApp Gönderildi
     STARTED           = "started"            # İşe Başlandı

@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.database import get_db as database_get_db
 from app.core.security import decode_token, get_user_permissions, get_user_roles
+from app.core.session_versions import get_session_version
 from app.db.models import User, RolePermission
 
 
@@ -56,7 +57,7 @@ async def _get_user_by_sub(db: AsyncSession, sub: str, token_version: int | None
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Kullanıcı bulunamadı veya hesabı pasif durumda.",
         )
-    if token_version is not None and token_version != user.token_version:
+    if token_version is not None and token_version != await get_session_version(db, user.id):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Oturum sona ermiş, lütfen tekrar giriş yapın.",

@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Upload, X, File as FileIcon, Loader2, AlertCircle } from "lucide-react";
-import { buildApiUrl } from "@/lib/api";
+import { uploadFormData } from "@/lib/upload";
 
 const ACCEPT = ".dwg,.pdf,.jpg,.jpeg,.png,.xlsx,.xls,.zip,.docx,.doc";
 
@@ -22,6 +22,7 @@ export default function UploadModal({
   const [files,   setFiles]   = useState<File[]>([]);
   const [busy,    setBusy]    = useState(false);
   const [progress, setProgress] = useState(0);
+  const [fileProgress, setFileProgress] = useState<Record<string, number>>({});
   const [err,     setErr]     = useState<string | null>(null);
 
   const addFiles = (list: FileList | null) => {
@@ -42,23 +43,24 @@ export default function UploadModal({
     if (!files.length) return;
     setBusy(true);
     setErr(null);
-    let uploaded = 0;
+    setProgress(0);
+    setFileProgress(Object.fromEntries(files.map((file) => [file.name, 0])));
+    const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
+    let uploadedBytes = 0;
     for (const file of files) {
       const fd = new FormData();
       fd.append("file", file);
       fd.append("doc_type", "other");
       try {
-        const res = await fetch(buildApiUrl("/documents/archive/upload"), {
-          method: "POST",
-          headers: { Authorization: `Bearer ${localStorage.getItem("token") ?? ""}` },
-          body: fd,
+        await uploadFormData("/documents/archive/upload", {
+          formData: fd,
+          onProgress: (percent) => {
+            setFileProgress((current) => ({ ...current, [file.name]: percent }));
+            const sentBytes = uploadedBytes + (file.size * percent / 100);
+            setProgress(totalBytes ? Math.round((sentBytes / totalBytes) * 100) : 100);
+          },
         });
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          throw new Error(body.detail ?? "Yükleme başarısız.");
-        }
-        uploaded++;
-        setProgress(Math.round((uploaded / files.length) * 100));
+        uploadedBytes += file.size;
       } catch (ex: unknown) {
         setErr(ex instanceof Error ? ex.message : "Yükleme başarısız.");
         setBusy(false);
@@ -109,7 +111,7 @@ export default function UploadModal({
                 <div key={i} className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-2 rounded-lg bg-slate-50 px-3 py-2">
                   <FileIcon className="h-4 w-4 shrink-0 text-slate-400" />
                   <span className="flex-1 text-xs text-slate-700 truncate">{f.name}</span>
-                  <span className="text-[11px] text-slate-400 shrink-0">{fmtBytes(f.size)}</span>
+                  <span className="text-[11px] text-slate-400 shrink-0">{busy ? `${fileProgress[f.name] ?? 0}%` : fmtBytes(f.size)}</span>
                   <button onClick={() => setFiles((p) => p.filter((_, j) => j !== i))}
                     className="shrink-0 text-slate-300 hover:text-red-500">
                     <X className="h-3.5 w-3.5" />
@@ -119,7 +121,7 @@ export default function UploadModal({
             </div>
           )}
 
-          {busy && (
+          {(busy || progress === 100) && (
             <div className="space-y-1">
               <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
                 <div className="h-full bg-blue-500 transition-all" style={{ width: `${progress}%` }} />

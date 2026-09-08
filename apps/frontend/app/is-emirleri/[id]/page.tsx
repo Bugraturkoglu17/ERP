@@ -9,7 +9,8 @@ import {
   FileText, Image as ImageIcon, Loader2, Plus, Store,
   Trash2, User, X, Zap,
 } from "lucide-react";
-import { apiDelete, apiGet, apiPatch, apiPost, buildApiUrl } from "@/lib/api";
+import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
+import { uploadFormData } from "@/lib/upload";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -201,6 +202,7 @@ function CreateReportModal({ woId, onClose, onDone }: {
   const [severity,    setSeverity]    = useState("normal");
   const [files,       setFiles]       = useState<File[]>([]);
   const [busy,        setBusy]        = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [err,         setErr]         = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -227,15 +229,11 @@ function CreateReportModal({ woId, onClose, onDone }: {
       fd.append("severity", severity);
       files.forEach(f => fd.append("files", f));
 
-      const res = await fetch(buildApiUrl(`/work-orders/${woId}/reports`), {
-        method: "POST",
-        headers: { Authorization: `Bearer ${localStorage.getItem("token") ?? ""}` },
-        body: fd,
+      setUploadProgress(0);
+      await uploadFormData(`/work-orders/${woId}/reports`, {
+        formData: fd,
+        onProgress: setUploadProgress,
       });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.detail ?? "Rapor kaydedilemedi.");
-      }
       onDone();
     } catch (ex: unknown) {
       setErr((ex as Error).message ?? "Rapor kaydedilemedi.");
@@ -354,6 +352,9 @@ function CreateReportModal({ woId, onClose, onDone }: {
               <p className="text-xs text-red-600">{err}</p>
             </div>
           )}
+          {uploadProgress !== null && (
+            <div><div className="h-1.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full bg-blue-600 transition-[width]" style={{ width: `${uploadProgress}%` }} /></div><p className="mt-1 text-right text-xs text-slate-500">%{uploadProgress}</p></div>
+          )}
         </div>
 
         <div className="flex shrink-0 justify-between gap-3 border-t border-slate-100 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-5 sm:py-4">
@@ -382,6 +383,7 @@ function StageUpdateModal({ stage, woId, hasCompletionPhoto, onClose, onDone }: 
   const [description, setDescription] = useState(stage.description ?? "");
   const [files,       setFiles]       = useState<File[]>([]);
   const [busy,        setBusy]        = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [err,         setErr]         = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -398,16 +400,17 @@ function StageUpdateModal({ stage, woId, hasCompletionPhoto, onClose, onDone }: 
     }
     setBusy(true); setErr("");
     try {
+      const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
+      let uploadedBytes = 0;
       for (const file of files) {
         const body = new FormData();
         body.append("photo_type", STAGE_PHOTO_TYPE[stage.stage_order] ?? "issue");
         body.append("file", file);
-        const response = await fetch(buildApiUrl(`/work-orders/${woId}/photos`), {
-          method: "POST",
-          headers: { Authorization: `Bearer ${localStorage.getItem("token") ?? ""}` },
-          body,
+        await uploadFormData(`/work-orders/${woId}/photos`, {
+          formData: body,
+          onProgress: (percent) => setUploadProgress(totalBytes ? Math.round(((uploadedBytes + file.size * percent / 100) / totalBytes) * 100) : 100),
         });
-        if (!response.ok) throw new Error("Fotoğraf yüklenemedi.");
+        uploadedBytes += file.size;
       }
       const updated = await apiPatch<Stage>(
         `/work-orders/${woId}/stages/${stage.id}`,
@@ -510,6 +513,7 @@ function StageUpdateModal({ stage, woId, hasCompletionPhoto, onClose, onDone }: 
             <p className="mt-1.5 text-[10px] text-slate-400">Yüklenen görseller Saha Fotoğrafları bölümünde görünür.</p>
           </div>
           {err && <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{err}</p>}
+          {uploadProgress !== null && <div><div className="h-1.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full bg-blue-600 transition-[width]" style={{ width: `${uploadProgress}%` }} /></div><p className="mt-1 text-right text-xs text-slate-500">%{uploadProgress}</p></div>}
         </div>
         <div className="flex shrink-0 justify-between gap-3 border-t border-slate-100 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-5 sm:py-4">
           <button onClick={onClose}
@@ -617,6 +621,7 @@ export default function WorkOrderDetailPage() {
   const [loading,      setLoading]      = useState(true);
   const [activeTab,    setActiveTab]    = useState<"reports" | "stages" | "photos">("stages");
   const [uploading,    setUploading]    = useState(false);
+  const [photoUploadProgress, setPhotoUploadProgress] = useState<number | null>(null);
   const [photoType,    setPhotoType]    = useState("completion");
 
   const [reportModal,  setReportModal]  = useState(false);
@@ -731,16 +736,19 @@ export default function WorkOrderDetailPage() {
     if (!wo || !files?.length) return;
     setUploading(true);
     try {
-      for (const file of Array.from(files)) {
+      const selectedFiles = Array.from(files);
+      const totalBytes = selectedFiles.reduce((sum, file) => sum + file.size, 0);
+      let uploadedBytes = 0;
+      setPhotoUploadProgress(0);
+      for (const file of selectedFiles) {
         const body = new FormData();
         body.append("photo_type", photoType);
         body.append("file", file);
-        const response = await fetch(buildApiUrl(`/work-orders/${wo.id}/photos`), {
-          method: "POST",
-          headers: { Authorization: `Bearer ${localStorage.getItem("token") ?? ""}` },
-          body,
+        await uploadFormData(`/work-orders/${wo.id}/photos`, {
+          formData: body,
+          onProgress: (percent) => setPhotoUploadProgress(totalBytes ? Math.round(((uploadedBytes + file.size * percent / 100) / totalBytes) * 100) : 100),
         });
-        if (!response.ok) throw new Error("Fotoğraf yüklenemedi.");
+        uploadedBytes += file.size;
       }
       await loadPhotos();
       showSuccess("Fotoğraflar iş emrine eklendi.");
@@ -1048,6 +1056,7 @@ export default function WorkOrderDetailPage() {
             )}
           </div>
         </div>
+        {photoUploadProgress !== null && <div><div className="h-1.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full bg-blue-600 transition-[width]" style={{ width: `${photoUploadProgress}%` }} /></div><p className="mt-1 text-right text-xs text-slate-500">Fotoğraf yükleme %{photoUploadProgress}</p></div>}
 
         {allPhotoItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-14 gap-3">

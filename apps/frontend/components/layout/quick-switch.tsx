@@ -30,6 +30,14 @@ export function QuickSwitch({ onNavigate }: { onNavigate?: () => void }) {
   const { user, logout } = useAuth();
   const pathname = usePathname();
   const [switching, setSwitching] = useState<UserRole | null>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    onNavigate?.();
+    await logout();
+  };
 
   if (!user) return null;
 
@@ -43,14 +51,12 @@ export function QuickSwitch({ onNavigate }: { onNavigate?: () => void }) {
       <div className="border-t border-white/[0.06] px-3 py-3">
         <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-white/30">Panel Görünümü</p>
         <div className="space-y-0.5">{views.map((view) => <Link key={view.href} href={view.href} draggable={false} onClick={onNavigate} className={`flex items-center gap-2.5 rounded-lg px-2 py-2 text-xs transition-colors ${pathname.startsWith(view.href.split("/dashboard")[0]) ? "bg-white/[0.08] text-white" : "text-slate-400 hover:bg-white/[0.06] hover:text-white"}`}><LayoutDashboard className="h-3.5 w-3.5" />{view.label}</Link>)}</div>
-        <button onClick={logout} className="mt-3 flex w-full items-center gap-2 border-t border-white/[0.06] px-2 pt-3 text-xs text-slate-400 hover:text-white"><LogOut className="h-3.5 w-3.5" />Çıkış Yap</button>
+        <button onClick={() => void handleLogout()} disabled={loggingOut} className="mt-3 flex w-full items-center gap-2 border-t border-white/[0.06] px-2 pt-3 text-xs text-slate-400 hover:text-white disabled:opacity-50">{loggingOut ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LogOut className="h-3.5 w-3.5" />}Çıkış Yap</button>
       </div>
     );
   }
 
-  if (!DEMO_MODE) return null;
-
-  const others = QUICK_ACCOUNTS.filter((a) => a.role !== user.role);
+  const others = DEMO_MODE ? QUICK_ACCOUNTS.filter((a) => a.role !== user.role) : [];
 
   const switchTo = async (acc: (typeof QUICK_ACCOUNTS)[0]) => {
     setSwitching(acc.role);
@@ -67,13 +73,13 @@ export function QuickSwitch({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <div className="border-t border-white/[0.06]">
-      <div className="px-3 pt-3 pb-1">
+      {DEMO_MODE && <div className="px-3 pt-3 pb-1">
         <p className="text-[10px] font-semibold uppercase tracking-wider text-white/30">
           Hızlı Geçiş · Geçici
         </p>
-      </div>
+      </div>}
 
-      <div className="px-3 pb-1 space-y-0.5">
+      {DEMO_MODE && <div className="px-3 pb-1 space-y-0.5">
         {others.map((acc) => (
           <button
             key={acc.role}
@@ -90,7 +96,7 @@ export function QuickSwitch({ onNavigate }: { onNavigate?: () => void }) {
             )}
           </button>
         ))}
-      </div>
+      </div>}
 
       <div className="flex items-center gap-2.5 border-t border-white/[0.06] p-3">
         <UserRound className="h-4 w-4 shrink-0 text-slate-500" />
@@ -99,11 +105,12 @@ export function QuickSwitch({ onNavigate }: { onNavigate?: () => void }) {
           <p className="text-[10px] text-white/40">Aktif hesap</p>
         </div>
         <button
-          onClick={logout}
+          onClick={() => void handleLogout()}
+          disabled={loggingOut}
           title="Çıkış Yap"
           className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-white/[0.06] hover:text-white transition-colors"
         >
-          <LogOut className="h-3.5 w-3.5" />
+          {loggingOut ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LogOut className="h-3.5 w-3.5" />}
         </button>
       </div>
     </div>

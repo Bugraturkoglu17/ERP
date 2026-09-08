@@ -410,7 +410,10 @@ async def list_tenant_admins(
     payload: list[TenantAdminRead] = []
     for admin in admins:
         policy = await db.get(UserSecurityPolicy, admin.id)
-        payload.append(TenantAdminRead(**UserRead.model_validate(admin).model_dump(), force_password_change=bool(policy and policy.force_password_change)))
+        payload.append(TenantAdminRead(
+            **UserRead.model_validate(admin).model_dump(exclude={"force_password_change"}),
+            force_password_change=bool(policy and policy.force_password_change),
+        ))
     return payload
 
 
@@ -458,7 +461,7 @@ async def update_tenant_admin_user(
     await db.refresh(admin_user)
 
     return TenantAdminRead(
-        **UserRead.model_validate(admin_user).model_dump(),
+        **UserRead.model_validate(admin_user).model_dump(exclude={"force_password_change"}),
         force_password_change=policy.force_password_change,
     )
 
@@ -532,7 +535,7 @@ async def reset_tenant_admin_password(
     await db.commit()
     await db.refresh(admin_user)
     return TenantAdminRead(
-        **UserRead.model_validate(admin_user).model_dump(),
+        **UserRead.model_validate(admin_user).model_dump(exclude={"force_password_change"}),
         force_password_change=policy.force_password_change,
     )
 

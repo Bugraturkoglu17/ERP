@@ -65,6 +65,7 @@ SEVERITY_LABELS = {
 }
 
 STATUS_LABELS = {
+    "planned":          "Planlanacak",
     "draft":            "Planlanacak",
     "sent":             "Planlanacak",
     "started":          "Devam Ediyor",
@@ -429,7 +430,7 @@ async def create_work_order(
 
     wo = WorkOrder(
         id=uuid4(),
-        tenant_id=user.tenant_id,
+        tenant_id=proj.tenant_id,
         project_id=payload.project_id,
         work_type=payload.work_type,
         title=payload.title,
@@ -438,7 +439,7 @@ async def create_work_order(
         assigned_to_phone=assigned_phone,
         assigned_to_user_id=payload.assigned_to_user_id,
         priority=payload.priority or "normal",
-        status=WorkOrderStatus.DRAFT,
+        status=WorkOrderStatus.PLANNED,
         location_url=payload.location_url,
         due_date=_parse_date(payload.due_date),
         created_by=user.id,

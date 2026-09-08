@@ -40,6 +40,20 @@ export const buildApiUrl = (path: string) => {
   return `${createBaseUrl()}${normalizedPath}`;
 };
 
+export function getRequestErrorMessage(error: unknown, fallback: string): string {
+  if (!axios.isAxiosError(error)) {
+    return error instanceof Error && error.message ? error.message : fallback;
+  }
+  const status = error.response?.status;
+  if (status === 401) return 'Oturumunuz sona erdi. Lütfen tekrar giriş yapın.';
+  if (status === 403) return 'Bu işlem için yetkiniz bulunmuyor.';
+  if (status === 422) return 'Girilen bilgileri kontrol edin.';
+  if (status && status >= 500) return 'Sunucu tarafında bir hata oluştu. Lütfen tekrar deneyin.';
+  if (!error.response) return 'Sunucuya ulaşılamadı. Bağlantınızı kontrol edip tekrar deneyin.';
+  const detail = error.response.data?.detail;
+  return typeof detail === 'string' && detail.length <= 180 ? detail : fallback;
+}
+
 export const api = axios.create({
   baseURL: createBaseUrl(),
   headers: {

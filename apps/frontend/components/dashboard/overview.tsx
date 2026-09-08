@@ -62,6 +62,7 @@ const STATUS: Record<string, { label: string; dot: string; text: string }> = {
 };
 
 const WO_STATUS: Record<string, { label: string; color: string }> = {
+  planned:          { label: "Planlanacak",      color: "text-blue-600"   },
   draft:            { label: "Taslak",           color: "text-slate-500"  },
   sent:             { label: "Gönderildi",        color: "text-blue-600"   },
   started:          { label: "Devam Ediyor",      color: "text-amber-600"  },
@@ -238,7 +239,7 @@ export function DashboardOverview() {
       ["sent", "started", "material_waiting", "revisit"].includes(wo.status)
     ).length;
     const bekleyenGorevler = workOrders.filter((wo) =>
-      ["draft", "approval_pending"].includes(wo.status)
+      ["planned", "draft", "approval_pending"].includes(wo.status)
     ).length;
     const buAyDocs = docs.filter((d) => d.created_at >= THIS_MONTH_START).length;
     return { total: projects.length, aktifIsEmirleri, bekleyenGorevler, buAyDocs };
