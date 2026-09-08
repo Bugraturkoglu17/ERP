@@ -46,6 +46,12 @@ type Report = {
   photo_count: number; photos: ReportPhoto[];
 };
 
+type UploadItem = {
+  id: string; file: File;
+  status: "pending" | "uploading" | "done" | "error";
+  progress: number; error?: string;
+};
+
 type Stage = {
   id: string; work_order_id: string; stage_order: number;
   stage_name: string; status: string;
@@ -192,6 +198,41 @@ function Lightbox({ urls, names, index, onClose, onPrev, onNext }: {
   );
 }
 
+// ── Fotoğraf Çek / Galeriden Seç ─────────────────────────────────────────────────
+// capture="environment" mobil tarayıcıda dosya seçiciyi tamamen atlayıp direkt
+// kamerayı açar — bu yüzden "çek" ve "galeri" AYRI input'lar olmalı. Galeri
+// input'unda capture yok, multiple var; kamera input'unda capture var, tek çekim.
+
+const PHOTO_ACCEPT = "image/jpeg,image/png,image/jpg,image/webp,image/heic,image/heif";
+
+function PhotoPickerButtons({ onFiles, disabled, compact }: {
+  onFiles: (files: FileList | null) => void;
+  disabled?: boolean;
+  compact?: boolean;
+}) {
+  const cameraRef  = useRef<HTMLInputElement>(null);
+  const galleryRef = useRef<HTMLInputElement>(null);
+  const btnCls = `inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 ${compact ? "px-3 py-2 text-xs" : "flex-1 px-4 py-3 text-sm"}`;
+  return (
+    <div className={compact ? "flex items-center gap-2" : "flex gap-2"}>
+      <button type="button" disabled={disabled} onClick={() => cameraRef.current?.click()} className={btnCls}>
+        <Camera className="h-3.5 w-3.5" /> Fotoğraf Çek
+      </button>
+      <button type="button" disabled={disabled} onClick={() => galleryRef.current?.click()} className={btnCls}>
+        <ImageIcon className="h-3.5 w-3.5" /> Galeriden Seç
+      </button>
+      <input
+        ref={cameraRef} type="file" accept={PHOTO_ACCEPT} capture="environment" className="hidden"
+        onChange={(event) => { onFiles(event.target.files); event.target.value = ""; }}
+      />
+      <input
+        ref={galleryRef} type="file" accept={PHOTO_ACCEPT} multiple className="hidden"
+        onChange={(event) => { onFiles(event.target.files); event.target.value = ""; }}
+      />
+    </div>
+  );
+}
+
 // ── Rapor Oluştur Modal ────────────────────────────────────────────────────────
 
 function CreateReportModal({ woId, onClose, onDone }: {
@@ -311,20 +352,20 @@ function CreateReportModal({ woId, onClose, onDone }: {
             <div
               onDrop={handleDrop}
               onDragOver={e => e.preventDefault()}
-              onClick={() => fileRef.current?.click()}
-              className="flex flex-col items-center gap-2 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 px-4 py-6 cursor-pointer hover:border-blue-300 hover:bg-blue-50/30 transition-colors"
+              className="mb-2 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-center"
             >
-              <Camera className="h-6 w-6 text-slate-300" />
-              <p className="text-xs text-slate-500 text-center">Görselleri buraya sürükleyin veya tıklayın</p>
-              <p className="text-[11px] text-slate-400">JPG · PNG · PDF</p>
+              <p className="text-[11px] text-slate-400">Görselleri buraya sürükleyip bırakabilir veya aşağıdan seçebilirsiniz — JPG · PNG · HEIC</p>
             </div>
+            <PhotoPickerButtons onFiles={addFiles} />
+            <button type="button" onClick={() => fileRef.current?.click()} className="mt-1.5 text-[11px] font-medium text-blue-600 hover:underline">
+              veya PDF dosyası ekle
+            </button>
             <input
               ref={fileRef}
               type="file"
               multiple
-              accept="image/jpeg,image/png,image/jpg,application/pdf"
+              accept="application/pdf"
               className="hidden"
-              capture="environment"
               onChange={e => addFiles(e.target.files)}
             />
             {files.length > 0 && (
@@ -476,22 +517,7 @@ function StageUpdateModal({ stage, woId, hasCompletionPhoto, onClose, onDone }: 
                 <span className="text-[10px] font-medium text-emerald-600">Mevcut fotoğraf var</span>
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 px-4 py-4 text-xs font-medium text-slate-500 hover:border-blue-300 hover:bg-blue-50/40 hover:text-blue-600"
-            >
-              <Camera className="h-4 w-4" /> Fotoğraf Ekle
-            </button>
-            <input
-              ref={fileRef}
-              type="file"
-              multiple
-              accept="image/jpeg,image/png,image/webp"
-              capture="environment"
-              className="hidden"
-              onChange={event => addFiles(event.target.files)}
-            />
+            <PhotoPickerButtons onFiles={addFiles} />
             {files.length > 0 && (
               <div className="mt-2 space-y-1.5">
                 {files.map((file, index) => (
@@ -620,8 +646,8 @@ export default function WorkOrderDetailPage() {
   const [stages,       setStages]       = useState<Stage[]>([]);
   const [loading,      setLoading]      = useState(true);
   const [activeTab,    setActiveTab]    = useState<"reports" | "stages" | "photos">("stages");
-  const [uploading,    setUploading]    = useState(false);
-  const [photoUploadProgress, setPhotoUploadProgress] = useState<number | null>(null);
+  const [uploadQueue,  setUploadQueue]  = useState<UploadItem[]>([]);
+  const uploading = uploadQueue.some(item => item.status === "pending" || item.status === "uploading");
   const [photoType,    setPhotoType]    = useState("completion");
 
   const [reportModal,  setReportModal]  = useState(false);
@@ -720,44 +746,75 @@ export default function WorkOrderDetailPage() {
     showSuccess("Aşama güncellendi.");
   };
 
+  const [starting, setStarting] = useState(false);
+  const [startConfirmOpen, setStartConfirmOpen] = useState(false);
+
   const handleStart = async () => {
-    if (!wo) return;
+    if (!wo || starting) return;
+    setStarting(true);
     try {
       const updated = await apiPatch<WorkOrder>(`/work-orders/${wo.id}`, { status: "started" });
       setWo(updated);
       await loadStages();
-      showSuccess("İş süreci başlatıldı.");
+      showSuccess("Süreç başladı.");
     } catch {
       showError("İş süreci başlatılamadı.");
+    } finally {
+      setStarting(false);
+      setStartConfirmOpen(false);
     }
   };
 
-  const handlePhotoUpload = async (files: FileList | null) => {
-    if (!wo || !files?.length) return;
-    setUploading(true);
+  // Aynı anda en fazla 3 dosya yüklenir — 6+ fotoğraf seçildiğinde tarayıcıyı/
+  // sunucuyu boğmadan, geri kalanı sırada bekler. Her dosyanın kendi gerçek
+  // (byte bazlı) progress'i ve başarısız olursa ayrı "Tekrar Dene"si var.
+  const UPLOAD_CONCURRENCY = 3;
+
+  const runUpload = useCallback(async (item: UploadItem) => {
+    if (!wo) return;
+    setUploadQueue(q => q.map(x => x.id === item.id ? { ...x, status: "uploading", progress: 0, error: undefined } : x));
     try {
-      const selectedFiles = Array.from(files);
-      const totalBytes = selectedFiles.reduce((sum, file) => sum + file.size, 0);
-      let uploadedBytes = 0;
-      setPhotoUploadProgress(0);
-      for (const file of selectedFiles) {
-        const body = new FormData();
-        body.append("photo_type", photoType);
-        body.append("file", file);
-        await uploadFormData(`/work-orders/${wo.id}/photos`, {
-          formData: body,
-          onProgress: (percent) => setPhotoUploadProgress(totalBytes ? Math.round(((uploadedBytes + file.size * percent / 100) / totalBytes) * 100) : 100),
-        });
-        uploadedBytes += file.size;
-      }
+      const body = new FormData();
+      body.append("photo_type", photoType);
+      body.append("file", item.file);
+      await uploadFormData(`/work-orders/${wo.id}/photos`, {
+        formData: body,
+        onProgress: (percent) => setUploadQueue(q => q.map(x => x.id === item.id ? { ...x, progress: percent } : x)),
+      });
+      setUploadQueue(q => q.map(x => x.id === item.id ? { ...x, status: "done", progress: 100 } : x));
       await loadPhotos();
-      showSuccess("Fotoğraflar iş emrine eklendi.");
-    } catch {
-      showError("Fotoğraflar yüklenemedi.");
-    } finally {
-      setUploading(false);
+    } catch (ex) {
+      setUploadQueue(q => q.map(x => x.id === item.id ? { ...x, status: "error", error: (ex as Error).message ?? "Yüklenemedi" } : x));
     }
+  }, [wo, photoType]);
+
+  const handlePhotoUpload = (files: FileList | null) => {
+    if (!wo || !files?.length) return;
+    const items: UploadItem[] = Array.from(files).map(file => ({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      file, status: "pending", progress: 0,
+    }));
+    setUploadQueue(q => [...q, ...items]);
+
+    // Basit eşzamanlılık havuzu: 3 worker, kuyruktan sırayla çeker.
+    let cursor = 0;
+    const worker = async () => {
+      while (cursor < items.length) {
+        const item = items[cursor++];
+        await runUpload(item);
+      }
+    };
+    Promise.all(Array.from({ length: Math.min(UPLOAD_CONCURRENCY, items.length) }, worker)).then(() => {
+      showSuccess("Fotoğraflar iş emrine eklendi.");
+    });
   };
+
+  const retryUpload = (id: string) => {
+    const item = uploadQueue.find(x => x.id === id);
+    if (item) runUpload({ ...item, status: "pending", progress: 0, error: undefined });
+  };
+
+  const dismissUploadItem = (id: string) => setUploadQueue(q => q.filter(x => x.id !== id));
 
   if (loading) {
     return (
@@ -914,6 +971,7 @@ export default function WorkOrderDetailPage() {
     const completed = stages.filter(s => s.status === "completed").length;
     const finalStageCompleted = stages.some(stage => stage.stage_order === 4 && stage.status === "completed");
     const progressPct = finalStageCompleted ? 100 : stages.length > 0 ? Math.round((completed / stages.length) * 100) : 0;
+    const notStartedYet = ["planned", "draft", "sent", "approval_pending"].includes(wo!.status);
 
     return (
       <div className="space-y-4">
@@ -927,6 +985,12 @@ export default function WorkOrderDetailPage() {
             <p className="text-[10px] text-slate-400">Tamamlandı</p>
           </div>
         </div>
+
+        {notStartedYet && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+            <p className="text-xs font-medium text-amber-800">Süreç başladığında aşamalar aktif olacaktır.</p>
+          </div>
+        )}
 
         {/* Progress bar */}
         <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
@@ -980,12 +1044,16 @@ export default function WorkOrderDetailPage() {
                     )}
                   </div>
 
-                  {isUser && <button
-                    onClick={() => setStageModal(stage)}
-                    className="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 active:scale-95 transition-transform"
-                  >
-                    Güncelle
-                  </button>}
+                  {isUser && (
+                    <button
+                      onClick={() => setStageModal(stage)}
+                      disabled={notStartedYet}
+                      title={notStartedYet ? "Önce süreci başlatmalısınız" : undefined}
+                      className="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 active:scale-95 transition-transform disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white"
+                    >
+                      Güncelle
+                    </button>
+                  )}
                 </div>
               </div>
             );
@@ -1035,11 +1103,7 @@ export default function WorkOrderDetailPage() {
                   <option value="issue">Kontrol / Test</option>
                   <option value="completion">Tamamlandı</option>
                 </select>
-                <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700">
-                  {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
-                  Fotoğraf Yükle
-                  <input type="file" multiple accept="image/jpeg,image/png" capture="environment" className="hidden" disabled={uploading} onChange={(event) => handlePhotoUpload(event.target.files)} />
-                </label>
+                <PhotoPickerButtons onFiles={handlePhotoUpload} disabled={uploading} compact />
               </>
             )}
             {isManager && eligiblePhotos.length > 0 && (
@@ -1056,7 +1120,44 @@ export default function WorkOrderDetailPage() {
             )}
           </div>
         </div>
-        {photoUploadProgress !== null && <div><div className="h-1.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full bg-blue-600 transition-[width]" style={{ width: `${photoUploadProgress}%` }} /></div><p className="mt-1 text-right text-xs text-slate-500">Fotoğraf yükleme %{photoUploadProgress}</p></div>}
+        {uploadQueue.length > 0 && (
+          <div className="space-y-2 rounded-xl border border-slate-100 bg-slate-50/60 p-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-slate-600">
+                {uploadQueue.filter(i => i.status === "done").length} / {uploadQueue.length} yüklendi
+              </p>
+              {uploadQueue.every(i => i.status === "done" || i.status === "error") && (
+                <button type="button" onClick={() => setUploadQueue([])} className="text-[11px] text-slate-400 hover:text-slate-600">
+                  Listeyi temizle
+                </button>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              {uploadQueue.map(item => (
+                <div key={item.id} className="flex items-center gap-2 text-xs">
+                  <span className="w-24 shrink-0 truncate text-slate-600 sm:w-40" title={item.file.name}>{item.file.name}</span>
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200">
+                    <div
+                      className={`h-full transition-[width] ${item.status === "error" ? "bg-red-500" : item.status === "done" ? "bg-emerald-500" : "bg-blue-600"}`}
+                      style={{ width: `${item.status === "done" ? 100 : item.progress}%` }}
+                    />
+                  </div>
+                  {item.status === "pending" && <span className="w-16 shrink-0 text-slate-400">Bekliyor</span>}
+                  {item.status === "uploading" && <span className="w-16 shrink-0 text-blue-600">%{item.progress}</span>}
+                  {item.status === "done" && <span className="flex w-16 shrink-0 items-center gap-1 text-emerald-600"><CheckCircle2 className="h-3 w-3" /> Yüklendi</span>}
+                  {item.status === "error" && (
+                    <button type="button" onClick={() => retryUpload(item.id)} className="w-16 shrink-0 font-semibold text-red-600 hover:underline">
+                      Tekrar Dene
+                    </button>
+                  )}
+                  <button type="button" onClick={() => dismissUploadItem(item.id)} className="shrink-0 text-slate-300 hover:text-slate-500">
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {allPhotoItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-14 gap-3">
@@ -1108,7 +1209,7 @@ export default function WorkOrderDetailPage() {
                     }`}
                   >
                     {photo.url && photo.mime?.startsWith("image/") ? (
-                      <img src={photo.url} alt={photo.name ?? "İş emri fotoğrafı"} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" />
+                      <img src={photo.url} alt={photo.name ?? "İş emri fotoğrafı"} loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" />
                     ) : (
                       <div className="w-full h-full bg-slate-100 flex items-center justify-center">
                         <ImageIcon className="h-8 w-8 text-slate-300" />
@@ -1132,12 +1233,12 @@ export default function WorkOrderDetailPage() {
   // ── Render ────────────────────────────────────────────────────────────────────
 
   const TABS = [
-    { key: "stages"  as const, label: "Aşamalar", count: null,
+    { key: "stages"  as const, label: "Aşamalar", shortLabel: "Aşamalar", count: null,
       icon: <Zap className="h-4 w-4" /> },
-    { key: "reports" as const, label: "Raporlar", count: reports.length,
+    { key: "reports" as const, label: "Raporlar", shortLabel: "Raporlar", count: reports.length,
       icon: <FileText className="h-4 w-4" />,
       badge: hasCriticalReport ? "critical" : undefined },
-    { key: "photos"  as const, label: "Saha Fotoğrafları", count: allPhotoItems.length,
+    { key: "photos"  as const, label: "Saha Fotoğrafları", shortLabel: "Fotoğraflar", count: allPhotoItems.length,
       icon: <Camera className="h-4 w-4" /> },
   ];
 
@@ -1200,9 +1301,9 @@ export default function WorkOrderDetailPage() {
                 <Store className="h-3.5 w-3.5" /> Mağaza Kartı
               </Link>
             )}
-            {isUser && ["draft", "sent", "approval_pending"].includes(wo.status) && (
+            {isUser && ["planned", "draft", "sent", "approval_pending"].includes(wo.status) && (
               <button
-                onClick={handleStart}
+                onClick={() => setStartConfirmOpen(true)}
                 className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700"
               >
                 <Zap className="h-3.5 w-3.5" /> Süreci Başlat
@@ -1237,27 +1338,65 @@ export default function WorkOrderDetailPage() {
               {computedSt.label}
             </span>
           </div>
-          <div>
-            <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wide">Son Güncelleme</p>
-            <p className="mt-0.5 text-sm text-slate-700">{fmtDateTime(wo.updated_at ?? wo.created_at)}</p>
-          </div>
+          {wo.started_at ? (
+            <div>
+              <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wide">Süreci Başlattı</p>
+              <p className="text-sm text-slate-700 mt-0.5 truncate">{wo.assigned_to_name ?? "—"}</p>
+              <p className="text-[11px] text-slate-400">{fmtDateTime(wo.started_at)}</p>
+            </div>
+          ) : (
+            <div>
+              <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wide">Son Güncelleme</p>
+              <p className="mt-0.5 text-sm text-slate-700">{fmtDateTime(wo.updated_at ?? wo.created_at)}</p>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Sekmeler */}
-      <div className="flex gap-1 border-b border-slate-200 pb-0">
+      {startConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl">
+            <p className="text-sm font-semibold text-slate-900">Bu işi teslim alıp süreci başlatmak istiyor musunuz?</p>
+            <p className="mt-1.5 text-xs text-slate-500">Süreç başladıktan sonra aşamaları güncelleyebilirsiniz. Başlangıç zamanı ve sizin adınız kaydedilir.</p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setStartConfirmOpen(false)}
+                disabled={starting}
+                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+              >
+                İptal
+              </button>
+              <button
+                type="button"
+                onClick={handleStart}
+                disabled={starting}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+              >
+                {starting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                Süreci Başlat
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sekmeler — mobilde tek satıra sığsın diye kısa etiket + esnek genişlik;
+          ekran gerçekten yetmezse yalnızca bu şerit kendi içinde kayar, sayfa değil. */}
+      <div className="flex gap-0.5 overflow-x-auto border-b border-slate-200 pb-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         {TABS.map(tab => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-xl border-b-2 transition-colors ${
+            className={`flex flex-1 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-t-xl border-b-2 px-2 py-2.5 text-xs font-medium transition-colors sm:flex-none sm:gap-2 sm:px-4 sm:text-sm ${
               activeTab === tab.key
                 ? "border-blue-600 text-blue-700 bg-blue-50/50"
                 : "border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50"
             }`}
           >
             {tab.icon}
-            {tab.label}
+            <span className="sm:hidden">{tab.shortLabel}</span>
+            <span className="hidden sm:inline">{tab.label}</span>
             {tab.count !== null && tab.count > 0 && (
               <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
                 tab.badge === "critical" ? "bg-red-100 text-red-600" : "bg-slate-100 text-slate-600"

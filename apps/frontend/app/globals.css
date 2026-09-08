@@ -3,10 +3,17 @@
 @tailwind utilities;
 
 html {
-  touch-action: pan-x pan-y;
+  /* pan-x YOK: yatay tek-parmak sürükleme tamamen kapalı — sayfa sağa/sola
+     kaymasın. pan-y dikey scroll'a izin verir. Pinch-zoom/double-tap-zoom
+     zaten viewport meta'daki user-scalable=no ile ayrıca kapalı. */
+  touch-action: pan-y;
   overflow-x: hidden;
   overscroll-behavior-x: none;
   scroll-behavior: smooth;
+}
+
+body {
+  overflow-x: hidden;
 }
 
 body > div {

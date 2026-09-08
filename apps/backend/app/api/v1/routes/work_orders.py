@@ -919,6 +919,8 @@ async def update_stage(
     _ensure_work_order_access(wo, user)
 
     if payload.status is not None:
+        if wo.status in {"planned", "draft", "sent", "approval_pending"}:
+            raise HTTPException(409, "Aşamaları güncellemeden önce süreci başlatmalısınız.")
         if payload.status not in {"planned", "in_progress", "completed", "cancelled"}:
             raise HTTPException(400, "Geçersiz aşama durumu.")
         if stage.stage_order == 4 and payload.status == "completed":
