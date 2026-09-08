@@ -1230,13 +1230,25 @@ class WorkOrder(SQLModel, table=True):
     id:                   UUID                = Field(default_factory=uuid4, primary_key=True)
     tenant_id:            Optional[UUID]       = Field(foreign_key="tenants.id", default=None, index=True)
     project_id:           UUID                = Field(foreign_key="projects.id", index=True)
-    work_type:            WorkOrderType       = Field(index=True)
+    # The canonical Alembic schema stores these workflow values as VARCHAR.
+    # Keep the Python enums for validation, but make the SQL column type
+    # explicit so SQLAlchemy never expects PostgreSQL enum types that do not
+    # exist in production.
+    work_type:            WorkOrderType       = Field(
+        sa_column=mapped_column(String(30), nullable=False, index=True)
+    )
     title:                str                 = Field(max_length=255)
     description:          Optional[str]       = Field(default=None)
     assigned_to_name:     Optional[str]       = Field(default=None, max_length=255)
     assigned_to_phone:    Optional[str]       = Field(default=None, max_length=30)
-    priority:             WorkOrderPriority   = Field(default=WorkOrderPriority.NORMAL, index=True)
-    status:               WorkOrderStatus     = Field(default=WorkOrderStatus.DRAFT, index=True)
+    priority:             WorkOrderPriority   = Field(
+        default=WorkOrderPriority.NORMAL,
+        sa_column=mapped_column(String(20), nullable=False, index=True),
+    )
+    status:               WorkOrderStatus     = Field(
+        default=WorkOrderStatus.DRAFT,
+        sa_column=mapped_column(String(30), nullable=False, index=True),
+    )
     location_url:         Optional[str]       = Field(default=None, max_length=1000)
     due_date:             Optional[datetime]  = Field(default=None)
     created_by:           Optional[UUID]      = Field(foreign_key="users.id", default=None)
@@ -1287,7 +1299,10 @@ class WorkOrderPhoto(SQLModel, table=True):
     file_name:      Optional[str]      = Field(default=None, max_length=255)
     file_size_bytes: Optional[int]     = Field(default=None)
     mime_type:      Optional[str]      = Field(default=None, max_length=128)
-    photo_type:     WorkOrderPhotoType = Field(default=WorkOrderPhotoType.COMPLETION, index=True)
+    photo_type:     WorkOrderPhotoType = Field(
+        default=WorkOrderPhotoType.COMPLETION,
+        sa_column=mapped_column(String(30), nullable=False, index=True),
+    )
     uploaded_by_name: Optional[str]   = Field(default=None, max_length=255)
     uploaded_at:    datetime           = Field(default_factory=utc_now, nullable=False)
     # ── Görsel Envanter aktarım ─────────────────────────────
@@ -1323,7 +1338,10 @@ class WorkOrderWhatsappMessage(SQLModel, table=True):
     work_order_id:        UUID                    = Field(foreign_key="work_orders.id", index=True)
     to_phone:             str                     = Field(max_length=30)
     whatsapp_message_id:  Optional[str]           = Field(default=None, max_length=255, index=True)
-    status:               WorkOrderWhatsappStatus = Field(default=WorkOrderWhatsappStatus.QUEUED, index=True)
+    status:               WorkOrderWhatsappStatus = Field(
+        default=WorkOrderWhatsappStatus.QUEUED,
+        sa_column=mapped_column(String(30), nullable=False, index=True),
+    )
     error_message:        Optional[str]           = Field(default=None, max_length=1000)
     sent_at:              Optional[datetime]       = Field(default=None)
     updated_at:           datetime                = Field(default_factory=utc_now, sa_column_kwargs={"onupdate": utc_now})
