@@ -65,7 +65,7 @@ function CorporateSidebar({
               }`}
             >
               {active && <span className={`absolute -left-3 h-5 w-0.5 rounded-r ${brandTone === "amber" ? "bg-amber-400" : "bg-[#ff3131]"}`} />}
-              <Icon className={`h-4 w-4 shrink-0 ${active ? (brandTone === "amber" ? "text-amber-300" : "text-red-400") : "text-slate-500 group-hover:text-slate-300"}`} strokeWidth={1.8} />
+              <Icon className={`h-4 w-4 shrink-0 transition-transform duration-200 ease-out group-hover:scale-[1.16] ${active ? (brandTone === "amber" ? "text-amber-300" : "text-red-400") : "text-slate-500 group-hover:text-slate-300"}`} strokeWidth={1.8} />
               {label}
             </Link>
           );

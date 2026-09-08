@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import time
 import uuid
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Path
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Path, Query
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -184,6 +184,7 @@ async def list_project_documents(
 )
 async def download_document(
     doc_id: uuid.UUID,
+    download: bool = Query(False),
     db:     AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> DocumentDownloadResponse:
@@ -192,7 +193,10 @@ async def download_document(
         raise NotFoundError(detail="Döküman bulunamadı.")
     await _ensure_document_scope(current_user, doc, db)
     
-    url = await storage.generate_presigned_url(doc.file_key)
+    url = await storage.generate_presigned_url(
+        doc.file_key,
+        download_name=doc.original_name if download else None,
+    )
     return DocumentDownloadResponse(url=url, expires_in=3600)
 
 

@@ -13,6 +13,7 @@ from botocore.exceptions import ClientError
 import os
 import shutil
 from typing import Optional
+from urllib.parse import quote
 
 from app.core.config import settings
 
@@ -132,7 +133,12 @@ class StorageService:
                 print(f"S3 Upload Error: {e}")
                 raise IOError(f"Dosya yüklenirken hata oluştu: {e}")
 
-    async def generate_presigned_url(self, file_key: str, expires_in: int = 3600) -> str:
+    async def generate_presigned_url(
+        self,
+        file_key: str,
+        expires_in: int = 3600,
+        download_name: Optional[str] = None,
+    ) -> str:
         """
         Dosyaya erişim için imzalı URL veya yerel statik servis URL'si oluşturur.
         """
@@ -141,9 +147,17 @@ class StorageService:
             return f"http://localhost:8000/static/uploads/{file_key}"
         else:
             try:
+                params = {"Bucket": self.bucket_name, "Key": file_key}
+                if download_name:
+                    ascii_name = sanitize_filename(download_name)
+                    encoded_name = quote(download_name, safe="")
+                    params["ResponseContentDisposition"] = (
+                        f'attachment; filename="{ascii_name}"; '
+                        f"filename*=UTF-8''{encoded_name}"
+                    )
                 url = self.s3_client.generate_presigned_url(
                     "get_object",
-                    Params={"Bucket": self.bucket_name, "Key": file_key},
+                    Params=params,
                     ExpiresIn=expires_in,
                 )
                 return url

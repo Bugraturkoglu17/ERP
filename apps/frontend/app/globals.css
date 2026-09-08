@@ -253,7 +253,7 @@ body > div {
 
   .erp-launch-screen {
     @apply fixed inset-0 z-[60] flex items-center justify-center overflow-hidden bg-[#09111b];
-    animation: launch-screen-exit 5.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    animation: launch-screen-exit 3.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
   }
 
   .erp-launch-ambient {

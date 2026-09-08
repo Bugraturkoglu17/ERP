@@ -24,6 +24,7 @@ import {
   type LoginTarget,
 } from "@/lib/demo-auth";
 import { BrandMark } from "@/components/brand/brand-mark";
+import { resetLaunchIntro } from "@/lib/client-session";
 
 const QUICK_LOGIN: Array<{
   target: LoginTarget;
@@ -77,6 +78,7 @@ export default function LoginPage() {
         window.location.href = `/password-reset?email=${encodeURIComponent(companyEmail.trim())}`;
         return;
       }
+      resetLaunchIntro();
       redirectByRole();
     } catch (err: any) {
       const detail = err.response?.data?.detail;
@@ -97,6 +99,7 @@ export default function LoginPage() {
       setQuickLoading(null);
       return;
     }
+    resetLaunchIntro();
     redirectByRole();
   };
 

@@ -102,8 +102,12 @@ export default function DocumentQuickSearch() {
   const openDocument = async (doc: ArchiveDocument, download = false) => {
     setActiveDocument(doc.id);
     setError("");
+    // Open the preview tab synchronously while the click still has browser
+    // permission. Mobile Safari blocks window.open calls made after an await.
+    const previewWindow = download ? null : window.open("", "_blank");
     try {
-      const { url } = await apiGet<{ url: string }>(`/documents/${doc.id}/download`);
+      const suffix = download ? "?download=true" : "";
+      const { url } = await apiGet<{ url: string }>(`/documents/${doc.id}/download${suffix}`);
       if (download) {
         const anchor = document.createElement("a");
         anchor.href = url;
@@ -113,10 +117,14 @@ export default function DocumentQuickSearch() {
         document.body.appendChild(anchor);
         anchor.click();
         anchor.remove();
+      } else if (previewWindow) {
+        previewWindow.opener = null;
+        previewWindow.location.replace(url);
       } else {
-        window.open(url, "_blank", "noopener,noreferrer");
+        window.location.assign(url);
       }
     } catch {
+      previewWindow?.close();
       setError("Dosya bağlantısı oluşturulamadı.");
     } finally {
       setActiveDocument(null);
