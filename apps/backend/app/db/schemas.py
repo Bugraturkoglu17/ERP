@@ -45,6 +45,20 @@ class MessageResponse(BaseModel):
     message: str
 
 
+class NotificationRead(BaseModel):
+    id:             UUID
+    category:       str
+    title:          str
+    body:           str | None
+    work_order_id:  UUID | None
+    is_read:        bool
+    created_at:     datetime
+
+
+class NotificationUnreadCount(BaseModel):
+    count: int
+
+
 class TenantContextRead(BaseModel):
     tenant_id: UUID
     tenant_name: str

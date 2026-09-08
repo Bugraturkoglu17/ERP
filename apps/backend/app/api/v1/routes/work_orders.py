@@ -20,6 +20,7 @@ from sqlalchemy import select, desc, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user, get_db, is_platform_admin
+from app.core.notifications import notify
 from app.core.storage import storage, sanitize_filename
 from app.db.models import (
     Document, Project, User, WorkOrder, WorkOrderActivity, WorkOrderPhoto,
@@ -467,6 +468,14 @@ async def create_work_order(
             status="planned", created_at=utc_now(),
         ))
 
+    if wo.assigned_to_user_id:
+        await notify(
+            db, user_id=wo.assigned_to_user_id, tenant_id=wo.tenant_id, work_order_id=wo.id,
+            category="work_order_assigned",
+            title="Yeni iş emri atandı",
+            body=f"{proj.name} — {wo.title}",
+        )
+
     await db.commit()
     await db.refresh(wo)
 
@@ -630,6 +639,23 @@ async def update_work_order(
             db, wo.id, wo.project_id, "status_updated",
             f"İş emri durumu güncellendi: {STATUS_LABELS.get(payload.status, payload.status)}",
         )
+        # Süreci başlatan/tamamlayan kullanıcı, iş emrini oluşturan yöneticinin
+        # kendisi değilse yöneticiye bildirim gönder.
+        if wo.created_by and wo.created_by != user.id:
+            if payload.status == "started":
+                await notify(
+                    db, user_id=wo.created_by, tenant_id=wo.tenant_id, work_order_id=wo.id,
+                    category="work_order_started",
+                    title="Süreç başlatıldı",
+                    body=f"{user.full_name} — {wo.title}",
+                )
+            elif payload.status == "completed":
+                await notify(
+                    db, user_id=wo.created_by, tenant_id=wo.tenant_id, work_order_id=wo.id,
+                    category="work_order_completed",
+                    title="İş emri tamamlandı",
+                    body=f"{user.full_name} — {wo.title}",
+                )
     wo.updated_at = utc_now()
 
     await db.commit()
@@ -655,6 +681,16 @@ async def delete_work_order(
     _ensure_work_order_access(wo, user)
     if not _can_view_all_work_orders(user):
         raise HTTPException(403, "İş emri silme yetkiniz yok.")
+
+    # İş emri kalıcı olarak silindiği için bildirimde work_order_id
+    # referansı tutmuyoruz (tıklanınca zaten 404 verir) — sadece başlığı kaydediyoruz.
+    if wo.assigned_to_user_id and wo.assigned_to_user_id != user.id:
+        await notify(
+            db, user_id=wo.assigned_to_user_id, tenant_id=wo.tenant_id,
+            category="work_order_deleted",
+            title="İş emri silindi",
+            body=wo.title,
+        )
 
     # Mağaza kartına silme kaydı düş (iş emri silindikten sonra project_id kaybolur)
     db.add(StoreActivity(

@@ -9,6 +9,7 @@ import { QuickSwitch } from "@/components/layout/quick-switch";
 import type { UserRole } from "@/lib/permissions";
 import { AppLaunch } from "@/components/brand/app-launch";
 import { BrandMark, type BrandTone } from "@/components/brand/brand-mark";
+import { NotificationBell } from "@/components/layout/notification-bell";
 import { useMobileDrawer } from "@/hooks/use-mobile-drawer";
 
 export type CorporateNavItem = { href: string; label: string; icon: LucideIcon };
@@ -144,9 +145,12 @@ export function CorporateShell({
               <p className="text-xs font-semibold tracking-[-0.01em] text-slate-700">Sismik ERP</p>
               <p className="mt-0.5 text-[10px] text-slate-400">Güvenli operasyon çalışma alanı</p>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-emerald-500 ring-4 ring-emerald-50" />
-              <span className="max-w-[11rem] truncate text-[11px] font-semibold tracking-wide text-slate-500 sm:max-w-none">{headerLabel}</span>
+            <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+              <NotificationBell />
+              <div className="flex min-w-0 items-center gap-2">
+                <div className="h-2 w-2 shrink-0 rounded-full bg-emerald-500 ring-4 ring-emerald-50" />
+                <span className="max-w-[6.5rem] truncate text-[11px] font-semibold tracking-wide text-slate-500 sm:max-w-none">{headerLabel}</span>
+              </div>
             </div>
           </header>
           <main id="main-content" className="erp-workspace min-w-0 flex-1 overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[calc(5rem+env(safe-area-inset-top))] sm:p-6 sm:pt-[calc(5rem+env(safe-area-inset-top))] lg:p-8">{children}</main>

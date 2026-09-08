@@ -1447,3 +1447,19 @@ class StoreApprovalRequest(SQLModel, table=True):
     note:               Optional[str]  = Field(default=None)
     created_at:         datetime       = Field(default_factory=utc_now, nullable=False)
     updated_at:         datetime       = Field(default_factory=utc_now, sa_column_kwargs={"onupdate": utc_now})
+
+
+class Notification(SQLModel, table=True):
+    """Kullanıcıya özel bildirim — iş emri yaşam döngüsü olayları vb."""
+
+    __tablename__ = "notifications"
+
+    id:               UUID           = Field(default_factory=uuid4, primary_key=True)
+    tenant_id:        Optional[UUID] = Field(foreign_key="tenants.id", default=None, index=True)
+    user_id:          UUID           = Field(foreign_key="users.id", index=True)
+    category:         str            = Field(max_length=40, index=True)  # work_order_assigned | work_order_started | work_order_completed | work_order_deleted
+    title:            str            = Field(max_length=255)
+    body:             Optional[str]  = Field(default=None)
+    work_order_id:    Optional[UUID] = Field(foreign_key="work_orders.id", default=None, index=True)
+    is_read:          bool           = Field(default=False, index=True)
+    created_at:       datetime       = Field(default_factory=utc_now, nullable=False, index=True)
