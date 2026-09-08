@@ -22,6 +22,11 @@ def upgrade() -> None:
         "JOIN pg_type ON pg_type.oid = pg_enum.enumtypid "
         "WHERE typname='workorderstatus'"
     )).scalars())
+    # The canonical Alembic schema stores work_orders.status as VARCHAR.
+    # Some legacy/local databases were bootstrapped from SQLModel metadata and
+    # therefore use a PostgreSQL enum. VARCHAR needs no schema change.
+    if not labels:
+        return
     if "PLANNED" in labels:
         return
     owner = conn.execute(sa.text("SELECT pg_get_userbyid(typowner) FROM pg_type WHERE typname='workorderstatus'")).scalar()
