@@ -45,6 +45,20 @@ async def unread_count(
     return NotificationUnreadCount(count=result.scalar_one())
 
 
+@router.patch("/read-all", response_model=MessageResponse, tags=["notifications"])
+async def mark_all_read(
+    db:   AsyncSession = Depends(get_db),
+    user: User         = Depends(get_current_user),
+) -> MessageResponse:
+    await db.execute(
+        update(Notification)
+        .where(Notification.user_id == user.id, Notification.is_read.is_(False))
+        .values(is_read=True)
+    )
+    await db.commit()
+    return MessageResponse(message="Tüm bildirimler okundu olarak işaretlendi.")
+
+
 @router.patch("/{notification_id}/read", response_model=MessageResponse, tags=["notifications"])
 async def mark_read(
     notification_id: UUID,
@@ -58,17 +72,3 @@ async def mark_read(
     db.add(notif)
     await db.commit()
     return MessageResponse(message="Bildirim okundu olarak işaretlendi.")
-
-
-@router.patch("/read-all", response_model=MessageResponse, tags=["notifications"])
-async def mark_all_read(
-    db:   AsyncSession = Depends(get_db),
-    user: User         = Depends(get_current_user),
-) -> MessageResponse:
-    await db.execute(
-        update(Notification)
-        .where(Notification.user_id == user.id, Notification.is_read.is_(False))
-        .values(is_read=True)
-    )
-    await db.commit()
-    return MessageResponse(message="Tüm bildirimler okundu olarak işaretlendi.")

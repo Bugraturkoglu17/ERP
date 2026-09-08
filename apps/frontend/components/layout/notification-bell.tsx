@@ -56,26 +56,34 @@ export function NotificationBell() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Sürekli polling YOK — sadece ilk yüklemede ve sekme tekrar görünür
-  // olduğunda okunmamış sayacı tazelenir.
+  // Bildirimler başka bir cihaz/oturum tarafından oluşturulabildiği için
+  // görünür sekmede hafif aralıklarla sayacı yenile. 10 kullanıcı ölçeğinde
+  // yalnızca küçük bir COUNT sorgusu çalışır ve bildirimin gecikmesini önler.
   useEffect(() => {
     loadUnreadCount();
-    const onVisible = () => {
+    const refreshWhenVisible = () => {
       if (document.visibilityState === "visible") loadUnreadCount();
     };
-    document.addEventListener("visibilitychange", onVisible);
-    return () => document.removeEventListener("visibilitychange", onVisible);
+    const interval = window.setInterval(refreshWhenVisible, 15_000);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    window.addEventListener("focus", refreshWhenVisible);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+      window.removeEventListener("focus", refreshWhenVisible);
+    };
   }, [loadUnreadCount]);
 
   useEffect(() => {
     if (!open) return;
     loadList();
+    loadUnreadCount();
     const onClickOutside = (event: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) setOpen(false);
     };
     document.addEventListener("mousedown", onClickOutside);
     return () => document.removeEventListener("mousedown", onClickOutside);
-  }, [open, loadList]);
+  }, [open, loadList, loadUnreadCount]);
 
   const markOneRead = async (notif: Notification) => {
     if (!notif.is_read) {
@@ -94,7 +102,7 @@ export function NotificationBell() {
   };
 
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={containerRef} className="relative shrink-0">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -110,7 +118,7 @@ export function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-11 z-50 w-80 max-w-[90vw] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+        <div className="absolute right-0 top-11 z-[70] w-[calc(100vw-2rem)] max-w-80 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl sm:w-80">
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
             <p className="text-sm font-semibold text-slate-800">Bildirimler</p>
             {items.some((n) => !n.is_read) && (
@@ -119,7 +127,7 @@ export function NotificationBell() {
               </button>
             )}
           </div>
-          <div className="max-h-96 overflow-y-auto">
+          <div className="max-h-[min(24rem,calc(100dvh-7rem-env(safe-area-inset-top)-env(safe-area-inset-bottom)))] overscroll-contain overflow-y-auto">
             {loading ? (
               <p className="px-4 py-8 text-center text-xs text-slate-400">Yükleniyor…</p>
             ) : items.length === 0 ? (
