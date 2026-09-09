@@ -50,7 +50,7 @@ function SplashScreen({ tone }: { tone: BrandTone }) {
 }
 
 function hasShownSplashThisSession(): boolean {
-  if (typeof window === "undefined") return true; // SSR: içerik zaten mount edilmeyecek, BootScreen basılır
+  if (typeof window === "undefined") return false; // SSR: başlangıçta logosuz boşluk kalmasın diye splash render edilir
   try {
     const hasToken = !!localStorage.getItem("token") || !!localStorage.getItem("auth_store");
     // Oturum yoksa (Login ekranında) splash adımı tamamen atlanır
@@ -67,10 +67,14 @@ export function RoleGuard({
   brandTone = "red",
 }: RoleGuardProps) {
   const { user, isLoading, isAuthenticated } = useAuth();
-  // Lazy init: sessionStorage senkron olarak ilk render'da okunur — splash'ın
-  // kendisi bir "flash" olmasın diye (önce içerik/atlanmış splash görünüp
-  // sonra splash'a geçme gibi bir ikinci hataya düşmeyelim).
-  const [splashDone, setSplashDone] = useState(hasShownSplashThisSession);
+  const [mounted, setMounted] = useState(false);
+  const [splashDone, setSplashDone] = useState(false);
+
+  // Mount anında sessionStorage değerine göre splash gerekip gerekmediğini çözüyoruz
+  useEffect(() => {
+    setMounted(true);
+    setSplashDone(hasShownSplashThisSession());
+  }, []);
 
   // ADMIN her panele erişebilir (superuser)
   const hasAccess = !!user && (user.role === "ADMIN" || allowedRoles.includes(user.role));
@@ -103,13 +107,16 @@ export function RoleGuard({
     return () => window.clearTimeout(timer);
   }, [authResolved, splashDone]);
 
-  // Auth yetersiz/loading/oturumsuz ise ve henüz redirect effect tetiklenmediyse
-  // arka planda sessizce bekler — ek bir BootScreen/Spinner göstermez.
-  // Bu süreçte ekrana hiçbir şey render edilmez (null), doğrudan Login rotası tetiklenir.
+  // İlk hydration tamamlanmadıysa (sunucu render'ı veya ilk paint)
+  // doğrudan SplashScreen basılır — logo ve isim anında ekranda belirir (bekleme boşluğu yok).
+  if (!mounted) {
+    return <SplashScreen tone={brandTone} />;
+  }
+
+  // Oturum geçersizse sessizce yönlendirilmeyi bekler
   if (!authResolved) return null;
 
-  // Auth tamam ama bu oturumda splash henüz gösterilmedi/tamamlanmadı —
-  // gerçek panel (sidebar/dashboard) HENÜZ MOUNT EDİLMEZ.
+  // Oturum geçerli ve henüz splash gösterilmediyse devam eder
   if (!splashDone) return <SplashScreen tone={brandTone} />;
 
   return <>{children}</>;
