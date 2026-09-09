@@ -107,17 +107,15 @@ export function RoleGuard({
     return () => window.clearTimeout(timer);
   }, [authResolved, splashDone]);
 
-  // İlk hydration tamamlanmadıysa (sunucu render'ı veya ilk paint)
-  // doğrudan SplashScreen basılır — logo ve isim anında ekranda belirir (bekleme boşluğu yok).
-  if (!mounted) {
+  // İlk render'da veya yetki kontrolü devam ederken (veya yetkisizken)
+  // her koşulda SplashScreen render edilir — böylece dashboard'ın ilk hali Asla sızamaz.
+  if (!mounted || !authResolved || !splashDone) {
+    // Oturum yoksa (Login ekranındayken) oraya yönlenene kadar sessizce null dönülür, render yapılmaz.
+    const hasToken = typeof window !== "undefined" && (!!localStorage.getItem("token") || !!localStorage.getItem("auth_store"));
+    if (mounted && !hasToken) return null;
+
     return <SplashScreen tone={brandTone} />;
   }
-
-  // Oturum geçersizse sessizce yönlendirilmeyi bekler
-  if (!authResolved) return null;
-
-  // Oturum geçerli ve henüz splash gösterilmediyse devam eder
-  if (!splashDone) return <SplashScreen tone={brandTone} />;
 
   return <>{children}</>;
 }
