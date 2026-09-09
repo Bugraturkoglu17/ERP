@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import {
-  ChevronLeft, ChevronRight, Edit2, FileUp, FolderOpen, Loader2, MapPin,
+  ChevronLeft, ChevronRight, Edit2, Eye, EyeOff, FileUp, FolderOpen, Loader2, MapPin,
   MoreVertical, Plus, Search, Store, Trash2, X,
 } from "lucide-react";
+import { CircleMenu, type CircleMenuItem } from "@/components/ui/circle-menu";
 import { apiGet } from "@/lib/api";
 import {
   getStores, createStore, updateStore,
@@ -398,6 +399,7 @@ function DeactivateModal({ project, onClose, onDone }: { project: Project; onClo
 
 export default function MagazalarPage() {
   const pathname = usePathname();
+  const router = useRouter();
   const isManager = pathname?.startsWith("/manager");
   const isAdmin = pathname?.startsWith("/admin");
   const isUser = pathname?.startsWith("/user");
@@ -420,6 +422,9 @@ export default function MagazalarPage() {
   const [showCancelled,    setShowCancelled]    = useState(false);
   const [page,             setPage]             = useState(1);
   const [pageSize,         setPageSize]         = useState(25);
+  // Filtre "navigator" menüsünde hangi alt panel açık: bölge listesi, mağaza
+  // türü listesi ya da hiçbiri. Daire menüdeki ilgili öğeye tıklanınca açılır.
+  const [activePanel,      setActivePanel]      = useState<"region" | "type" | null>(null);
 
   const [createOpen,     setCreateOpen]     = useState(false);
   const [editProject,    setEditProject]    = useState<Project | null>(null);
@@ -503,49 +508,111 @@ export default function MagazalarPage() {
               : loading ? "Yükleniyor..." : `${totalCount.toLocaleString("tr-TR")} mağaza · ${allRegions.length} bölge`}
           </p>
         </div>
-        {canManage && <div className="grid w-full grid-cols-1 gap-2 min-[390px]:grid-cols-2 sm:w-auto">
-          <Link href={importHref}
-            className="inline-flex min-w-0 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 sm:px-4">
-            <FileUp className="h-4 w-4" /> Excel&apos;den İçe Aktar
-          </Link>
-          <button onClick={() => setCreateOpen(true)}
-            className="inline-flex min-w-0 items-center justify-center gap-2 rounded-xl bg-slate-900 px-3 py-2.5 text-sm font-medium text-white transition-colors hover:bg-slate-800 sm:px-4">
-            <Plus className="h-4 w-4" /> Yeni Mağaza Ekle
-          </button>
-        </div>}
       </div>
 
-      {/* Filtreler */}
+      {/* Arama çubuğu */}
+      <div className="relative flex-1 min-w-[200px] max-w-sm">
+        <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+        <input value={search} onChange={e => setSearch(e.target.value)}
+          placeholder="Mağaza adı veya kodu ara..."
+          className="w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none" />
+      </div>
+
+      {/* Ana buton — arama çubuğunun SOL-ALTINDA. Tüm işlemler (Yeni Mağaza
+          Ekle, Excel'den İçe Aktar, Bölgeler, Mağaza Türü, Aktif/Pasif) tek
+          bir navigator menüsünde. rowDirection="right": öğeler dairesel
+          değil, tetikleyicinin YANINDAN başlayıp SAĞA doğru animasyonlu
+          şekilde açılır. */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
-          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <input value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Mağaza adı veya kodu ara..."
-            className="w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none" />
-        </div>
+        {canManage && (
+          <div className="relative">
+            <CircleMenu
+              layout="row"
+              rowDirection="right"
+              items={[
+                {
+                  label: "Yeni Mağaza Ekle", icon: <Plus className="h-4 w-4 text-foreground" />,
+                  onClick: () => setCreateOpen(true),
+                },
+                {
+                  label: "Excel'den İçe Aktar", icon: <FileUp className="h-4 w-4 text-foreground" />,
+                  onClick: () => router.push(importHref),
+                },
+                {
+                  label: "Bölgeler", icon: <MapPin className="h-4 w-4 text-foreground" />,
+                  active: filterRegion !== "all",
+                  onClick: () => setActivePanel("region"),
+                },
+                {
+                  label: "Mağaza Türü", icon: <Store className="h-4 w-4 text-foreground" />,
+                  active: filterStoreType !== "all",
+                  onClick: () => setActivePanel("type"),
+                },
+                ...(cancelledCount > 0 ? [{
+                  label: showCancelled ? "Pasifleri Gizle" : "Pasifleri Göster",
+                  icon: showCancelled ? <EyeOff className="h-4 w-4 text-foreground" /> : <Eye className="h-4 w-4 text-foreground" />,
+                  active: showCancelled,
+                  onClick: () => { setShowCancelled(v => !v); setPage(1); },
+                } as CircleMenuItem] : []),
+              ]}
+            />
 
-        {/* Mağaza Türü filtresi — STATUS yerine */}
-        <select value={filterStoreType} onChange={e => { setFilterStoreType(e.target.value); setPage(1); }}
-          className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:border-blue-500 focus:outline-none">
-          <option value="all">Tüm Mağazalar</option>
-          {STORE_TYPE_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
+            {/* Bölge seçim paneli */}
+            {activePanel === "region" && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setActivePanel(null)} />
+                <div className="absolute left-0 top-full z-50 mt-2 max-h-72 w-52 overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
+                  <button onClick={() => { setFilterRegion("all"); setPage(1); setActivePanel(null); }}
+                    className={`flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-medium ${filterRegion === "all" ? "bg-blue-50 text-blue-700" : "text-slate-600 hover:bg-slate-50"}`}>
+                    <MapPin className="h-3.5 w-3.5 shrink-0" /> Tüm Bölgeler
+                  </button>
+                  {allRegions.map(r => (
+                    <button key={r.id} onClick={() => { setFilterRegion(r.id); setPage(1); setActivePanel(null); }}
+                      className={`flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-medium ${filterRegion === r.id ? "bg-blue-50 text-blue-700" : "text-slate-600 hover:bg-slate-50"}`}>
+                      <MapPin className="h-3.5 w-3.5 shrink-0" /> {r.name}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
 
-        {allRegions.length > 0 && (
-          <select value={filterRegion} onChange={e => { setFilterRegion(e.target.value); setPage(1); }}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:border-blue-500 focus:outline-none">
-            <option value="all">Tüm Bölgeler</option>
-            {allRegions.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-          </select>
+            {/* Mağaza türü seçim paneli */}
+            {activePanel === "type" && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setActivePanel(null)} />
+                <div className="absolute left-0 top-full z-50 mt-2 w-52 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
+                  <button onClick={() => { setFilterStoreType("all"); setPage(1); setActivePanel(null); }}
+                    className={`flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-medium ${filterStoreType === "all" ? "bg-blue-50 text-blue-700" : "text-slate-600 hover:bg-slate-50"}`}>
+                    <Store className="h-3.5 w-3.5 shrink-0" /> Tüm Mağazalar
+                  </button>
+                  {STORE_TYPE_OPTS.map(o => (
+                    <button key={o.value} onClick={() => { setFilterStoreType(o.value); setPage(1); setActivePanel(null); }}
+                      className={`flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-medium ${filterStoreType === o.value ? "bg-blue-50 text-blue-700" : "text-slate-600 hover:bg-slate-50"}`}>
+                      <Store className="h-3.5 w-3.5 shrink-0" /> {o.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         )}
 
-        {cancelledCount > 0 && (
-          <button onClick={() => { setShowCancelled(v => !v); setPage(1); }}
-            className={`rounded-xl border px-3 py-2.5 text-sm transition-colors ${
-              showCancelled ? "border-red-200 bg-red-50 text-red-700" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-            }`}>
-            {showCancelled ? `Pasifleri Gizle (${cancelledCount})` : `Pasifleri Göster (${cancelledCount})`}
+        {filterRegion !== "all" && (
+          <button onClick={() => { setFilterRegion("all"); setPage(1); }}
+            className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
+            <MapPin className="h-3 w-3" /> {allRegions.find(r => r.id === filterRegion)?.name ?? "Bölge"} <X className="h-3 w-3" />
           </button>
+        )}
+        {filterStoreType !== "all" && (
+          <button onClick={() => { setFilterStoreType("all"); setPage(1); }}
+            className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
+            <Store className="h-3 w-3" /> {STORE_TYPE_OPTS.find(o => o.value === filterStoreType)?.label ?? "Tür"} <X className="h-3 w-3" />
+          </button>
+        )}
+        {showCancelled && (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-medium text-red-700">
+            <EyeOff className="h-3 w-3" /> Pasifler gösteriliyor
+          </span>
         )}
       </div>
 

@@ -4,11 +4,13 @@ import { useCallback, useEffect, useState } from "react";
 import {
   Archive, CheckSquare, Download, ExternalLink, Loader2, Search,
   Square, Trash2, Upload, ArrowRightCircle, Filter, AlertCircle, RefreshCw,
+  Files, PenTool, FileText, Image as ImageIcon, FileSpreadsheet, CheckCircle2, Clock,
 } from "lucide-react";
 import { apiGet, buildApiUrl } from "@/lib/api";
 import UploadModal   from "./UploadModal";
 import TransferModal from "./TransferModal";
 import { useAuth } from "@/contexts/auth-context";
+import { ToolbarDock, type ToolbarDockAction } from "@/components/ui/toolbar-dock";
 
 // ── Sabitler / Yardımcılar ───────────────────────────────────────────────────
 
@@ -23,14 +25,14 @@ type FilterKey =
   | "all" | "dwg" | "pdf" | "image" | "excel"
   | "transferred" | "not_transferred";
 
-const FILTER_OPTS: { key: FilterKey; label: string }[] = [
-  { key: "all",             label: "Tüm Dosyalar"   },
-  { key: "dwg",             label: "DWG"            },
-  { key: "pdf",             label: "PDF"            },
-  { key: "image",           label: "Görseller"      },
-  { key: "excel",           label: "Excel"          },
-  { key: "transferred",     label: "Mağazaya Aktarılanlar" },
-  { key: "not_transferred", label: "Aktarılmayı Bekleyenler" },
+const FILTER_OPTS: { key: FilterKey; label: string; icon: typeof Filter }[] = [
+  { key: "all",             label: "Tüm Dosyalar",              icon: Files },
+  { key: "dwg",             label: "DWG",                        icon: PenTool },
+  { key: "pdf",             label: "PDF",                        icon: FileText },
+  { key: "image",           label: "Görseller",                  icon: ImageIcon },
+  { key: "excel",           label: "Excel",                      icon: FileSpreadsheet },
+  { key: "transferred",     label: "Mağazaya Aktarılanlar",      icon: CheckCircle2 },
+  { key: "not_transferred", label: "Aktarılmayı Bekleyenler",    icon: Clock },
 ];
 
 const EXT_IMAGE = ["JPG","JPEG","PNG","GIF","WEBP","BMP"];
@@ -236,23 +238,27 @@ export default function GenelArsivPage() {
           />
         </div>
 
-        {/* Filtre chip'leri */}
-        <div className="flex items-center gap-1 flex-wrap">
-          <Filter className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-          {FILTER_OPTS.map((f) => (
-            <button
-              key={f.key}
-              onClick={() => setActiveFilter(f.key)}
-              className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
-                activeFilter === f.key
-                  ? "bg-blue-600 text-white border-blue-600"
-                  : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
+        {/* Dosya türü filtresi — önceden yan yana dağınık 7 çip dizisiydi,
+            dar ekranda satır satır taşıp yer kaplıyordu. Tek bir seçim
+            tetikleyicisine (ToolbarDock) toplandı: buton her zaman seçili
+            filtreyi ikon+etiketle gösterir, tıklanınca tüm seçenekler
+            kendi ikonlarıyla aşağı açılır. */}
+        {(() => {
+          const active = FILTER_OPTS.find((f) => f.key === activeFilter) ?? FILTER_OPTS[0];
+          return (
+            <ToolbarDock
+              trigger={{ icon: active.icon, label: active.label }}
+              align="start"
+              actions={FILTER_OPTS.map((f): ToolbarDockAction => ({
+                key: f.key,
+                label: f.label,
+                icon: f.icon,
+                active: activeFilter === f.key,
+                onClick: () => setActiveFilter(f.key),
+              }))}
+            />
+          );
+        })()}
 
         {/* Refresh */}
         <button onClick={loadDocs} className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50">
@@ -306,20 +312,26 @@ export default function GenelArsivPage() {
           </div>
         ) : (
           <div className="overflow-x-auto overscroll-x-contain">
-          <table className="min-w-[720px] w-full text-xs">
+          {/* table-layout: fixed + <th> genişlikleri: tarayıcı içeriğe göre
+              otomatik dağıtım yaptığında (varsayılan table-layout: auto)
+              "Durum" rozeti "Dosya Adı"nın payını yiyip onu okunmaz hale
+              getiriyordu (bkz. min-w-0/max-w-0 denemesi). Sabit yüzdelerle
+              Dosya Adı'na öncelik verilir; mobilde gizli sütunlar (Boyut/
+              Yükleyen/Tarih) table-layout: fixed'de de yer kaplamaz. */}
+          <table className="w-full min-w-full table-fixed text-xs">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50">
-                <th className="w-10 px-4 py-3">
+                <th className="w-9 px-2 py-3 sm:w-10 sm:px-4">
                   <button onClick={toggleAll} className="text-slate-400 hover:text-slate-700">
                     {allSelected ? <CheckSquare className="h-4 w-4 text-blue-600" /> : <Square className="h-4 w-4" />}
                   </button>
                 </th>
-                <th className="px-3 py-3 text-left font-semibold text-slate-500">Dosya Adı</th>
+                <th className="w-[46%] px-3 py-3 text-left font-semibold text-slate-500 sm:w-auto">Dosya Adı</th>
                 <th className="px-3 py-3 text-left font-semibold text-slate-500 hidden sm:table-cell">Boyut</th>
                 <th className="px-3 py-3 text-left font-semibold text-slate-500 hidden md:table-cell">Yükleyen</th>
                 <th className="px-3 py-3 text-left font-semibold text-slate-500 hidden md:table-cell">Tarih</th>
-                <th className="px-3 py-3 text-left font-semibold text-slate-500">Durum</th>
-                <th className="px-3 py-3 text-right font-semibold text-slate-500">İşlem</th>
+                <th className="w-[36%] px-3 py-3 text-left font-semibold text-slate-500 sm:w-auto">Durum</th>
+                <th className="w-11 px-2 py-3 text-right font-semibold text-slate-500 sm:w-14 sm:px-3">İşlem</th>
               </tr>
             </thead>
             <tbody>
@@ -332,7 +344,7 @@ export default function GenelArsivPage() {
                     className={`border-b border-slate-50 last:border-0 hover:bg-slate-50 transition-colors ${isChecked ? "bg-blue-50/50" : ""}`}
                   >
                     {/* Checkbox */}
-                    <td className="px-4 py-3 text-center">
+                    <td className="px-2 py-3 text-center sm:px-4">
                       <button onClick={() => toggleOne(doc.id)} className="text-slate-400 hover:text-slate-700">
                         {isChecked ? <CheckSquare className="h-4 w-4 text-blue-600" /> : <Square className="h-4 w-4" />}
                       </button>
@@ -340,9 +352,9 @@ export default function GenelArsivPage() {
 
                     {/* Dosya adı */}
                     <td className="px-3 py-3">
-                      <div className="flex items-center gap-2">
+                      <div className="flex min-w-0 items-center gap-2">
                         <ExtBadge name={doc.original_name} />
-                        <span className="font-medium text-slate-800 truncate max-w-[200px]">{doc.original_name}</span>
+                        <span className="min-w-0 flex-1 truncate font-medium text-slate-800">{doc.original_name}</span>
                       </div>
                     </td>
 
@@ -383,41 +395,27 @@ export default function GenelArsivPage() {
                       )}
                     </td>
 
-                    {/* İşlemler */}
-                    <td className="px-3 py-3">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => handleOpen(doc)}
-                          title="Aç"
-                          className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleDownload(doc)}
-                          title="İndir"
-                          className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-                        >
-                          <Download className="h-3.5 w-3.5" />
-                        </button>
-                        {!transferred && (
-                          <button
-                            onClick={() => { setSelected(new Set([doc.id])); setTransferOpen(true); }}
-                            title="Mağazaya Aktar"
-                            className="flex h-7 items-center gap-1 rounded-lg px-2 text-slate-400 hover:bg-blue-50 hover:text-blue-600"
-                          >
-                            <ArrowRightCircle className="h-3.5 w-3.5" />
-                            <span className="text-[11px] font-medium hidden lg:inline">Aktar</span>
-                          </button>
-                        )}
-                        {canDelete && <button
-                          onClick={() => handleDelete(doc.id)}
-                          title="Sil"
-                          className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-500"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>}
-                      </div>
+                    {/* İşlemler — tek "≡" tetikleyici, tıklanınca tüm işlemler
+                        aşağı açılan kompakt bir panelde listelenir. Önceden
+                        3-4 ayrı küçük ikon yan yana diziliyordu; bu hem
+                        dokunması güç hem de sütunu gereksiz genişletip
+                        tabloyu yatay kaydırmaya zorluyordu. */}
+                    <td className="px-2 py-3 text-right sm:px-3">
+                      <ToolbarDock
+                        className="justify-end"
+                        actions={[
+                          { key: "open", label: "Aç", icon: ExternalLink, onClick: () => handleOpen(doc) },
+                          { key: "download", label: "İndir", icon: Download, onClick: () => handleDownload(doc) },
+                          ...(!transferred ? [{
+                            key: "transfer", label: "Mağazaya Aktar", icon: ArrowRightCircle, variant: "primary",
+                            onClick: () => { setSelected(new Set([doc.id])); setTransferOpen(true); },
+                          } as ToolbarDockAction] : []),
+                          ...(canDelete ? [{
+                            key: "delete", label: "Sil", icon: Trash2, variant: "danger",
+                            onClick: () => handleDelete(doc.id),
+                          } as ToolbarDockAction] : []),
+                        ]}
+                      />
                     </td>
                   </tr>
                 );
