@@ -476,16 +476,15 @@ export default function MagazalarPage() {
 
   useEffect(() => { loadStores(); }, [page, pageSize, searchDebounced, filterRegion, filterStoreType, showCancelled]);
 
-  // Arama debounce'lu — her tuş vuruşunda listeyi yeniden hesaplamaz.
+  // Arama debounce'lu — her tuş vuruşunda istek atmaz. Sayfa sıfırlaması da
+  // aynı state güncellemesinde yapılır: ayrı bir "filtre değişti → setPage(1)"
+  // effect'i kullanılsa, sayfa 1'de değilken filtre değiştirmek iki ayrı
+  // render (biri eski sayfa, biri sayfa 1) ve dolayısıyla İKİ ayrı sunucu
+  // isteği üretirdi. Sıfırlamayı tetikleyen noktaya taşıyarak tek istek kalır.
   useEffect(() => {
-    const t = setTimeout(() => setSearchDebounced(search), 300);
+    const t = setTimeout(() => { setSearchDebounced(search); setPage(1); }, 300);
     return () => clearTimeout(t);
   }, [search]);
-
-  // Arama veya filtre değiştiğinde ilk sayfaya dön.
-  useEffect(() => {
-    setPage(1);
-  }, [searchDebounced, filterStoreType, filterRegion, showCancelled]);
 
   const totalPages  = Math.max(1, Math.ceil(totalCount / pageSize));
   const currentPage = Math.min(page, totalPages);
@@ -526,14 +525,14 @@ export default function MagazalarPage() {
         </div>
 
         {/* Mağaza Türü filtresi — STATUS yerine */}
-        <select value={filterStoreType} onChange={e => setFilterStoreType(e.target.value)}
+        <select value={filterStoreType} onChange={e => { setFilterStoreType(e.target.value); setPage(1); }}
           className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:border-blue-500 focus:outline-none">
           <option value="all">Tüm Mağazalar</option>
           {STORE_TYPE_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
 
         {allRegions.length > 0 && (
-          <select value={filterRegion} onChange={e => setFilterRegion(e.target.value)}
+          <select value={filterRegion} onChange={e => { setFilterRegion(e.target.value); setPage(1); }}
             className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:border-blue-500 focus:outline-none">
             <option value="all">Tüm Bölgeler</option>
             {allRegions.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
@@ -541,7 +540,7 @@ export default function MagazalarPage() {
         )}
 
         {cancelledCount > 0 && (
-          <button onClick={() => setShowCancelled(v => !v)}
+          <button onClick={() => { setShowCancelled(v => !v); setPage(1); }}
             className={`rounded-xl border px-3 py-2.5 text-sm transition-colors ${
               showCancelled ? "border-red-200 bg-red-50 text-red-700" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
             }`}>
