@@ -50,10 +50,9 @@ function SplashScreen({ tone }: { tone: BrandTone }) {
 }
 
 function hasShownSplashThisSession(): boolean {
-  if (typeof window === "undefined") return false; // SSR: başlangıçta logosuz boşluk kalmasın diye splash render edilir
+  if (typeof window === "undefined") return false; // SSR: sunucuda hiçbir koşulda atlanmaz
   try {
     const hasToken = !!localStorage.getItem("token") || !!localStorage.getItem("auth_store");
-    // Oturum yoksa (Login ekranında) splash adımı tamamen atlanır
     if (!hasToken) return true;
     return sessionStorage.getItem(SPLASH_SESSION_KEY) === "shown";
   } catch {
@@ -75,6 +74,13 @@ export function RoleGuard({
     setMounted(true);
     setSplashDone(hasShownSplashThisSession());
   }, []);
+
+  // Sunucu (SSR) tarafında render yapılırken her zaman boş (null) döneriz.
+  // Bu kural, Next.js'in henüz client-side JS yüklenmeden önce Genel Bakış (Dashboard) iskeletini
+  // tarayıcıya çizmesini (ve dolayısıyla videodaki o 1ms'lik sızıntı flaş bug'ını) KESİNLİKLE engeller.
+  if (typeof window === "undefined") {
+    return null;
+  }
 
   // ADMIN her panele erişebilir (superuser)
   const hasAccess = !!user && (user.role === "ADMIN" || allowedRoles.includes(user.role));
