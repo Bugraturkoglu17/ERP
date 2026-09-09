@@ -106,7 +106,7 @@ function CorporateSidebar({
           onClick={onClose}
         />
         <aside
-          className={`fixed top-0 bottom-0 left-0 z-10 m-0 w-[86vw] max-w-[360px] h-full min-h-dvh overflow-hidden overscroll-none touch-none transition-transform duration-200 ease-out ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
+          className={`fixed top-0 bottom-0 left-0 z-10 m-0 w-[86vw] max-w-[360px] h-full min-h-dvh bg-[#0c1520] overflow-hidden overscroll-none touch-none transition-transform duration-200 ease-out ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
           onClick={(event) => event.stopPropagation()}
         >
           {inner}
