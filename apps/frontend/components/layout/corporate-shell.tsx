@@ -59,7 +59,14 @@ function CorporateSidebar({
         </button>
       </div>
 
-      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-5">
+      {/* flex-1 kaldırıldı: nav kendi içeriği kadar yer kaplasın, QuickSwitch
+          (Kullanıcı/Aktif hesap) hemen ardından gelsin — az sayıda nav
+          linki olan rollerde (ör. Kullanıcı paneli) ekranın alt kesimini
+          dolduran büyük, boş lacivert alan oluşmasın. flex-initial hâlâ
+          gerektiğinde (uzun nav listesi + kısa ekran) küçülüp kendi
+          overflow-y-auto'suyla iç kaydırmaya izin verir — footer ekran
+          dışına itilmez. */}
+      <nav className="flex-initial space-y-1 overflow-y-auto px-3 py-5">
         {navItems.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || pathname.startsWith(href + "/");
           return (
