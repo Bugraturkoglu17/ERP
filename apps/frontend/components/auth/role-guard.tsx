@@ -75,21 +75,18 @@ export function RoleGuard({
     setSplashDone(hasShownSplashThisSession());
   }, []);
 
-  // Sunucu (SSR) tarafında veya tarayıcıda JS henüz yüklenip canlanmamışken (hydration öncesi)
-  // eğer aktif geçerli bir kullanıcı oturumu varsa (PWA cold boot) doğrudan ekrana SplashScreen çizilir.
-  // Bu sayede, giriş yapmış kullanıcı için önce boşluk veya dashboard iskeleti yerine DOĞRUDAN logo animasyonu başlar.
-  // Oturum yoksa (/login yönlendirmesi sırasında) ise sunucuda boş (null) dönülerek parlamalar ve sızıntılar kilitlenir.
-  if (typeof window === "undefined") {
-    // Burada window olmadığı için cookies veya global build üzerinde değil, tamamen statik ilk veri üzerinden
-    // temizlik yapar. Ancak tarayıcı kapısında ilk html saniyeler içinde çizileceği için,
-    // beklemesiz logo başlaması amacıyla varsayılan olarak SplashScreen basılır.
-    return <SplashScreen tone={brandTone} />;
-  }
-
   // ADMIN her panele erişebilir (superuser)
   const hasAccess = !!user && (user.role === "ADMIN" || allowedRoles.includes(user.role));
   const authResolved = !isLoading && isAuthenticated && !!user && hasAccess;
 
+  // React Hook Kuralları: tüm hook'lar (useEffect dahil) HER render'da aynı
+  // sırada, hiçbir early return'ün ARDINDAN değil, koşulsuz çağrılmalı.
+  // Aşağıdaki iki useEffect'in gövdesi zaten yalnızca tarayıcıda çalışır
+  // (React SSR'da effect body'lerini hiç yürütmez) — bu yüzden bu iki
+  // çağrıyı SSR dalının (typeof window === "undefined") ÜSTÜNE taşımak
+  // davranışı değiştirmez, sadece "hooks called conditionally after an
+  // early return" ESLint hatasını (react-hooks/rules-of-hooks) giderir.
+  // Bu hata `next build`'in lint adımını başarısız kılıyordu.
   useEffect(() => {
     if (isLoading) return;
     if (!isAuthenticated) {
@@ -116,6 +113,15 @@ export function RoleGuard({
     const timer = window.setTimeout(() => setSplashDone(true), SPLASH_DURATION_MS);
     return () => window.clearTimeout(timer);
   }, [authResolved, splashDone]);
+
+  // Sunucu (SSR) tarafında veya tarayıcıda JS henüz yüklenip canlanmamışken (hydration öncesi)
+  // eğer aktif geçerli bir kullanıcı oturumu varsa (PWA cold boot) doğrudan ekrana SplashScreen çizilir.
+  // Bu sayede, giriş yapmış kullanıcı için önce boşluk veya dashboard iskeleti yerine DOĞRUDAN logo animasyonu başlar.
+  // (Not: `mounted` zaten SSR'da her zaman false başlar, aşağıdaki genel
+  // !mounted dalı bunu örtük olarak kapsar — bu açık kontrol netlik içindir.)
+  if (typeof window === "undefined") {
+    return <SplashScreen tone={brandTone} />;
+  }
 
   // İlk render'da veya yetki kontrolü devam ederken (veya yetkisizken)
   // her koşulda SplashScreen render edilir — böylece dashboard'ın ilk hali Asla sızamaz.
