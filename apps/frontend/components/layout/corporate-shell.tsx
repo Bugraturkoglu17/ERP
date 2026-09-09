@@ -30,7 +30,18 @@ function CorporateSidebar({
 
   const inner = (
     <div className={`flex h-full flex-col border-t-[3px] bg-[#0c1520] ${brandTone === "amber" ? "border-t-amber-400" : "border-t-[#ff3131]"}`}>
-      <div className="flex min-h-[calc(4rem+env(safe-area-inset-top))] items-center justify-between border-b border-white/[0.06] px-4 pt-[env(safe-area-inset-top)]">
+      {/* iOS PWA'da status bar "black-translucent" olduğu için web içeriği
+          durum çubuğunun ALTINA uzanır; drawer başlığı da saat/pil ikonlarıyla
+          çakışır. Güvenli alan boşluğu Tailwind arbitrary value yerine inline
+          style ile veriliyor — env()/calc() ifadesi hiçbir sınıf-adı
+          ayrıştırma adımından geçmeden birebir CSS'e yazılır. */}
+      <div
+        className="flex items-center justify-between border-b border-white/[0.06] px-4"
+        style={{
+          minHeight: "calc(4rem + env(safe-area-inset-top))",
+          paddingTop: "env(safe-area-inset-top)",
+        }}
+      >
         <div className="flex items-center gap-2.5">
           <BrandMark
             key={`sidebar-brand-${mobileOpen ? "open" : "closed"}`}
@@ -131,7 +142,7 @@ export function CorporateShell({
           navItems={navItems}
         />
         <div className="flex min-w-0 max-w-full flex-1 flex-col overflow-hidden">
-          <header className="fixed inset-x-0 top-0 z-30 flex min-h-[calc(4rem+env(safe-area-inset-top))] shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/95 px-4 pb-0 pt-[env(safe-area-inset-top)] shadow-sm backdrop-blur-xl sm:px-6 lg:static lg:min-h-16 lg:shadow-none">
+          <header className="fixed inset-x-0 top-0 z-30 flex min-h-[calc(4rem_+_env(safe-area-inset-top))] shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/95 px-4 pb-0 pt-[env(safe-area-inset-top)] shadow-sm backdrop-blur-xl sm:px-6 lg:static lg:min-h-16 lg:shadow-none">
             <button
               onClick={drawer.openDrawer}
               className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 shadow-sm transition hover:bg-slate-50 active:scale-[0.98] lg:hidden"
@@ -151,7 +162,7 @@ export function CorporateShell({
               <NotificationBell />
             </div>
           </header>
-          <main id="main-content" className="erp-workspace min-w-0 flex-1 overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[calc(5rem+env(safe-area-inset-top))] sm:p-6 sm:pt-[calc(5rem+env(safe-area-inset-top))] lg:p-8">{children}</main>
+          <main id="main-content" className="erp-workspace min-w-0 flex-1 overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[calc(5rem_+_env(safe-area-inset-top))] sm:p-6 sm:pt-[calc(5rem_+_env(safe-area-inset-top))] lg:p-8">{children}</main>
         </div>
       </div>
     </RoleGuard>

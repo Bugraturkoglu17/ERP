@@ -91,7 +91,17 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
         )}
       >
         {/* Logo */}
-        <div className="flex min-h-[calc(3.5rem+env(safe-area-inset-top))] shrink-0 items-center justify-between border-b border-slate-100 px-4 pt-[env(safe-area-inset-top)]">
+        {/* Güvenli alan boşluğu inline style ile — sınıf adı içindeki
+            calc(3.5rem+env(...)) ifadesi boşluksuz olduğu için GEÇERSİZ CSS
+            üretiyordu (calc içinde +/- çevresinde boşluk zorunludur) ve
+            tarayıcı kuralı tamamen düşürüyordu. */}
+        <div
+          className="flex shrink-0 items-center justify-between border-b border-slate-100 px-4"
+          style={{
+            minHeight: "calc(3.5rem + env(safe-area-inset-top))",
+            paddingTop: "env(safe-area-inset-top)",
+          }}
+        >
           <div className="flex items-center gap-2.5">
             <BrandMark animated className="h-7 w-7 shrink-0" />
             <div>
