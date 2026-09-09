@@ -62,8 +62,8 @@ function CorporateSidebar({
       </div>
 
       {/* flex-1, QuickSwitch'i en alta iter ve sayfa boyunca dengeli bir
-          dağılım oluşturur. */}
-      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-5">
+          dağılım oluşturur. Liste içinde kaydırma yapılabilir ama elastic-bounce (çekmece elastikiyeti) önlenir. */}
+      <nav className="flex-1 space-y-1 overflow-y-auto overscroll-none touch-pan-y px-3 py-5">
         {navItems.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || pathname.startsWith(href + "/");
           return (
@@ -104,11 +104,11 @@ function CorporateSidebar({
         <button
           type="button"
           aria-label="Menüyü kapat"
-          className={`absolute inset-0 z-0 h-full w-full bg-slate-950/30 backdrop-blur-[3px] transition-opacity duration-200 ${mobileOpen ? "opacity-100" : "opacity-0"}`}
+          className={`absolute inset-0 z-0 h-full w-full bg-slate-950/30 backdrop-blur-[3px] transition-opacity duration-200 touch-none ${mobileOpen ? "opacity-100" : "opacity-0"}`}
           onClick={onClose}
         />
         <aside
-          className={`absolute inset-y-0 left-0 z-10 m-0 w-[86vw] max-w-[360px] overflow-hidden overscroll-contain transition-transform duration-200 ease-out ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
+          className={`absolute inset-y-0 left-0 z-10 m-0 w-[86vw] max-w-[360px] overflow-hidden overscroll-none touch-none transition-transform duration-200 ease-out ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
           onClick={(event) => event.stopPropagation()}
         >
           {inner}
