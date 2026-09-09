@@ -59,7 +59,12 @@ function CorporateSidebar({
         </button>
       </div>
 
-      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-5">
+      {/* flex-1 değil flex-initial: nav kendi içeriği kadar yer kaplar,
+          QuickSwitch (Panel Görünümü/Kullanıcı) hemen ardından gelir —
+          az sayıda nav linki olan rollerde ekranın alt kesimini dolduran
+          büyük boş lacivert alan oluşmaz. Konum artık h-[100svh] sayesinde
+          sabit olduğu için bu karar bir daha kaymaya/zıplamaya sebep olmaz. */}
+      <nav className="flex-initial space-y-1 overflow-y-auto px-3 py-5">
         {navItems.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || pathname.startsWith(href + "/");
           return (
@@ -89,8 +94,16 @@ function CorporateSidebar({
   return (
     <>
       <aside className="hidden lg:block w-60 shrink-0">{inner}</aside>
+      {/* iOS Safari/PWA'da adres çubuğu, kaydırma/dokunma sırasında (nav
+          listesi kısa olduğu için gerçek scroll olmasa bile elastik "bounce"
+          tetiklenerek) anlık gizlenip görünüyor; bu "fixed inset-0" ile
+          birlikte görünür viewport'u CANLI değiştiriyordu. nav flex-1
+          olduğu için Panel Görünümü/Çıkış Yap bölümü her seferinde aşağı-
+          yukarı kayıyordu (video ile doğrulandı). h-[100svh] adres çubuğu
+          durumundan bağımsız SABİT bir yükseklik verir — içerik artık
+          kaydırma sırasında yerinde durur. */}
       <div
-        className={`fixed inset-0 z-40 lg:hidden ${mobileOpen ? "pointer-events-auto visible" : "pointer-events-none invisible"}`}
+        className={`fixed inset-x-0 top-0 z-40 h-[100svh] lg:hidden ${mobileOpen ? "pointer-events-auto visible" : "pointer-events-none invisible"}`}
         aria-hidden={!mobileOpen}
       >
         <button
