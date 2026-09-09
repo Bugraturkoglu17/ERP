@@ -29,7 +29,10 @@ function CorporateSidebar({
   const pathname = usePathname();
 
   const inner = (
-    <div className={`flex h-full flex-col border-t-[3px] bg-[#0c1520] ${brandTone === "amber" ? "border-t-amber-400" : "border-t-[#ff3131]"}`}>
+    <div
+      className={`flex h-full flex-col border-t-[3px] bg-[#0c1520] ${brandTone === "amber" ? "border-t-amber-400" : "border-t-[#ff3131]"}`}
+      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+    >
       {/* iOS PWA'da status bar "black-translucent" olduğu için web içeriği
           durum çubuğunun ALTINA uzanır; drawer başlığı da saat/pil ikonlarıyla
           çakışır. Güvenli alan boşluğu Tailwind arbitrary value yerine inline
@@ -59,12 +62,9 @@ function CorporateSidebar({
         </button>
       </div>
 
-      {/* flex-1 değil flex-initial: nav kendi içeriği kadar yer kaplar,
-          QuickSwitch (Panel Görünümü/Kullanıcı) hemen ardından gelir —
-          az sayıda nav linki olan rollerde ekranın alt kesimini dolduran
-          büyük boş lacivert alan oluşmaz. Konum artık h-[100svh] sayesinde
-          sabit olduğu için bu karar bir daha kaymaya/zıplamaya sebep olmaz. */}
-      <nav className="flex-initial space-y-1 overflow-y-auto px-3 py-5">
+      {/* flex-1, QuickSwitch'i en alta iter ve sayfa boyunca dengeli bir
+          dağılım oluşturur. */}
+      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-5">
         {navItems.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || pathname.startsWith(href + "/");
           return (
