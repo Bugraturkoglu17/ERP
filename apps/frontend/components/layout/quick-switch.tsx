@@ -48,7 +48,10 @@ export function QuickSwitch({ onNavigate }: { onNavigate?: () => void }) {
       { label: "Kullanıcı Görünümü", href: "/user/dashboard" },
     ];
     return (
-      <div className="border-t border-white/[0.06] px-3 py-3">
+      <div
+        className="border-t border-white/[0.06] px-3 pt-3"
+        style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+      >
         <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-white/30">Panel Görünümü</p>
         <div className="space-y-0.5">{views.map((view) => <Link key={view.href} href={view.href} draggable={false} onClick={onNavigate} className={`flex items-center gap-2.5 rounded-lg px-2 py-2 text-xs transition-colors ${pathname.startsWith(view.href.split("/dashboard")[0]) ? "bg-white/[0.08] text-white" : "text-slate-400 hover:bg-white/[0.06] hover:text-white"}`}><LayoutDashboard className="h-3.5 w-3.5" />{view.label}</Link>)}</div>
         <button onClick={() => void handleLogout()} disabled={loggingOut} className="mt-3 flex w-full items-center gap-2 border-t border-white/[0.06] px-2 pt-3 text-xs text-slate-400 hover:text-white disabled:opacity-50">{loggingOut ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LogOut className="h-3.5 w-3.5" />}Çıkış Yap</button>
@@ -98,7 +101,10 @@ export function QuickSwitch({ onNavigate }: { onNavigate?: () => void }) {
         ))}
       </div>}
 
-      <div className="flex items-center gap-2.5 border-t border-white/[0.06] p-3">
+      <div
+        className="flex items-center gap-2.5 border-t border-white/[0.06] p-3"
+        style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+      >
         <UserRound className="h-4 w-4 shrink-0 text-slate-500" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-xs font-medium text-white">{ROLE_LABEL[user.role]}</p>
