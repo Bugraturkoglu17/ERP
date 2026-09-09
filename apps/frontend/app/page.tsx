@@ -26,16 +26,14 @@ export default function Page() {
       return;
     }
 
+    // Geçersiz veya süresi dolmuş tüm oturum girdilerini kökten temizle.
+    // Bu sayede, tarayıcıda kalan eski/stale "auth_store" veya "token" verilerinden dolayı
+    // kullanıcının yetkisiz şekilde geçici olarak dashboard'lara yönlendirilmesi (flicker bug'ı) engellenir.
     try {
-      const raw = localStorage.getItem(AUTH_STORE_KEY);
-      const parsed = raw ? (JSON.parse(raw) as { user?: { role?: UserRole } }) : null;
-      const role = parsed?.user?.role;
-      if (role && ROLE_PANEL_HOME[role]) {
-        router.replace(ROLE_PANEL_HOME[role]);
-        return;
-      }
+      localStorage.removeItem(AUTH_STORE_KEY);
+      localStorage.removeItem("token");
     } catch {
-      // ignore parse errors
+      // ignore security sandboxes
     }
 
     router.replace("/login");
