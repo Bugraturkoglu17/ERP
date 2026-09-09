@@ -177,28 +177,27 @@ function Lightbox({ urls, names, index, onClose, onPrev, onNext }: {
   if (!url) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90" onClick={onClose}>
-      <button onClick={onClose} className="absolute top-4 right-4 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20">
+    <div className="fixed inset-0 z-50 flex flex-col bg-black/90" onClick={onClose}>
+      <button onClick={onClose} className="absolute top-4 right-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20">
         <X className="h-5 w-5" />
       </button>
       {index > 0 && (
         <button onClick={e => { e.stopPropagation(); onPrev(); }}
-          className="absolute left-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20">
+          className="absolute left-4 top-1/2 z-10 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20">
           <ChevronLeft className="h-6 w-6" />
         </button>
       )}
-      <div className="flex flex-col items-center gap-4 max-w-4xl w-full px-16" onClick={e => e.stopPropagation()}>
-        <div className="h-[75vh] w-full">
-          <ZoomableImage src={url} alt={names[index] ?? "foto"} className="max-h-[75vh] max-w-full rounded-xl object-contain shadow-2xl" />
-        </div>
-        <p className="text-xs text-white/40">{index + 1} / {urls.length}</p>
+      {/* Güvenli alan: dvh + safe-area üzerinden hesaplanan, header/footer çıkarılmış kullanılabilir alan */}
+      <div className="min-h-0 flex-1 flex items-center justify-center px-4 py-14 sm:px-20" onClick={e => e.stopPropagation()}>
+        <ZoomableImage src={url} alt={names[index] ?? "foto"} className="rounded-xl shadow-2xl" />
       </div>
       {index < urls.length - 1 && (
         <button onClick={e => { e.stopPropagation(); onNext(); }}
-          className="absolute right-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20">
+          className="absolute right-4 top-1/2 z-10 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20">
           <ChevronRight className="h-6 w-6" />
         </button>
       )}
+      <p className="pb-4 text-center text-xs text-white/40">{index + 1} / {urls.length}</p>
     </div>
   );
 }

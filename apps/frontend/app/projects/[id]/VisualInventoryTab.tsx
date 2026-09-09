@@ -162,7 +162,7 @@ function Lightbox({
   if (!doc) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex flex-col bg-black/90" onClick={onClose}>
       <button onClick={onClose}
         className="absolute top-4 right-4 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors z-10">
         <X className="h-5 w-5" />
@@ -170,16 +170,17 @@ function Lightbox({
 
       {index > 0 && (
         <button onClick={(e) => { e.stopPropagation(); onPrev(); }}
-          className="absolute left-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors">
+          className="absolute left-4 top-1/2 z-10 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors">
           <ChevronLeft className="h-6 w-6" />
         </button>
       )}
 
-      <div className="flex flex-col items-center gap-4 max-w-4xl w-full px-16" onClick={(e) => e.stopPropagation()}>
-        <div className="relative w-full h-[70vh] flex items-center justify-center">
+      {/* Güvenli alan: header/footer çıkarılmış, kaydırılabilir kolon */}
+      <div className="min-h-0 flex-1 flex flex-col items-center gap-4 overflow-y-auto px-4 py-14 sm:px-20" onClick={(e) => e.stopPropagation()}>
+        <div className="relative w-full max-w-4xl min-h-[45vh] flex-1 flex items-center justify-center">
           {url ? (
             <ZoomableImage src={url} alt={meta.t ?? doc.original_name}
-              className="max-h-[70vh] max-w-full rounded-xl object-contain shadow-2xl" />
+              className="rounded-xl shadow-2xl" />
           ) : (
             <div className="flex h-64 w-64 items-center justify-center rounded-xl bg-white/10">
               <Loader2 className="h-8 w-8 animate-spin text-white/50" />
@@ -187,7 +188,7 @@ function Lightbox({
           )}
         </div>
 
-        <div className="w-full rounded-xl bg-white/10 backdrop-blur-sm px-5 py-4 text-white space-y-1">
+        <div className="w-full max-w-4xl rounded-xl bg-white/10 backdrop-blur-sm px-5 py-4 text-white space-y-1">
           <p className="font-semibold text-sm">{meta.t ?? doc.original_name}</p>
           <div className="flex flex-wrap gap-3 text-[12px] text-white/70">
             {meta.c && (
@@ -227,7 +228,7 @@ function Lightbox({
 
       {index < docs.length - 1 && (
         <button onClick={(e) => { e.stopPropagation(); onNext(); }}
-          className="absolute right-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors">
+          className="absolute right-4 top-1/2 z-10 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors">
           <ChevronRight className="h-6 w-6" />
         </button>
       )}

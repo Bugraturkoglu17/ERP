@@ -68,7 +68,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="tr" suppressHydrationWarning style={{ backgroundColor: BOOT_BACKGROUND }}>
-      <body className="min-h-screen bg-slate-50 text-slate-900">
+      <body
+        className="min-h-screen bg-slate-50 text-slate-900"
+        style={{ backgroundColor: BOOT_BACKGROUND }}
+      >
         <AuthProvider>
           <AppShell>{children}</AppShell>
         </AuthProvider>
