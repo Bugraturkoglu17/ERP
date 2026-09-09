@@ -52,6 +52,9 @@ function SplashScreen({ tone }: { tone: BrandTone }) {
 function hasShownSplashThisSession(): boolean {
   if (typeof window === "undefined") return true; // SSR: içerik zaten mount edilmeyecek, BootScreen basılır
   try {
+    const hasToken = !!localStorage.getItem("token") || !!localStorage.getItem("auth_store");
+    // Oturum yoksa (Login ekranında) splash adımı tamamen atlanır
+    if (!hasToken) return true;
     return sessionStorage.getItem(SPLASH_SESSION_KEY) === "shown";
   } catch {
     return false;
@@ -100,10 +103,10 @@ export function RoleGuard({
     return () => window.clearTimeout(timer);
   }, [authResolved, splashDone]);
 
-  // Auth henüz çözülmedi VEYA yetkisiz/oturumsuz (redirect effect'i az önce
-  // tetiklendi, henüz sayfa değişmedi) — korumalı arayüzden TEK BİR FRAME
-  // bile göstermeden nötr kapanış katmanını bas.
-  if (!authResolved) return <BootScreen tone={brandTone} />;
+  // Auth yetersiz/loading/oturumsuz ise ve henüz redirect effect tetiklenmediyse
+  // arka planda sessizce bekler — ek bir BootScreen/Spinner göstermez.
+  // Bu süreçte ekrana hiçbir şey render edilmez (null), doğrudan Login rotası tetiklenir.
+  if (!authResolved) return null;
 
   // Auth tamam ama bu oturumda splash henüz gösterilmedi/tamamlanmadı —
   // gerçek panel (sidebar/dashboard) HENÜZ MOUNT EDİLMEZ.

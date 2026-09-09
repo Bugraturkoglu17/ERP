@@ -69,21 +69,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   // Prevent hydration mismatch and rendering layout components before path is determined
   if (!mounted) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#09111b]">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-white/30 border-t-white" />
-      </div>
-    );
+    return null;
   }
 
   const isPlatformRoute = pathname === "/platform" || pathname.startsWith("/platform/");
   // Redirecting state
   if (!isPlatformRoute && !hasToken) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#09111b]">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-white/30 border-t-white" />
-      </div>
-    );
+    return null;
   }
 
   return (
