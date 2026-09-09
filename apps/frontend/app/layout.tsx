@@ -25,9 +25,20 @@ export const metadata: Metadata = {
   appleWebApp: {
     title: "SİSMİK",
     capable: true,
+    statusBarStyle: "black-translucent",
   },
   manifest: "/manifest.webmanifest",
 };
+
+// PWA soğuk açılışta (iOS/Android standalone) ve tarayıcı yenilemesinde,
+// React hiç mount olmadan ÖNCE — sunucudan gelen ham HTML'in ilk boyama
+// karesi bile açık/beyaz olmasın diye <html>/<body> arka planı burada,
+// derlenmiş CSS bundle'ının yüklenmesini beklemeden inline set edilir.
+// Bu renk .erp-launch-screen / BootScreen ile birebir aynıdır — splash
+// gelene kadar (ve splash'in kendisi de aynı rengi kullandığı için splash
+// sırasında da) görünür arka plan hep bu koyu ton olur, beyaz kare hiç
+// oluşmaz.
+const BOOT_BACKGROUND = "#09111b";
 
 export default function RootLayout({
   children,
@@ -35,8 +46,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="tr" suppressHydrationWarning>
-      <body className="min-h-screen bg-slate-50 text-slate-900">
+    <html lang="tr" suppressHydrationWarning style={{ backgroundColor: BOOT_BACKGROUND }}>
+      <body
+        className="min-h-screen bg-slate-50 text-slate-900"
+        style={{ backgroundColor: BOOT_BACKGROUND }}
+      >
         <AuthProvider>
           <AppShell>{children}</AppShell>
         </AuthProvider>

@@ -2,13 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import {
   ChevronLeft, ChevronRight, Edit2, FileUp, FolderOpen, Loader2, MapPin,
   MoreVertical, Plus, Search, Store, Trash2, X,
 } from "lucide-react";
 import { apiGet } from "@/lib/api";
-import { getStores, createStore, updateStore } from "@/services/stores";
+import {
+  getStores, createStore, updateStore,
+  getStoresPage, getAllRegions, getCancelledStoreCount,
+} from "@/services/stores";
 import { StoreCardSkeleton } from "@/components/ui/skeleton";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -402,11 +405,13 @@ export default function MagazalarPage() {
   const basePath = isManager ? "/manager/magaza-karti" : isAdmin ? "/admin/stores" : isUser ? "/user/magaza-karti" : "/projects";
   const importHref = `${basePath}/import`;
 
-  const [projects,   setProjects]   = useState<Project[]>([]);
-  const [customers,  setCustomers]  = useState<Customer[]>([]);
-  const [regionMap,  setRegionMap]  = useState<Record<string, string>>({});
-  const [allRegions, setAllRegions] = useState<Region[]>([]);
-  const [loading,    setLoading]    = useState(true);
+  const [projects,      setProjects]      = useState<Project[]>([]);
+  const [totalCount,    setTotalCount]    = useState(0);
+  const [cancelledCount, setCancelledCount] = useState(0);
+  const [customers,     setCustomers]     = useState<Customer[]>([]);
+  const [regionMap,     setRegionMap]     = useState<Record<string, string>>({});
+  const [allRegions,    setAllRegions]    = useState<Region[]>([]);
+  const [loading,       setLoading]       = useState(true);
 
   const [search,           setSearch]           = useState("");
   const [searchDebounced,  setSearchDebounced]  = useState("");
@@ -420,34 +425,60 @@ export default function MagazalarPage() {
   const [editProject,    setEditProject]    = useState<Project | null>(null);
   const [deactivateProj, setDeactivateProj] = useState<Project | null>(null);
 
-  const load = async () => {
-    setLoading(true);
-    try {
-      const [projs, custs] = await Promise.all([
-        getStores().catch(() => [] as Project[]),
+  // Referans veri (zincirler + bölgeler) sayfa açılışında BİR KEZ, arama/
+  // sayfalama state'inden bağımsız yüklenir — her tuş vuruşunda tekrar
+  // çekilmez. Mağaza listesinden ayrı, paralel çalışır.
+  useEffect(() => {
+    (async () => {
+      const [custs, regions] = await Promise.all([
         apiGet<Customer[]>("/projects/customers").catch(() => [] as Customer[]),
+        getAllRegions().catch(() => [] as Region[]),
       ]);
-      const projArr = Array.isArray(projs) ? projs : [];
-      const custArr = Array.isArray(custs) ? custs : [];
-      setProjects(projArr);
-      setCustomers(custArr);
-
-      const regionResults = await Promise.all(
-        custArr.map(c => apiGet<Region[]>(`/projects/regions/${c.id}`).catch(() => [] as Region[]))
-      );
-      const regions: Region[] = regionResults.flat();
+      setCustomers(Array.isArray(custs) ? custs : []);
       setAllRegions(regions);
       const rMap: Record<string, string> = {};
       for (const r of regions) rMap[r.id] = r.name;
       setRegionMap(rMap);
+    })();
+    getCancelledStoreCount().then(setCancelledCount).catch(() => {});
+  }, []);
+
+  // Mağaza listesi — sunucu taraflı sayfalama + arama + bölge filtresi.
+  // 4000+ mağazayı tek seferde çekmek yerine yalnızca görüntülenen sayfa
+  // istenir (bkz. services/stores.ts: getStoresPage).
+  const loadStores = async () => {
+    setLoading(true);
+    try {
+      if (filterStoreType !== "all") {
+        // Mağaza türü (JSON description alanında saklanıyor, indekslenmiş bir
+        // kolon değil) backend'de filtrelenemiyor — bu nadir kullanılan filtre
+        // aktifken tam listeyi çekip client-side filtrelemeye devam ediyoruz.
+        // Migration'sız, sonuçların yanlış/eksik görünmesini engelleyen güvenli tercih.
+        const all = await getStores({ q: searchDebounced || undefined }).catch(() => [] as Project[]);
+        const afterRegion    = filterRegion === "all" ? all : all.filter(p => p.region_id === filterRegion);
+        const afterCancelled = showCancelled ? afterRegion : afterRegion.filter(p => !isCancelled(p.status));
+        const afterType      = afterCancelled.filter(p => parseDesc(p.description).store_type === filterStoreType);
+        setTotalCount(afterType.length);
+        const start = (page - 1) * pageSize;
+        setProjects(afterType.slice(start, start + pageSize));
+      } else {
+        const { items, total } = await getStoresPage({
+          page, pageSize, q: searchDebounced,
+          regionId: filterRegion, includeCancelled: showCancelled,
+        });
+        setProjects(items);
+        setTotalCount(total);
+      }
+    } catch {
+      setProjects([]); setTotalCount(0);
     } finally { setLoading(false); }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { loadStores(); }, [page, pageSize, searchDebounced, filterRegion, filterStoreType, showCancelled]);
 
   // Arama debounce'lu — her tuş vuruşunda listeyi yeniden hesaplamaz.
   useEffect(() => {
-    const t = setTimeout(() => setSearchDebounced(search), 250);
+    const t = setTimeout(() => setSearchDebounced(search), 300);
     return () => clearTimeout(t);
   }, [search]);
 
@@ -456,25 +487,11 @@ export default function MagazalarPage() {
     setPage(1);
   }, [searchDebounced, filterStoreType, filterRegion, showCancelled]);
 
-  const filtered = useMemo(() => {
-    const q = searchDebounced.toLowerCase();
-    return projects.filter(p => {
-      if (!showCancelled && isCancelled(p.status)) return false;
-      const extra = parseDesc(p.description);
-      const matchSearch  = !q || p.name.toLowerCase().includes(q) || (p.project_no ?? "").toLowerCase().includes(q);
-      const matchType    = filterStoreType === "all" || extra.store_type === filterStoreType;
-      const matchRegion  = filterRegion === "all" || p.region_id === filterRegion;
-      return matchSearch && matchType && matchRegion;
-    });
-  }, [projects, searchDebounced, filterStoreType, filterRegion, showCancelled]);
-
-  const cancelledCount = projects.filter(p => isCancelled(p.status)).length;
-
-  const totalPages  = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const totalPages  = Math.max(1, Math.ceil(totalCount / pageSize));
   const currentPage = Math.min(page, totalPages);
-  const pageStart    = filtered.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
-  const pageEnd      = Math.min(currentPage * pageSize, filtered.length);
-  const pageItems    = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const pageStart    = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const pageEnd      = Math.min(currentPage * pageSize, totalCount);
+  const pageItems    = projects;
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -484,7 +501,7 @@ export default function MagazalarPage() {
           <p className="mt-1 text-sm text-slate-500">
             {isAdmin
               ? "Mağaza listesini görüntüleyin, Excel'den içe aktarın ve mağaza bilgilerini yönetin."
-              : loading ? "Yükleniyor..." : `${projects.length} mağaza · ${allRegions.length} bölge`}
+              : loading ? "Yükleniyor..." : `${totalCount.toLocaleString("tr-TR")} mağaza · ${allRegions.length} bölge`}
           </p>
         </div>
         {canManage && <div className="grid w-full grid-cols-1 gap-2 min-[390px]:grid-cols-2 sm:w-auto">
@@ -538,7 +555,7 @@ export default function MagazalarPage() {
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4" aria-busy="true">
           {Array.from({ length: 8 }).map((_, i) => <StoreCardSkeleton key={i} />)}
         </div>
-      ) : projects.length === 0 ? (
+      ) : totalCount === 0 && !searchDebounced && filterStoreType === "all" && filterRegion === "all" && !showCancelled ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center">
           <Store className="mx-auto h-8 w-8 text-slate-300 mb-3" />
           <h2 className="text-sm font-semibold text-slate-800">Mağaza verisi bulunmuyor</h2>
@@ -556,7 +573,7 @@ export default function MagazalarPage() {
             </button>
           </div>}
         </div>
-      ) : filtered.length === 0 ? (
+      ) : pageItems.length === 0 ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center">
           <Search className="mx-auto h-8 w-8 text-slate-300 mb-3" />
           <h2 className="text-sm font-semibold text-slate-800">Mağaza bulunamadı</h2>
@@ -574,7 +591,7 @@ export default function MagazalarPage() {
           {/* Sayfalama */}
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4">
             <p className="text-xs text-slate-500">
-              Toplam <span className="font-medium text-slate-700 tabular-nums">{filtered.length.toLocaleString("tr-TR")}</span> mağaza içinde{" "}
+              Toplam <span className="font-medium text-slate-700 tabular-nums">{totalCount.toLocaleString("tr-TR")}</span> mağaza içinde{" "}
               <span className="font-medium text-slate-700 tabular-nums">{pageStart.toLocaleString("tr-TR")}–{pageEnd.toLocaleString("tr-TR")}</span> arası gösteriliyor.
             </p>
             <div className="flex items-center gap-3">
@@ -605,15 +622,15 @@ export default function MagazalarPage() {
 
       {canManage && createOpen && (
         <StoreFormModal mode="create" initial={defaultForm()} customers={customers}
-          onClose={() => setCreateOpen(false)} onDone={load} />
+          onClose={() => setCreateOpen(false)} onDone={loadStores} />
       )}
       {canManage && editProject && (
         <StoreFormModal mode="edit" initial={editForm(editProject)} projectId={editProject.id}
           existingDescription={editProject.description} existingScopeCodes={editProject.scope_codes}
-          customers={customers} onClose={() => setEditProject(null)} onDone={load} />
+          customers={customers} onClose={() => setEditProject(null)} onDone={loadStores} />
       )}
       {canManage && deactivateProj && (
-        <DeactivateModal project={deactivateProj} onClose={() => setDeactivateProj(null)} onDone={load} />
+        <DeactivateModal project={deactivateProj} onClose={() => setDeactivateProj(null)} onDone={loadStores} />
       )}
     </div>
   );

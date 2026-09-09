@@ -54,27 +54,36 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     })();
   }, [pathname, hasToken]);
 
+  // isPublicRoute kapsamındaki her şey (tüm admin/manager/user/login/403/
+  // password-reset/platform/is-emri rotaları — yani pratikte uygulamanın
+  // tamamı) kendi auth kontrolünü RoleGuard üzerinden zaten yapıyor. Bu
+  // dalı "mounted" beklemeden EN ÖNCE kontrol ediyoruz: aksi halde, henüz
+  // hydrate olmamışken burada ayrı bir (önceden açık renkli) spinner
+  // basılıyordu — bu, kök layout'un server-render edilen ilk çıktısı
+  // olarak RoleGuard'ın koyu BootScreen'inden ÖNCE boyanıyor ve PWA soğuk
+  // açılışta splash'tan önce görünen kısa açık/beyaz ekranın asıl
+  // kaynağıydı.
+  if (isPublicRoute) {
+    return <>{children}</>;
+  }
+
   // Prevent hydration mismatch and rendering layout components before path is determined
   if (!mounted) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+      <div className="flex min-h-screen items-center justify-center bg-[#09111b]">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-white/30 border-t-white" />
       </div>
     );
   }
 
   const isPlatformRoute = pathname === "/platform" || pathname.startsWith("/platform/");
   // Redirecting state
-  if (!isPublicRoute && !isPlatformRoute && !hasToken) {
+  if (!isPlatformRoute && !hasToken) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+      <div className="flex min-h-screen items-center justify-center bg-[#09111b]">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-white/30 border-t-white" />
       </div>
     );
-  }
-
-  if (isPublicRoute) {
-    return <>{children}</>;
   }
 
   return (

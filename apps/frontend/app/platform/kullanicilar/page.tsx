@@ -167,9 +167,9 @@ export default function KullanicilarPage() {
       </div>
 
       {selectedTenantId && (
-        <div className="grid gap-5 lg:grid-cols-2">
+        <div className="grid min-w-0 gap-5 lg:grid-cols-2">
           {/* Yönetici Ekle */}
-          <form onSubmit={handleCreate} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-3">
+          <form onSubmit={handleCreate} className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-3">
             <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <UserPlus className="h-4 w-4 text-slate-500" /> Yönetici Ekle
             </h2>
@@ -204,7 +204,7 @@ export default function KullanicilarPage() {
           </form>
 
           {/* Şifre Sıfırla */}
-          <form onSubmit={handleReset} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-3">
+          <form onSubmit={handleReset} className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-3">
             <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <KeyRound className="h-4 w-4 text-slate-500" /> Şifre Sıfırla
             </h2>
@@ -237,7 +237,7 @@ export default function KullanicilarPage() {
           </form>
 
           {/* Yöneticiler Listesi */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2">
+          <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2">
             <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2 mb-4">
               <Users className="h-4 w-4 text-slate-500" />
               {selectedTenant?.name} — Yöneticiler

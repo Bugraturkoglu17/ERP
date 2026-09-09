@@ -15,7 +15,7 @@ from decimal import Decimal
 from types import SimpleNamespace
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status, UploadFile, File
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database         import get_db
@@ -172,6 +172,20 @@ async def delete_customer(
     await crud_customer.delete(db, customer)
 
 
+@router.get("/regions", response_model=list[RegionRead], tags=["hierarchy"])
+async def list_regions(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Tüm bölgeleri getirir — Mağaza Kartı filtre/etiket için tek istekte toplu liste."""
+    if is_platform_admin(user):
+        result = await db.execute(select(Region))
+        return list(result.scalars())
+    _require_tenant_user(user)
+    result = await db.execute(select(Region).where(Region.tenant_id == user.tenant_id))
+    return list(result.scalars())
+
+
 @router.get("/regions/{customer_id}", response_model=list[RegionRead], tags=["hierarchy"])
 async def list_regions_by_customer(
     customer_id: str,
@@ -304,12 +318,15 @@ async def delete_branch(
     summary="Proje listesi — Yönetici tümünü, Saha Mühendisi kendine atananları görür.",
 )
 async def list_projects(
+    response:     Response,
     skip:         int                  = 0,
     limit:        int                  = 100,
     q:            str | None           = None,
     status:       ProjectStatus | None = None,
     branch_id:    str | None           = None,
     customer_id:  str | None           = None,
+    region_id:    str | None           = None,
+    include_cancelled: bool            = True,
     user:         User                 = Depends(get_current_user),
     db:           AsyncSession         = Depends(get_db),
 ) -> list[ProjectRead]:
@@ -317,6 +334,8 @@ async def list_projects(
     Yönetici (admin) tüm projeleri listeler.
     Diğer roller yalnızca kendisine ProjectAssignment ile atanmış projeleri görür.
     Query parametreleri ile filtreleme desteği vardır.
+    Toplam kayıt sayısı (filtrelenmiş) X-Total-Count header'ında döner —
+    ayrı bir count isteği gerektirmeden sayfalama UI'ı için kullanılabilir.
     """
     if not is_platform_admin(user):
         _require_tenant_user(user)
@@ -328,14 +347,21 @@ async def list_projects(
 
     if status:
         query = query.where(Project.status == status)
+    elif not include_cancelled:
+        query = query.where(Project.status != ProjectStatus.CANCELLED)
     if branch_id:
         query = query.where(Project.branch_id == branch_id)
     if customer_id:
         query = query.where(Project.customer_id == customer_id)
+    if region_id:
+        query = query.where(Project.region_id == region_id)
 
     if q and q.strip():
         term = f"%{q.strip()}%"
         query = query.where(or_(Project.name.ilike(term), Project.project_no.ilike(term)))
+
+    count_result = await db.execute(select(func.count()).select_from(query.subquery()))
+    response.headers["X-Total-Count"] = str(count_result.scalar_one())
 
     query = query.offset(skip).limit(limit).order_by(Project.created_at.desc())
     result = await db.execute(query)

@@ -6,7 +6,7 @@
  * olduğu için app/projects/import/page.tsx içinde kalır; o sihirbaz bu dosyadaki
  * createStore/updateStore fonksiyonlarını satır satır çağırır.
  */
-import { apiGet, apiPost, apiPatch } from "@/lib/api";
+import { api, apiGet, apiPost, apiPatch } from "@/lib/api";
 
 export type Store = {
   id: string;
@@ -23,8 +23,48 @@ export type Store = {
 };
 
 export type StoreListParams = { limit?: number; skip?: number; q?: string };
+export type StorePageResult = { items: Store[]; total: number };
+export type Region = { id: string; name: string; city: string; customer_id: string };
 
 const STORE_PAGE_CHUNK = 500;
+
+/**
+ * Mağaza Kartı listesi için sunucu-taraflı sayfalama — 4000+ mağazayı tek
+ * seferde çekmek yerine yalnızca görüntülenecek sayfayı ister. Toplam kayıt
+ * sayısı ayrı bir count isteği yerine aynı yanıtın X-Total-Count header'ından
+ * okunur (bkz. backend app/api/v1/routes/projects.py: list_projects).
+ */
+export async function getStoresPage(params: {
+  page: number;
+  pageSize: number;
+  q?: string;
+  regionId?: string;
+  includeCancelled?: boolean;
+}): Promise<StorePageResult> {
+  const skip = (params.page - 1) * params.pageSize;
+  const query: Record<string, string> = { limit: String(params.pageSize), skip: String(skip) };
+  if (params.q?.trim()) query.q = params.q.trim();
+  if (params.regionId && params.regionId !== "all") query.region_id = params.regionId;
+  if (params.includeCancelled === false) query.include_cancelled = "false";
+  const res = await api.get<Store[]>("/projects", { params: query });
+  const items = Array.isArray(res.data) ? res.data : [];
+  const totalHeader = res.headers?.["x-total-count"];
+  const total = totalHeader !== undefined ? Number(totalHeader) : items.length;
+  return { items, total };
+}
+
+/** Tüm bölgeleri tek istekte getirir (filtre dropdown + mağaza kartı etiketi içindir). */
+export async function getAllRegions(): Promise<Region[]> {
+  const data = await apiGet<Region[]>("/projects/regions");
+  return Array.isArray(data) ? data : [];
+}
+
+/** Pasifleştirilmiş (iptal) mağaza sayısını, satırları çekmeden yalnızca header'dan okur. */
+export async function getCancelledStoreCount(): Promise<number> {
+  const res = await api.get<Store[]>("/projects", { params: { status: "cancelled", limit: 1 } });
+  const totalHeader = res.headers?.["x-total-count"];
+  return totalHeader !== undefined ? Number(totalHeader) : 0;
+}
 
 async function fetchStorePage(skip: number, limit: number, q?: string): Promise<Store[]> {
   const query = new URLSearchParams({ limit: String(limit), skip: String(skip) });
