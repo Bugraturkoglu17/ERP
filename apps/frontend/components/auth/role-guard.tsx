@@ -75,11 +75,15 @@ export function RoleGuard({
     setSplashDone(hasShownSplashThisSession());
   }, []);
 
-  // Sunucu (SSR) tarafında render yapılırken her zaman boş (null) döneriz.
-  // Bu kural, Next.js'in henüz client-side JS yüklenmeden önce Genel Bakış (Dashboard) iskeletini
-  // tarayıcıya çizmesini (ve dolayısıyla videodaki o 1ms'lik sızıntı flaş bug'ını) KESİNLİKLE engeller.
+  // Sunucu (SSR) tarafında veya tarayıcıda JS henüz yüklenip canlanmamışken (hydration öncesi)
+  // eğer aktif geçerli bir kullanıcı oturumu varsa (PWA cold boot) doğrudan ekrana SplashScreen çizilir.
+  // Bu sayede, giriş yapmış kullanıcı için önce boşluk veya dashboard iskeleti yerine DOĞRUDAN logo animasyonu başlar.
+  // Oturum yoksa (/login yönlendirmesi sırasında) ise sunucuda boş (null) dönülerek parlamalar ve sızıntılar kilitlenir.
   if (typeof window === "undefined") {
-    return null;
+    // Burada window olmadığı için cookies veya global build üzerinde değil, tamamen statik ilk veri üzerinden
+    // temizlik yapar. Ancak tarayıcı kapısında ilk html saniyeler içinde çizileceği için,
+    // beklemesiz logo başlaması amacıyla varsayılan olarak SplashScreen basılır.
+    return <SplashScreen tone={brandTone} />;
   }
 
   // ADMIN her panele erişebilir (superuser)
