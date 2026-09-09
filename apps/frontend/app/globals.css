@@ -8,12 +8,13 @@ html {
      zaten viewport meta'daki user-scalable=no ile ayrıca kapalı. */
   touch-action: pan-y;
   overflow-x: hidden;
-  overscroll-behavior-x: none;
+  overscroll-behavior: none;
   scroll-behavior: smooth;
 }
 
 body {
   overflow-x: hidden;
+  overscroll-behavior: none;
 }
 
 body > div {
