@@ -29,9 +29,7 @@ function CorporateSidebar({
   const pathname = usePathname();
 
   const inner = (
-    <div
-      className={`flex h-full flex-col border-t-[3px] bg-[#0c1520] ${brandTone === "amber" ? "border-t-amber-400" : "border-t-[#ff3131]"}`}
-    >
+    <div className={`flex h-full min-h-dvh flex-col border-t-[3px] bg-[#0c1520] ${brandTone === "amber" ? "border-t-amber-400" : "border-t-[#ff3131]"}`}>
       {/* iOS PWA'da status bar "black-translucent" olduğu için web içeriği
           durum çubuğunun ALTINA uzanır; drawer başlığı da saat/pil ikonlarıyla
           çakışır. Güvenli alan boşluğu Tailwind arbitrary value yerine inline
