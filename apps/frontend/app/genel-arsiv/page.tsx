@@ -6,7 +6,6 @@ import {
   Square, Trash2, Upload, ArrowRightCircle, Filter, AlertCircle, RefreshCw,
 } from "lucide-react";
 import { apiGet, buildApiUrl } from "@/lib/api";
-import { downloadFile } from "@/lib/download";
 import UploadModal   from "./UploadModal";
 import TransferModal from "./TransferModal";
 import { useAuth } from "@/contexts/auth-context";
@@ -115,6 +114,7 @@ export default function GenelArsivPage() {
   const [uploadOpen,  setUploadOpen]  = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
   const [deleteErr,   setDeleteErr]   = useState<string | null>(null);
+  const [downloadErr, setDownloadErr] = useState<string | null>(null);
 
   const loadDocs = useCallback(async () => {
     setLoading(true);
@@ -160,14 +160,20 @@ export default function GenelArsivPage() {
 
   const selectedDocs = docs.filter((d) => selected.has(d.id));
 
-  // İndir
+  // İndir — backend'e download=true göndermezsek OCI presigned URL'i
+  // Content-Disposition: attachment olmadan döner ve blob-fetch cross-origin
+  // (OCI bucket farklı origin) CORS'a takılıp SESSİZCE başarısız oluyordu.
+  // download=true ile OCI URL'in kendisi zaten "attachment" header'ı taşıyor,
+  // bu yüzden düz navigasyon yeterli — CORS'a hiç girmiyoruz.
   const handleDownload = async (doc: ArchiveDoc) => {
+    setDownloadErr(null);
     try {
-      const res = await apiGet<{ url: string }>(`/documents/${doc.id}/download`);
-      // Backend farklı origin'de olduğu için <a download> tek başına yeterli
-      // değil — dosyayı blob olarak çekip gerçek bir indirme tetikliyoruz.
-      await downloadFile(res.url, doc.original_name);
-    } catch { /* ignore */ }
+      const res = await apiGet<{ url: string }>(`/documents/${doc.id}/download?download=true`);
+      if (!res?.url) throw new Error("no url");
+      window.location.href = res.url;
+    } catch {
+      setDownloadErr(`"${doc.original_name}" indirilemedi. Bağlantıyı kontrol edip tekrar deneyin.`);
+    }
   };
 
   // Aç
@@ -274,6 +280,14 @@ export default function GenelArsivPage() {
         <div className="flex items-center gap-2 rounded-xl bg-red-50 border border-red-100 px-4 py-2.5">
           <AlertCircle className="h-4 w-4 text-red-500" />
           <p className="text-xs text-red-600">{deleteErr}</p>
+        </div>
+      )}
+
+      {downloadErr && (
+        <div className="flex items-center gap-2 rounded-xl bg-red-50 border border-red-100 px-4 py-2.5">
+          <AlertCircle className="h-4 w-4 shrink-0 text-red-500" />
+          <p className="flex-1 text-xs text-red-600">{downloadErr}</p>
+          <button onClick={() => setDownloadErr(null)} className="text-xs text-red-400 hover:text-red-600">✕</button>
         </div>
       )}
 

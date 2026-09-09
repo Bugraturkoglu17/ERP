@@ -33,13 +33,13 @@ function fmtDate(d: string) {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-async function resolveFileUrl(fileUrlOrDocId: string): Promise<string> {
+async function resolveFileUrl(fileUrlOrDocId: string, forceDownload = false): Promise<string> {
   // Direkt URL (yeni kayıtlar)
   if (fileUrlOrDocId.startsWith("http")) return fileUrlOrDocId;
   // UUID → /documents/{id}/download
   if (UUID_RE.test(fileUrlOrDocId)) {
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-    const res = await fetch(buildApiUrl(`/documents/${fileUrlOrDocId}/download`), {
+    const res = await fetch(buildApiUrl(`/documents/${fileUrlOrDocId}/download${forceDownload ? "?download=true" : ""}`), {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
     if (!res.ok) throw new Error();
@@ -61,9 +61,10 @@ async function openDoc(fileUrlOrDocId: string) {
 
 async function downloadDoc(fileUrlOrDocId: string, fileName?: string) {
   try {
-    const url = await resolveFileUrl(fileUrlOrDocId);
-    // Backend farklı origin'de olduğu için <a download> tek başına yeterli
-    // değil — dosyayı blob olarak çekip gerçek bir indirme tetikliyoruz.
+    // forceDownload=true → OCI presigned URL zaten Content-Disposition:
+    // attachment taşıyor; downloadFile blob-fetch CORS'a takılırsa otomatik
+    // düz navigasyona düşer, indirme yine de tetiklenir.
+    const url = await resolveFileUrl(fileUrlOrDocId, true);
     await downloadFile(url, fileName ?? "servis-formu");
   } catch {
     alert("Dosya indirilemedi.");

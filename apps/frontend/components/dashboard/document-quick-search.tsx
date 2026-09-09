@@ -107,7 +107,7 @@ export default function DocumentQuickSearch() {
     // permission. Mobile Safari blocks window.open calls made after an await.
     const previewWindow = download ? null : window.open("", "_blank");
     try {
-      const { url } = await apiGet<{ url: string }>(`/documents/${doc.id}/download`);
+      const { url } = await apiGet<{ url: string }>(`/documents/${doc.id}/download${download ? "?download=true" : ""}`);
       if (download) {
         // Farklı origin'deki (backend) URL'de <a download> yok sayılır —
         // dosyayı blob olarak çekip sayfanın kendi origin'inden indiriyoruz.

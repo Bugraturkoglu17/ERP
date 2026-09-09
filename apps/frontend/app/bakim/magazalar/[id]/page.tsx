@@ -87,13 +87,14 @@ async function openDoc(docId: string) {
 
 async function downloadDoc(docId: string, fileName?: string) {
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-  const res = await fetch(buildApiUrl(`/documents/${docId}/download`), {
+  const res = await fetch(buildApiUrl(`/documents/${docId}/download?download=true`), {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
   if (!res.ok) { alert("İndirilemiyor."); return; }
   const { url } = await res.json();
-  // Backend farklı origin'de olduğu için <a download> tek başına yeterli
-  // değil — dosyayı blob olarak çekip gerçek bir indirme tetikliyoruz.
+  // download=true → OCI presigned URL zaten Content-Disposition: attachment
+  // taşıyor. downloadFile önce blob-fetch dener, storage bucket CORS
+  // vermiyorsa otomatik düz navigasyona düşer (indirme yine de tetiklenir).
   try {
     await downloadFile(url, fileName ?? "dosya");
   } catch {
