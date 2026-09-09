@@ -7,7 +7,6 @@ import { Menu, X, type LucideIcon } from "lucide-react";
 import { RoleGuard } from "@/components/auth/role-guard";
 import { QuickSwitch } from "@/components/layout/quick-switch";
 import type { UserRole } from "@/lib/permissions";
-import { AppLaunch } from "@/components/brand/app-launch";
 import { BrandMark, type BrandTone } from "@/components/brand/brand-mark";
 import { NotificationBell } from "@/components/layout/notification-bell";
 import { useMobileDrawer } from "@/hooks/use-mobile-drawer";
@@ -122,8 +121,7 @@ export function CorporateShell({
   const drawer = useMobileDrawer();
 
   return (
-    <RoleGuard allowedRoles={allowedRoles} spinnerBg="bg-slate-50">
-      <AppLaunch tone={brandTone} scope={allowedRoles.join("-")} />
+    <RoleGuard allowedRoles={allowedRoles} brandTone={brandTone}>
       <div className="flex h-dvh max-w-full overflow-x-clip bg-slate-50">
         <CorporateSidebar
           mobileOpen={drawer.open}
