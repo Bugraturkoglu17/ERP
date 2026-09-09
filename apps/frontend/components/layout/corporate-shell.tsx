@@ -31,7 +31,6 @@ function CorporateSidebar({
   const inner = (
     <div
       className={`flex h-full flex-col border-t-[3px] bg-[#0c1520] ${brandTone === "amber" ? "border-t-amber-400" : "border-t-[#ff3131]"}`}
-      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       {/* iOS PWA'da status bar "black-translucent" olduğu için web içeriği
           durum çubuğunun ALTINA uzanır; drawer başlığı da saat/pil ikonlarıyla
@@ -94,16 +93,12 @@ function CorporateSidebar({
   return (
     <>
       <aside className="hidden lg:block w-60 shrink-0">{inner}</aside>
-      {/* iOS Safari/PWA'da adres çubuğu, kaydırma/dokunma sırasında (nav
-          listesi kısa olduğu için gerçek scroll olmasa bile elastik "bounce"
-          tetiklenerek) anlık gizlenip görünüyor; bu "fixed inset-0" ile
-          birlikte görünür viewport'u CANLI değiştiriyordu. nav flex-1
-          olduğu için Panel Görünümü/Çıkış Yap bölümü her seferinde aşağı-
-          yukarı kayıyordu (video ile doğrulandı). h-[100svh] adres çubuğu
-          durumundan bağımsız SABİT bir yükseklik verir — içerik artık
-          kaydırma sırasında yerinde durur. */}
+      {/* iOS Standalone/PWA ve tüm mobil tarayıcılarda görünür alanı
+          kesintisiz ve tam boy (edge-to-edge) kaplamak için fixed inset-0
+          kullanılır. Böylece cihazın en altındaki Home Indicator alanında
+          herhangi bir boşluk/kayma bug'ı oluşmaz ve arka plan kusursuz uzanır. */}
       <div
-        className={`fixed inset-x-0 top-0 z-40 h-[100svh] lg:hidden ${mobileOpen ? "pointer-events-auto visible" : "pointer-events-none invisible"}`}
+        className={`fixed inset-0 z-40 lg:hidden ${mobileOpen ? "pointer-events-auto visible" : "pointer-events-none invisible"}`}
         aria-hidden={!mobileOpen}
       >
         <button
