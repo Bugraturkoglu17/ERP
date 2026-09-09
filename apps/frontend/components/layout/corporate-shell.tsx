@@ -30,7 +30,7 @@ function CorporateSidebar({
 
   const inner = (
     <div className={`flex h-full flex-col border-t-[3px] bg-[#0c1520] ${brandTone === "amber" ? "border-t-amber-400" : "border-t-[#ff3131]"}`}>
-      <div className="flex h-16 items-center justify-between border-b border-white/[0.06] px-4">
+      <div className="flex min-h-[calc(4rem+env(safe-area-inset-top))] items-center justify-between border-b border-white/[0.06] px-4 pt-[env(safe-area-inset-top)]">
         <div className="flex items-center gap-2.5">
           <BrandMark
             key={`sidebar-brand-${mobileOpen ? "open" : "closed"}`}

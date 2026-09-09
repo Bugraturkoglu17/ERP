@@ -91,7 +91,7 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
         )}
       >
         {/* Logo */}
-        <div className="flex h-14 shrink-0 items-center justify-between border-b border-slate-100 px-4">
+        <div className="flex min-h-[calc(3.5rem+env(safe-area-inset-top))] shrink-0 items-center justify-between border-b border-slate-100 px-4 pt-[env(safe-area-inset-top)]">
           <div className="flex items-center gap-2.5">
             <BrandMark animated className="h-7 w-7 shrink-0" />
             <div>
