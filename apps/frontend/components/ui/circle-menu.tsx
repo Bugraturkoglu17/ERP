@@ -60,7 +60,7 @@ export function CircleMenu({
   return (
     <div className={cn("relative inline-flex", className)} style={{ width: ITEM, height: ITEM }}>
       {/* Dışarı tıklayınca kapat — sadece menü AÇIKKEN DOM'da. */}
-      {open && <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} aria-hidden />}
+      {open && <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} aria-hidden />}
 
       <button
         type="button"
@@ -68,7 +68,7 @@ export function CircleMenu({
         aria-label={open ? "İşlem menüsünü kapat" : "İşlemler"}
         aria-expanded={open}
         title="İşlemler"
-        className="relative z-40 flex items-center justify-center rounded-full bg-foreground text-background shadow-lg transition-transform duration-150 ease-out hover:brightness-110 active:scale-95"
+        className="relative z-20 flex items-center justify-center rounded-full bg-foreground text-background shadow-lg transition-transform duration-150 ease-out hover:brightness-110 active:scale-95"
         style={{ width: ITEM, height: ITEM }}
       >
         {open ? <X className="h-[18px] w-[18px]" /> : <Menu className="h-[18px] w-[18px]" />}
@@ -97,7 +97,7 @@ export function CircleMenu({
               transitionDelay: `${(open ? i : items.length - 1 - i) * 25}ms`,
             }}
             className={cn(
-              "group absolute left-0 top-0 z-40 flex items-center justify-center rounded-full bg-muted text-foreground shadow-md",
+              "group absolute left-0 top-0 z-20 flex items-center justify-center rounded-full bg-muted text-foreground shadow-md",
               "transition-[transform,opacity] duration-200 ease-out",
               open ? "opacity-100" : "pointer-events-none opacity-0",
               item.active && "ring-2 ring-blue-500 ring-offset-1",

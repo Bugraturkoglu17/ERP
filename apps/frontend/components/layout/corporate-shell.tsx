@@ -151,8 +151,10 @@ export function CorporateShell({
           <header className="fixed inset-x-0 top-0 z-30 flex min-h-[calc(4rem_+_env(safe-area-inset-top))] shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/95 px-4 pb-0 pt-[env(safe-area-inset-top)] shadow-sm backdrop-blur-xl sm:px-6 lg:static lg:min-h-16 lg:shadow-none">
             <button
               onClick={drawer.openDrawer}
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 shadow-sm transition hover:bg-slate-50 active:scale-[0.98] lg:hidden"
+              className={`h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 shadow-sm transition hover:bg-slate-50 active:scale-[0.98] lg:hidden ${drawer.open ? "hidden" : "flex"}`}
               aria-label="Menüyü aç"
+              aria-hidden={drawer.open}
+              tabIndex={drawer.open ? -1 : undefined}
             >
               <Menu className="h-4 w-4" />
             </button>
