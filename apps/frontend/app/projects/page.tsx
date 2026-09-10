@@ -518,24 +518,27 @@ export default function MagazalarPage() {
           className="w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none" />
       </div>
 
-      {/* Ana buton — arama çubuğunun SOL-ALTINDA. Tüm işlemler (Yeni Mağaza
-          Ekle, Excel'den İçe Aktar, Bölgeler, Mağaza Türü, Aktif/Pasif) tek
-          bir navigator menüsünde. direction="right": öğeler tetikleyicinin
+      {/* Ana buton — arama çubuğunun SOL-ALTINDA. TÜM panellerde (admin,
+          yönetici, kullanıcı) görünür; sadece içerdiği öğeler role göre
+          değişir: filtreler (Bölgeler / Mağaza Türü / Aktif-Pasif) herkeste,
+          "Yeni Mağaza Ekle" ve "Excel'den İçe Aktar" yalnızca yetkili
+          rollerde (canManage). direction="right": öğeler tetikleyicinin
           YANINDAN başlayıp SAĞA doğru, hafif bir CSS geçişiyle açılır. */}
       <div className="flex flex-wrap items-center gap-3">
-        {canManage && (
-          <div className="relative">
+        <div className="relative">
             <CircleMenu
               direction="right"
               items={[
-                {
-                  label: "Yeni Mağaza Ekle", icon: <Plus className="h-4 w-4 text-foreground" />,
-                  onClick: () => setCreateOpen(true),
-                },
-                {
-                  label: "Excel'den İçe Aktar", icon: <FileUp className="h-4 w-4 text-foreground" />,
-                  onClick: () => router.push(importHref),
-                },
+                ...(canManage ? [
+                  {
+                    label: "Yeni Mağaza Ekle", icon: <Plus className="h-4 w-4 text-foreground" />,
+                    onClick: () => setCreateOpen(true),
+                  },
+                  {
+                    label: "Excel'den İçe Aktar", icon: <FileUp className="h-4 w-4 text-foreground" />,
+                    onClick: () => router.push(importHref),
+                  },
+                ] as CircleMenuItem[] : []),
                 {
                   label: "Bölgeler", icon: <MapPin className="h-4 w-4 text-foreground" />,
                   active: filterRegion !== "all",
@@ -592,27 +595,34 @@ export default function MagazalarPage() {
                 </div>
               </>
             )}
-          </div>
-        )}
-
-        {filterRegion !== "all" && (
-          <button onClick={() => { setFilterRegion("all"); setPage(1); }}
-            className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
-            <MapPin className="h-3 w-3" /> {allRegions.find(r => r.id === filterRegion)?.name ?? "Bölge"} <X className="h-3 w-3" />
-          </button>
-        )}
-        {filterStoreType !== "all" && (
-          <button onClick={() => { setFilterStoreType("all"); setPage(1); }}
-            className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
-            <Store className="h-3 w-3" /> {STORE_TYPE_OPTS.find(o => o.value === filterStoreType)?.label ?? "Tür"} <X className="h-3 w-3" />
-          </button>
-        )}
-        {showCancelled && (
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-medium text-red-700">
-            <EyeOff className="h-3 w-3" /> Pasifler gösteriliyor
-          </span>
-        )}
+        </div>
       </div>
+
+      {/* Uygulanan filtreler — tetikleyicinin ALTINDA, ayrı satırda, küçük
+          çipler halinde. Menü sağa açıldığında ikonların üzerine binmez
+          (önceden aynı flex satırındaydı, çakışıyordu). */}
+      {(filterRegion !== "all" || filterStoreType !== "all" || showCancelled) && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {filterRegion !== "all" && (
+            <button onClick={() => { setFilterRegion("all"); setPage(1); }}
+              className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700 hover:bg-blue-100">
+              <MapPin className="h-3 w-3" /> {allRegions.find(r => r.id === filterRegion)?.name ?? "Bölge"} <X className="h-3 w-3" />
+            </button>
+          )}
+          {filterStoreType !== "all" && (
+            <button onClick={() => { setFilterStoreType("all"); setPage(1); }}
+              className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700 hover:bg-blue-100">
+              <Store className="h-3 w-3" /> {STORE_TYPE_OPTS.find(o => o.value === filterStoreType)?.label ?? "Tür"} <X className="h-3 w-3" />
+            </button>
+          )}
+          {showCancelled && (
+            <button onClick={() => { setShowCancelled(false); setPage(1); }}
+              className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[11px] font-medium text-red-700 hover:bg-red-100">
+              <EyeOff className="h-3 w-3" /> Pasifler <X className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+      )}
 
       {/* İçerik */}
       {loading ? (
