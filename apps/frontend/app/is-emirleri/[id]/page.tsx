@@ -900,86 +900,95 @@ export default function WorkOrderDetailPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {reports.map(rep => (
-            <div key={rep.id} className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
-              <div className="flex items-start gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap mb-1">
-                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${SEVERITY_COLOR[rep.severity] ?? "bg-slate-100 text-slate-600"}`}>
-                      {rep.severity === "critical" && <AlertTriangle className="h-3 w-3 mr-1" />}
-                      {SEVERITY_LABEL[rep.severity] ?? rep.severity}
-                    </span>
-                    {rep.photo_count > 0 && (
-                      <span className="text-[11px] text-slate-400">{rep.photo_count} görsel</span>
-                    )}
-                  </div>
-                  <p className="text-sm font-semibold text-slate-900">{rep.title}</p>
-                  {rep.description && (
-                    <p className="text-xs text-slate-500 mt-1 leading-relaxed line-clamp-3">{rep.description}</p>
+          {reports.map(rep => {
+            const addablePhotos = rep.photos.filter(p => p.mime_type?.startsWith("image/") && !p.is_added_to_inventory);
+            const addedPhotoCount = rep.photos.filter(p => p.mime_type?.startsWith("image/") && p.is_added_to_inventory).length;
+            return (
+            <div key={rep.id} className="rounded-2xl border border-slate-200 bg-white p-4">
+              {/* Üst satır — rozet solda, kişi & tarih sağ üstte */}
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-2 flex-wrap min-w-0">
+                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${SEVERITY_COLOR[rep.severity] ?? "bg-slate-100 text-slate-600"}`}>
+                    {rep.severity === "critical" && <AlertTriangle className="h-3 w-3 mr-1" />}
+                    {SEVERITY_LABEL[rep.severity] ?? rep.severity}
+                  </span>
+                  {rep.photo_count > 0 && (
+                    <span className="text-[11px] text-slate-400">{rep.photo_count} görsel</span>
                   )}
-                  <div className="flex items-center gap-2 mt-2 text-[11px] text-slate-400">
-                    {rep.created_by_name && (
-                      <span className="flex items-center gap-1">
-                        <User className="h-3 w-3" /> {rep.created_by_name}
-                      </span>
-                    )}
-                    <span>·</span>
-                    <span>{fmtDateTime(rep.created_at)}</span>
-                  </div>
                 </div>
-                {isUser && <button
-                  onClick={() => handleDeleteReport(rep.id)}
-                  className="shrink-0 flex h-7 w-7 items-center justify-center rounded-lg text-slate-300 hover:bg-red-50 hover:text-red-500"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>}
+                <div className="flex flex-col items-end gap-2 shrink-0">
+                  <div className="flex items-start gap-1.5">
+                    <div className="text-right leading-tight">
+                      {rep.created_by_name && (
+                        <p className="flex items-center justify-end gap-1 text-[11px] font-medium text-slate-600">
+                          <User className="h-3 w-3 text-slate-400" /> {rep.created_by_name}
+                        </p>
+                      )}
+                      <p className="text-[11px] text-slate-400">{fmtDateTime(rep.created_at)}</p>
+                    </div>
+                    {isUser && <button
+                      onClick={() => handleDeleteReport(rep.id)}
+                      className="-mr-1 -mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-300 hover:bg-red-50 hover:text-red-500"
+                      aria-label="Raporu sil"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>}
+                  </div>
+                  {isManager && addablePhotos.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => { setSelected(new Set(addablePhotos.map(p => `report:${p.id}`))); setTransferOpen(true); }}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600"
+                    >
+                      <Store className="h-3 w-3" /> Mağaza kartına ekle
+                    </button>
+                  ) : isManager && addedPhotoCount > 0 ? (
+                    <p className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600">
+                      <CheckCircle2 className="h-3 w-3" /> Mağaza kartına eklendi
+                    </p>
+                  ) : null}
+                </div>
               </div>
+
+              <p className="mt-2 text-sm font-semibold text-slate-900">{rep.title}</p>
+              {rep.description && (
+                <p className="mt-1 text-xs leading-relaxed text-slate-500 line-clamp-3">{rep.description}</p>
+              )}
 
               {/* Görsel önizlemeler */}
               {rep.photos.length > 0 && (
-                <div className="flex gap-2 overflow-x-auto pb-1">
+                <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
                   {rep.photos.map((rp, idx) => (
-                    <div key={rp.id} className="relative h-16 w-16 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => setLightbox({
-                          urls: rep.photos.map(p => p.fresh_url ?? ""),
-                          names: rep.photos.map(p => p.file_name ?? ""),
-                          idx,
-                        })}
-                        className="h-16 w-16 overflow-hidden rounded-lg border border-slate-200 transition-colors hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        {rp.fresh_url && rp.mime_type?.startsWith("image/") ? (
-                          <img src={rp.fresh_url} alt={rp.file_name ?? "Rapor görseli"} className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center bg-slate-100">
-                            <FileText className="h-5 w-5 text-slate-300" />
-                          </div>
-                        )}
-                      </button>
-                      {isManager && rp.mime_type?.startsWith("image/") && (
-                        rp.is_added_to_inventory ? (
-                          <span className="absolute bottom-1 right-1 flex h-6 w-6 items-center justify-center rounded-md bg-emerald-600 text-white shadow-sm" title="Görsel envantere eklendi">
-                            <CheckCircle2 className="h-3.5 w-3.5" />
+                      <div key={rp.id} className="relative h-16 w-16 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setLightbox({
+                            urls: rep.photos.map(p => p.fresh_url ?? ""),
+                            names: rep.photos.map(p => p.file_name ?? ""),
+                            idx,
+                          })}
+                          className="h-16 w-16 overflow-hidden rounded-lg border border-slate-200 transition-colors hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          {rp.fresh_url && rp.mime_type?.startsWith("image/") ? (
+                            <img src={rp.fresh_url} alt={rp.file_name ?? "Rapor görseli"} className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center bg-slate-100">
+                              <FileText className="h-5 w-5 text-slate-300" />
+                            </div>
+                          )}
+                        </button>
+                        {isManager && rp.mime_type?.startsWith("image/") && rp.is_added_to_inventory && (
+                          <span className="pointer-events-none absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-white ring-2 ring-white" title="Mağaza kartında">
+                            <CheckCircle2 className="h-2.5 w-2.5" />
                           </span>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => { setSelected(new Set([`report:${rp.id}`])); setTransferOpen(true); }}
-                            className="absolute bottom-1 right-1 flex h-6 w-6 items-center justify-center rounded-md bg-blue-600 text-white shadow-sm transition hover:bg-blue-700 active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
-                            aria-label={`${rp.file_name ?? "Rapor görseli"} görsel envantere ekle`}
-                            title="Görsel envantere ekle"
-                          >
-                            <Store className="h-3.5 w-3.5" />
-                          </button>
-                        )
-                      )}
-                    </div>
-                  ))}
+                        )}
+                      </div>
+                    ))}
                 </div>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

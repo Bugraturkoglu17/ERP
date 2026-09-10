@@ -50,6 +50,10 @@ export function ToolbarDock({
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
+  // direction="down" panel'i satır ekranın altına yakınsa aşağı taşarak
+  // kırpılıyordu (tablo kabı overflow-hidden). Açarken altta yer yoksa
+  // yukarı doğru aç.
+  const [flipUp, setFlipUp] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -60,6 +64,19 @@ export function ToolbarDock({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
+
+  const toggle = () => {
+    setOpen((v) => {
+      const next = !v;
+      if (next && direction === "down" && rootRef.current) {
+        const rect = rootRef.current.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const estimatedHeight = actions.length * 40 + 16;
+        setFlipUp(spaceBelow < estimatedHeight && rect.top > spaceBelow);
+      }
+      return next;
+    });
+  };
 
   // Görünür işlem yoksa (hepsi çağıran tarafından koşullu olarak kaldırılmışsa)
   // boş bir tetikleyici basmayalım.
@@ -76,7 +93,7 @@ export function ToolbarDock({
     <div ref={rootRef} className={cn("relative inline-flex", className)}>
       <button
         type="button"
-        onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
+        onClick={(e) => { e.stopPropagation(); toggle(); }}
         aria-label={trigger ? trigger.label : "İşlemler"}
         aria-haspopup="menu"
         aria-expanded={open}
@@ -121,7 +138,8 @@ export function ToolbarDock({
             <div
               role="menu"
               className={cn(
-                "absolute top-full z-40 mt-1 w-52 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-lg",
+                "absolute z-40 w-52 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-lg",
+                flipUp ? "bottom-full mb-1" : "top-full mt-1",
                 align === "end" ? "right-0" : "left-0",
               )}
             >

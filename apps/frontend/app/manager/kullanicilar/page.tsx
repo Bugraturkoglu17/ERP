@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Edit3, Eye, EyeOff, Loader2, Plus, Search, ShieldCheck, Trash2, UserCheck, UserX, X } from "lucide-react";
+import { Edit3, Eye, EyeOff, Info, Loader2, Mail, Phone, Plus, Search, ShieldCheck, Trash2, UserCheck, UserX, X } from "lucide-react";
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
+import { ToolbarDock, type ToolbarDockAction } from "@/components/ui/toolbar-dock";
 
 type UserRow = { id: string; full_name: string; email: string; phone?: string; is_active: boolean; default_role?: string; force_password_change: boolean; onboarding_complete: boolean };
 type FormState = { first_name: string; last_name: string; email: string; phone: string; password: string; role: "user" | "manager"; is_active: boolean };
@@ -37,6 +38,7 @@ export default function ManagerUsersPage() {
   const [editing, setEditing] = useState<UserRow | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [infoUser, setInfoUser] = useState<UserRow | null>(null);
   const [error, setError] = useState("");
 
   const load = async () => {
@@ -108,15 +110,55 @@ export default function ManagerUsersPage() {
       {error && !modalOpen && <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
 
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-        {loading ? <div className="flex items-center justify-center gap-2 py-16 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Kullanıcılar yükleniyor</div> : filtered.length === 0 ? <p className="py-16 text-center text-sm text-slate-500">Eşleşen kullanıcı bulunamadı.</p> : <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-slate-100 bg-slate-50 text-left text-xs text-slate-500"><th className="px-4 py-3 font-medium">Ad Soyad</th><th className="px-4 py-3 font-medium">E-posta / Telefon</th><th className="px-4 py-3 font-medium">Rol</th><th className="px-4 py-3 font-medium">Durum</th><th className="px-4 py-3 text-right font-medium">İşlem</th></tr></thead><tbody className="divide-y divide-slate-100">{filtered.map((user) => {
+        {loading ? <div className="flex items-center justify-center gap-2 py-16 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Kullanıcılar yükleniyor</div> : filtered.length === 0 ? <p className="py-16 text-center text-sm text-slate-500">Eşleşen kullanıcı bulunamadı.</p> : <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-slate-100 bg-slate-50 text-left text-xs text-slate-500"><th className="px-4 py-3 font-medium">Ad Soyad</th><th className="px-4 py-3 font-medium">Rol</th><th className="px-4 py-3 font-medium">Durum</th><th className="px-4 py-3 text-right font-medium">İşlem</th></tr></thead><tbody className="divide-y divide-slate-100">{filtered.map((user) => {
           const role = uiRole(user);
           const protectedAdmin = role === "ADMIN";
           const protectedManager = role === "MANAGER" && currentUser?.role !== "ADMIN";
           const isSelf = user.id === currentUser?.id;
           const accountStatus = !user.is_active ? "Pasif" : user.force_password_change || !user.onboarding_complete ? "İlk giriş bekliyor" : "Aktif";
-          return <tr key={user.id} className="hover:bg-slate-50"><td className="px-4 py-3"><div className="flex items-center gap-3"><span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">{user.full_name.split(" ").map((part) => part[0]).slice(0, 2).join("").toLocaleUpperCase("tr-TR")}</span><span className="font-medium text-slate-800">{user.full_name}</span></div></td><td className="px-4 py-3"><p className="text-xs text-slate-700">{user.email.endsWith("@sismik.local") ? "E-posta tanımlı değil" : user.email}</p><p className="text-xs text-slate-400">{user.phone || "—"}</p></td><td className="px-4 py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${role === "ADMIN" ? "bg-indigo-100 text-indigo-700" : role === "MANAGER" ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-600"}`}>{role === "ADMIN" ? "Geliştirici Admin" : role === "MANAGER" ? "Yönetici" : "Kullanıcı"}</span></td><td className="px-4 py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${accountStatus === "Aktif" ? "bg-emerald-100 text-emerald-700" : accountStatus === "Pasif" ? "bg-slate-100 text-slate-500" : "bg-amber-100 text-amber-700"}`}>{accountStatus}</span></td><td className="px-4 py-3"><div className="flex justify-end gap-1">{(protectedAdmin || protectedManager) ? <span title={protectedAdmin ? "Admin hesabı korunur" : "Yönetici hesabını yalnızca geliştirici admin düzenleyebilir/silebilir"} className="p-2 text-indigo-500"><ShieldCheck className="h-4 w-4" /></span> : <><button onClick={() => openEdit(user)} title="Düzenle" className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"><Edit3 className="h-4 w-4" /></button>{!isSelf && <><button onClick={() => toggleActive(user)} title={user.is_active ? "Pasif yap" : "Aktif yap"} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700">{user.is_active ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}</button><button onClick={() => remove(user)} title="Hesabı sil" className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-4 w-4" /></button></>}</>}</div></td></tr>;
+          const rowActions: ToolbarDockAction[] = [
+            { key: "info", label: "Bilgiler", icon: Info, onClick: () => setInfoUser(user) },
+            ...((protectedAdmin || protectedManager) ? [] : [
+              { key: "edit", label: "Düzenle", icon: Edit3, onClick: () => openEdit(user) } as ToolbarDockAction,
+            ]),
+            ...(!(protectedAdmin || protectedManager) && !isSelf ? [
+              { key: "toggle", label: user.is_active ? "Pasif yap" : "Aktif yap", icon: user.is_active ? UserX : UserCheck, onClick: () => toggleActive(user) } as ToolbarDockAction,
+              { key: "delete", label: "Hesabı sil", icon: Trash2, variant: "danger", onClick: () => remove(user) } as ToolbarDockAction,
+            ] : []),
+          ];
+          return <tr key={user.id} className="hover:bg-slate-50"><td className="px-4 py-3"><div className="flex items-center gap-3"><span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">{user.full_name.split(" ").map((part) => part[0]).slice(0, 2).join("").toLocaleUpperCase("tr-TR")}</span><span className="font-medium text-slate-800">{user.full_name}</span></div></td><td className="px-4 py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${role === "ADMIN" ? "bg-indigo-100 text-indigo-700" : role === "MANAGER" ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-600"}`}>{role === "ADMIN" ? "Geliştirici Admin" : role === "MANAGER" ? "Yönetici" : "Kullanıcı"}</span></td><td className="px-4 py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${accountStatus === "Aktif" ? "bg-emerald-100 text-emerald-700" : accountStatus === "Pasif" ? "bg-slate-100 text-slate-500" : "bg-amber-100 text-amber-700"}`}>{accountStatus}</span></td><td className="px-4 py-3"><div className="flex items-center justify-end gap-1">{(protectedAdmin || protectedManager) && <span title={protectedAdmin ? "Admin hesabı korunur" : "Yönetici hesabını yalnızca geliştirici admin düzenleyebilir/silebilir"} className="text-indigo-400"><ShieldCheck className="h-3.5 w-3.5" /></span>}<ToolbarDock actions={rowActions} direction="down" align="end" className="justify-end" /></div></td></tr>;
         })}</tbody></table></div>}
       </div>
+
+      {infoUser && (() => {
+        const infoRole = uiRole(infoUser);
+        const infoStatus = !infoUser.is_active ? "Pasif" : infoUser.force_password_change || !infoUser.onboarding_complete ? "İlk giriş bekliyor" : "Aktif";
+        const hasEmail = !infoUser.email.endsWith("@sismik.local");
+        return (
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/40 p-3 sm:items-center" role="dialog" aria-modal="true" onClick={() => setInfoUser(null)}>
+            <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-4">
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-700">{infoUser.full_name.split(" ").map((part) => part[0]).slice(0, 2).join("").toLocaleUpperCase("tr-TR")}</span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-semibold text-slate-900">{infoUser.full_name}</p>
+                  <p className="text-xs text-slate-400">{infoRole === "ADMIN" ? "Geliştirici Admin" : infoRole === "MANAGER" ? "Yönetici" : "Kullanıcı"} · {infoStatus}</p>
+                </div>
+                <button onClick={() => setInfoUser(null)} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"><X className="h-5 w-5" /></button>
+              </div>
+              <dl className="divide-y divide-slate-100 px-5 py-1 text-sm">
+                <div className="flex items-center gap-3 py-3">
+                  <Mail className="h-4 w-4 shrink-0 text-slate-400" />
+                  <span className="min-w-0 flex-1 break-words text-slate-700">{hasEmail ? infoUser.email : "E-posta tanımlı değil"}</span>
+                </div>
+                <div className="flex items-center gap-3 py-3">
+                  <Phone className="h-4 w-4 shrink-0 text-slate-400" />
+                  <span className="min-w-0 flex-1 text-slate-700">{infoUser.phone || "Telefon tanımlı değil"}</span>
+                </div>
+              </dl>
+            </div>
+          </div>
+        );
+      })()}
 
       {modalOpen && <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/40 p-3 sm:items-center sm:p-4" role="dialog" aria-modal="true"><div className="my-auto flex max-h-[calc(100dvh-1.5rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"><div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-5 py-4"><div><h2 className="font-bold text-slate-900">{editing ? "Hesabı Düzenle" : "Yeni Hesap"}</h2><p className="mt-0.5 text-xs text-slate-400">Admin rolü bu ekrandan atanamaz.</p></div><button onClick={() => setModalOpen(false)} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"><X className="h-5 w-5" /></button></div><div className="grid min-h-0 gap-4 overflow-y-auto p-5 sm:grid-cols-2">
         <label className="block text-xs font-medium text-slate-600">Ad *<input value={form.first_name} onChange={(event) => setForm({ ...form, first_name: event.target.value })} className={inputClass} /></label>
