@@ -520,15 +520,13 @@ export default function MagazalarPage() {
 
       {/* Ana buton — arama çubuğunun SOL-ALTINDA. Tüm işlemler (Yeni Mağaza
           Ekle, Excel'den İçe Aktar, Bölgeler, Mağaza Türü, Aktif/Pasif) tek
-          bir navigator menüsünde. rowDirection="right": öğeler dairesel
-          değil, tetikleyicinin YANINDAN başlayıp SAĞA doğru animasyonlu
-          şekilde açılır. */}
+          bir navigator menüsünde. direction="right": öğeler tetikleyicinin
+          YANINDAN başlayıp SAĞA doğru, hafif bir CSS geçişiyle açılır. */}
       <div className="flex flex-wrap items-center gap-3">
         {canManage && (
           <div className="relative">
             <CircleMenu
-              layout="row"
-              rowDirection="right"
+              direction="right"
               items={[
                 {
                   label: "Yeni Mağaza Ekle", icon: <Plus className="h-4 w-4 text-foreground" />,
