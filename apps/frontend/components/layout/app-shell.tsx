@@ -17,6 +17,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   const isPublicRoute =
+    pathname === "/" ||
     pathname === "/login" ||
     pathname === "/403" ||
     pathname === "/password-reset" ||

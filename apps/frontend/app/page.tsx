@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { getTokenPayloadFromStorage, getRoles, isPlatformAdmin } from "@/lib/auth";
 import { AUTH_STORE_KEY } from "@/contexts/auth-context";
 import { ROLE_PANEL_HOME, type UserRole } from "@/lib/permissions";
+import { LaunchScreen } from "@/components/brand/launch-screen";
 
 function jwtRoleHome(roles: string[]): string {
   if (roles.includes("manager")) return ROLE_PANEL_HOME.MANAGER;
@@ -39,9 +40,8 @@ export default function Page() {
     router.replace("/login");
   }, [router]);
 
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50">
-      <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
-    </div>
-  );
+  // Kök yönlendirme yapılırken de yetkili rotalarla AYNI koyu açılış ekranı
+  // gösterilir — böylece PWA soğuk açılışta "önce beyaz kare + spinner,
+  // sonra logo animasyonu" çift ekranı yerine tek, kesintisiz animasyon olur.
+  return <LaunchScreen tone="red" />;
 }

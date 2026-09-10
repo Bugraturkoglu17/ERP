@@ -4,60 +4,13 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/auth-context";
 import type { UserRole } from "@/lib/permissions";
 import { getTokenPayloadFromStorage } from "@/lib/auth";
-import { BrandMark, type BrandTone } from "@/components/brand/brand-mark";
-
-const SPLASH_SESSION_KEY = "sismik-intro:v2:session";
-const SPLASH_DURATION_MS = 3600;
+import type { BrandTone } from "@/components/brand/brand-mark";
+import { LaunchScreen } from "@/components/brand/launch-screen";
 
 interface RoleGuardProps {
   allowedRoles: UserRole[];
   children: React.ReactNode;
   brandTone?: BrandTone;
-}
-
-/**
- * Nötr kapanış katmanı — auth durumu (loading VEYA henüz doğrulanmamış/
- * yetkisiz, redirect effect'i tetiklenene kadar) çözülene kadar gösterilir.
- * Splash ANİMASYONU DEĞİLDİR: sadece statik logo, hafif nabız.
- */
-function BootScreen({ tone }: { tone: BrandTone }) {
-  return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#09111b]">
-      <BrandMark tone={tone} className="h-16 w-16 animate-pulse" />
-    </div>
-  );
-}
-
-/** Sadece uygulama gerçekten yeni açıldığında (cold launch/refresh) gösterilen
- * logo açılış animasyonu. Route içi geçişlerde tekrar mount edilmez. */
-function SplashScreen({ tone }: { tone: BrandTone }) {
-  return (
-    <div
-      className="erp-launch-screen"
-      aria-label="SİSMİK Kurumsal Operasyon Sistemi açılıyor"
-      aria-live="polite"
-    >
-      <div className="erp-launch-ambient" />
-      <div className="relative flex flex-col items-center">
-        <BrandMark tone={tone} animated className="h-28 w-28 sm:h-32 sm:w-32" />
-        <div className="erp-launch-wordmark mt-5 text-center">
-          <p className="text-[1.65rem] font-black tracking-[0.3em] text-white">SİSMİK</p>
-          <p className="mt-2 text-[10px] font-semibold tracking-[0.22em] text-white/50">KURUMSAL OPERASYON SİSTEMİ</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function hasShownSplashThisSession(): boolean {
-  if (typeof window === "undefined") return false; // SSR: sunucuda hiçbir koşulda atlanmaz
-  try {
-    const hasToken = !!localStorage.getItem("token") || !!localStorage.getItem("auth_store");
-    if (!hasToken) return true;
-    return sessionStorage.getItem(SPLASH_SESSION_KEY) === "shown";
-  } catch {
-    return false;
-  }
 }
 
 export function RoleGuard({
@@ -67,26 +20,18 @@ export function RoleGuard({
 }: RoleGuardProps) {
   const { user, isLoading, isAuthenticated } = useAuth();
   const [mounted, setMounted] = useState(false);
-  const [splashDone, setSplashDone] = useState(false);
 
-  // Mount anında sessionStorage değerine göre splash gerekip gerekmediğini çözüyoruz
   useEffect(() => {
     setMounted(true);
-    setSplashDone(hasShownSplashThisSession());
   }, []);
 
   // ADMIN her panele erişebilir (superuser)
   const hasAccess = !!user && (user.role === "ADMIN" || allowedRoles.includes(user.role));
   const authResolved = !isLoading && isAuthenticated && !!user && hasAccess;
 
-  // React Hook Kuralları: tüm hook'lar (useEffect dahil) HER render'da aynı
-  // sırada, hiçbir early return'ün ARDINDAN değil, koşulsuz çağrılmalı.
-  // Aşağıdaki iki useEffect'in gövdesi zaten yalnızca tarayıcıda çalışır
-  // (React SSR'da effect body'lerini hiç yürütmez) — bu yüzden bu iki
-  // çağrıyı SSR dalının (typeof window === "undefined") ÜSTÜNE taşımak
-  // davranışı değiştirmez, sadece "hooks called conditionally after an
-  // early return" ESLint hatasını (react-hooks/rules-of-hooks) giderir.
-  // Bu hata `next build`'in lint adımını başarısız kılıyordu.
+  // React Hook Kuralları: tüm hook'lar koşulsuz, hiçbir early return'ün
+  // ARDINDAN değil önünde çağrılır. Aşağıdaki effect'in gövdesi zaten yalnızca
+  // tarayıcıda çalışır (React SSR'da effect body'lerini yürütmez).
   useEffect(() => {
     if (isLoading) return;
     if (!isAuthenticated) {
@@ -102,35 +47,24 @@ export function RoleGuard({
     }
   }, [isLoading, isAuthenticated, hasAccess]);
 
-  useEffect(() => {
-    if (!authResolved || splashDone) return;
-    try {
-      sessionStorage.setItem(SPLASH_SESSION_KEY, "shown");
-    } catch {
-      // sessionStorage kullanılamıyorsa (gizli mod vb.) yine de splash'ı göster,
-      // sadece bir dahaki route değişiminde tekrar tetiklenmesin diye state yeterli.
-    }
-    const timer = window.setTimeout(() => setSplashDone(true), SPLASH_DURATION_MS);
-    return () => window.clearTimeout(timer);
-  }, [authResolved, splashDone]);
-
-  // Sunucu (SSR) tarafında veya tarayıcıda JS henüz yüklenip canlanmamışken (hydration öncesi)
-  // eğer aktif geçerli bir kullanıcı oturumu varsa (PWA cold boot) doğrudan ekrana SplashScreen çizilir.
-  // Bu sayede, giriş yapmış kullanıcı için önce boşluk veya dashboard iskeleti yerine DOĞRUDAN logo animasyonu başlar.
-  // (Not: `mounted` zaten SSR'da her zaman false başlar, aşağıdaki genel
-  // !mounted dalı bunu örtük olarak kapsar — bu açık kontrol netlik içindir.)
+  // Sunucu (SSR) / hydrate öncesi: geçerli oturum varsa doğrudan açılış ekranı
+  // çizilir — giriş yapmış kullanıcı için önce boşluk/iskelet değil DOĞRUDAN
+  // logo ekranı görünür.
   if (typeof window === "undefined") {
-    return <SplashScreen tone={brandTone} />;
+    return <LaunchScreen tone={brandTone} />;
   }
 
-  // İlk render'da veya yetki kontrolü devam ederken (veya yetkisizken)
-  // her koşulda SplashScreen render edilir — böylece dashboard'ın ilk hali Asla sızamaz.
-  if (!mounted || !authResolved || !splashDone) {
-    // Oturum yoksa (Login ekranındayken) oraya yönlenene kadar sessizce null dönülür, render yapılmaz.
+  // Oturum kontrolü sürerken (veya yetkisizken → yukarıdaki redirect effect'i
+  // çalışır) TEK bir "Oturum kontrol ediliyor" ekranı gösterilir. Masraf
+  // uygulamasındaki gibi: SABİT/yapay bir bekleme SÜRESİ YOKTUR — kontrol
+  // biter bitmez içeriğe geçilir. Sismik'te oturum JWT'den anında çözüldüğü
+  // için bu ekran yalnızca çok kısa bir an görünür; ardından sayfa mount olup
+  // güncel verisini çeker (her sayfa kendi yükleniyor/iskelet durumunu gösterir).
+  if (!mounted || !authResolved) {
+    // Oturum yoksa (login'e yönleniyor) sessizce null dönülür, splash gösterilmez.
     const hasToken = typeof window !== "undefined" && (!!localStorage.getItem("token") || !!localStorage.getItem("auth_store"));
     if (mounted && !hasToken) return null;
-
-    return <SplashScreen tone={brandTone} />;
+    return <LaunchScreen tone={brandTone} />;
   }
 
   return <>{children}</>;

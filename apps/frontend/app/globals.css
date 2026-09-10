@@ -77,14 +77,14 @@ body > div {
   44%, 100% { transform: translateX(2500px) rotate(20deg); opacity: 0; }
 }
 
-@keyframes launch-screen-exit {
-  0%, 82% { opacity: 1; visibility: visible; }
-  100% { opacity: 0; visibility: hidden; }
-}
-
 @keyframes launch-wordmark-in {
   0%, 42% { opacity: 0; transform: translateY(8px); }
   60%, 100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes launch-progress-slide {
+  0% { transform: translateX(-110%); }
+  100% { transform: translateX(320%); }
 }
 
 :root {
@@ -254,7 +254,9 @@ body > div {
 
   .erp-launch-screen {
     @apply fixed inset-0 z-[60] flex items-center justify-center overflow-hidden bg-[#09111b];
-    animation: launch-screen-exit 3.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    /* Otomatik fade-out YOK: bu ekranı gösteren taraf (RoleGuard) oturum
+       kontrolü biter bitmez React ağacından kaldırır (masraf gibi, sabit
+       süre yok). */
   }
 
   .erp-launch-ambient {
@@ -280,6 +282,23 @@ body > div {
   .erp-launch-wordmark {
     opacity: 0;
     animation: launch-wordmark-in 2.1s ease-out forwards;
+  }
+
+  /* "Oturum kontrol ediliyor" ilerleme çizgisi — belirsiz (indeterminate):
+     sabit bir süre olmadığından, ekran ne kadar görünürse görünsün "çalışıyor"
+     hissi veren, sürekli soldan sağa kayan bir parça (masraf ile aynı yaklaşım). */
+  .erp-launch-progress {
+    position: relative;
+  }
+
+  .erp-launch-progress::after {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 45%;
+    border-radius: inherit;
+    background: rgb(255 255 255 / 0.65);
+    animation: launch-progress-slide 1.15s ease-in-out infinite;
   }
 
   .erp-spotlight-card::before {
@@ -318,10 +337,6 @@ body > div {
     transition: none;
   }
 
-  .erp-launch-screen {
-    animation-duration: 1.2s;
-  }
-
   .erp-brand-mark--animated .erp-brand-fill {
     opacity: 1;
     transform: none;
@@ -336,6 +351,11 @@ body > div {
     opacity: 1;
     transform: none;
     animation: none;
+  }
+
+  .erp-launch-progress::after {
+    animation: none;
+    width: 100%;
   }
 
 }
