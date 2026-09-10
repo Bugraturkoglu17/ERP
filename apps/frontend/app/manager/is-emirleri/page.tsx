@@ -65,6 +65,7 @@ export default function ManagerWorkOrdersPage() {
   const [assignee, setAssignee] = useState("");
   const [statusFilter, setStatusFilter] = useState<"current" | "cancelled">("current");
   const [overdueOnly, setOverdueOnly] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -87,6 +88,8 @@ export default function ManagerWorkOrdersPage() {
       setOverdueOnly(true);
     }
   }, []);
+
+  const activeFilterCount = (category ? 1 : 0) + (priority ? 1 : 0) + (assignee ? 1 : 0) + (statusFilter === "cancelled" ? 1 : 0);
 
   const counts = useMemo(() => ({
     planned: orders.filter((item) => item.status === "planned").length,
@@ -129,11 +132,24 @@ export default function ManagerWorkOrdersPage() {
       </nav>
 
       <section className="rounded-xl border border-slate-200 bg-white p-3">
-        <div className="grid gap-2 lg:grid-cols-[minmax(240px,1fr)_repeat(4,minmax(130px,auto))]">
-          <label className="relative">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <label className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Başlık, mağaza kodu veya çalışan ara" className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-500" />
           </label>
+          {/* Mobilde 4 tam genişlik <select> ekranın yarısını kaplıyordu —
+              artık tek bir "Filtreler" butonu altında toplandı; masaüstünde
+              (lg+) yine hep açık. */}
+          <button type="button" onClick={() => setFiltersOpen((v) => !v)}
+            className={`inline-flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors lg:hidden ${
+              activeFilterCount > 0 || filtersOpen ? "border-blue-300 bg-blue-50 text-blue-700" : "border-slate-200 text-slate-600 hover:bg-slate-50"
+            }`}>
+            <Filter className="h-4 w-4" /> Filtreler
+            {activeFilterCount > 0 && <span className="rounded-full bg-blue-600 px-1.5 text-[11px] font-bold text-white tabular-nums">{activeFilterCount}</span>}
+          </button>
+        </div>
+
+        <div className={`${filtersOpen ? "grid" : "hidden"} mt-2 gap-2 sm:grid-cols-2 lg:mt-2 lg:grid lg:grid-cols-4`}>
           <select value={category} onChange={(event) => setCategory(event.target.value as WorkOrderCategory | "")} className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 outline-none focus:border-blue-500">
             <option value="">Tüm İş Tipleri</option>
             {Object.entries(CATEGORY_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
