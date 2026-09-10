@@ -4,29 +4,36 @@ import { BrandMark, type BrandTone } from "@/components/brand/brand-mark";
 
 /**
  * Uygulamanın SOĞUK açılışında (PWA cold boot / sekme yenileme) gösterilen
- * TEK açılış ekranı: koyu zemin, logo animasyonu, marka yazısı ve altında
- * "oturum kontrol ediliyor" ilerleme çizgisi.
+ * TEK açılış ekranı: koyu zemin, logo dolum animasyonu + logonun üzerinden
+ * geçen ışık hüzmesi, marka yazısı ve altında ince kayan bir çizgi.
  *
- * Hem kök yönlendirme sayfası (app/page.tsx) hem de yetkili rota sarmalayıcısı
- * (RoleGuard) AYNI bu ekranı render eder — böylece "önce içeriden beyaz bir
- * kare + spinner, sonra logo animasyonu" şeklindeki çift ekran sorunu oluşmaz.
+ * Akış (RoleGuard yönetir):
+ *  - İçerik (children) bu ekran görünürken ARKA PLANDA mount olur, güncel
+ *    verisini çeker.
+ *  - Açılış animasyonu (logo dolumu + ışık hüzmesi, ~2,3 sn) TAMAMLANMADAN
+ *    içeriğe geçilmez.
+ *  - Animasyon bitince RoleGuard `leaving` verir → ekran 380 ms'de fade olur
+ *    ve ardından ağaçtan kaldırılır (sert kesme yok).
  *
- * Masraf uygulamasındaki gibi: sabit/yapay bir bekleme süresi yoktur; ekranı
- * gösteren taraf (RoleGuard) oturum kontrolü biter bitmez onu kaldırır.
- * İlerleme çizgisi bu yüzden BELİRSİZ (indeterminate) kayan bir çizgidir —
- * ne kadar kısa ya da uzun görünürse görünsün "çalışıyor" hissi verir.
+ * Kök yönlendirme sayfası (app/page.tsx) bu bileşeni DEĞİL, sade koyu bir
+ * katman gösterir — böylece animasyon iki kez başlamaz ("ışık açılıp
+ * kapanıyor" hatası).
  */
 export function LaunchScreen({
   tone = "red",
   status = "Oturum kontrol ediliyor",
+  leaving = false,
 }: {
   tone?: BrandTone;
-  /** Alt satırdaki durum metni. null verilirse ilerleme çizgisi gizlenir. */
+  /** Alt satırdaki durum metni. null verilirse çizgi + metin gizlenir. */
   status?: string | null;
+  /** true → ekran opacity 0'a fade olur (RoleGuard, animasyon + oturum hazır olunca verir). */
+  leaving?: boolean;
 }) {
   return (
     <div
       className="erp-launch-screen"
+      data-leaving={leaving ? "true" : undefined}
       aria-label="SİSMİK Kurumsal Operasyon Sistemi açılıyor"
       aria-live="polite"
     >

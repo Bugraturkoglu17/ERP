@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { getTokenPayloadFromStorage, getRoles, isPlatformAdmin } from "@/lib/auth";
 import { AUTH_STORE_KEY } from "@/contexts/auth-context";
 import { ROLE_PANEL_HOME, type UserRole } from "@/lib/permissions";
-import { LaunchScreen } from "@/components/brand/launch-screen";
 
 function jwtRoleHome(roles: string[]): string {
   if (roles.includes("manager")) return ROLE_PANEL_HOME.MANAGER;
@@ -40,8 +39,10 @@ export default function Page() {
     router.replace("/login");
   }, [router]);
 
-  // Kök yönlendirme yapılırken de yetkili rotalarla AYNI koyu açılış ekranı
-  // gösterilir — böylece PWA soğuk açılışta "önce beyaz kare + spinner,
-  // sonra logo animasyonu" çift ekranı yerine tek, kesintisiz animasyon olur.
-  return <LaunchScreen tone="red" />;
+  // Kök yönlendirme yalnızca birkaç ms sürer. Bu sırada SADE bir koyu katman
+  // gösterilir — açılış animasyonu (logo + ışık hüzmesi) yalnızca hedef
+  // rotanın RoleGuard'ında BİR KEZ oynar; burada da LaunchScreen render
+  // etmek animasyonu iki kez başlatıp "ışık açılıp kapanıyor" görüntüsü
+  // yaratıyordu. Zemin rengi .erp-launch-screen ve <body> ile birebir aynı.
+  return <div aria-hidden className="fixed inset-0 z-[60] bg-[#09111b]" />;
 }

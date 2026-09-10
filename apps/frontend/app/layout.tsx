@@ -16,6 +16,9 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: "cover",
+  // Tarayıcı çubuğu / PWA soğuk açılış çerçevesi de koyu açılış zeminiyle
+  // aynı olsun — açılışta görülen kısa açık/beyaz kareyi azaltır.
+  themeColor: "#09111b",
 };
 
 // iOS, manifest tabanlı otomatik splash üretimini (iOS 15.4+) tutarsız/

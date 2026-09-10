@@ -1,7 +1,5 @@
 "use client";
 
-import { useId } from "react";
-
 type BrandTone = "red" | "amber";
 
 const toneColor: Record<BrandTone, string> = {
@@ -17,9 +15,12 @@ export function BrandMark({ tone = "red", className = "h-8 w-8", animated = fals
   className?: string;
   animated?: boolean;
 }) {
-  const uid = useId();
-  const clipId = `erp-mark-clip-${uid}`;
-  const sheenId = `erp-mark-sheen-${uid}`;
+  // Statik id — SSR/hydrate arasında useId sapması (kayıp SVG clip/gradient
+  // referansı → açılışta logonun bir an "kırık" görünmesi) olmasın diye.
+  // `animated` amblem aynı anda yalnızca TEK yerde (açılış ekranı) render
+  // edilir; çakışma olmaz.
+  const clipId = "erp-mark-clip";
+  const sheenId = "erp-mark-sheen";
 
   return (
     <svg

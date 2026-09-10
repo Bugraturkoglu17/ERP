@@ -68,13 +68,13 @@ body > div {
 }
 
 @keyframes brand-sheen-sweep {
-  0%, 4% { transform: translateX(-300px) rotate(20deg); opacity: 0; }
-  10% { opacity: 0.92; }
-  /* Işık, ikonun sağ kenarını tamamen geçtikten (2200px, gerçek sınırdan
-     bolca fazla) sonra sönmeye başlar — "yarıda kesilip kaybolma" yerine
-     tüm ikonu geçip gitsin diye. */
-  36% { transform: translateX(2200px) rotate(20deg); opacity: 0.92; }
-  44%, 100% { transform: translateX(2500px) rotate(20deg); opacity: 0; }
+  /* Tek geçiş: ışık hüzmesi logonun solundan girer, tüm yüzeyi tarayıp
+     sağ kenarı geçtikten sonra söner. Süre boyunca yayılır (5 sn'lik
+     eski döngüde sweep ilk ~%40'ta bitip geri kalanı boş geçiyordu). */
+  0% { transform: translateX(-320px) rotate(20deg); opacity: 0; }
+  14% { opacity: 0.95; }
+  72% { opacity: 0.95; }
+  100% { transform: translateX(2500px) rotate(20deg); opacity: 0; }
 }
 
 @keyframes launch-wordmark-in {
@@ -254,9 +254,15 @@ body > div {
 
   .erp-launch-screen {
     @apply fixed inset-0 z-[60] flex items-center justify-center overflow-hidden bg-[#09111b];
-    /* Otomatik fade-out YOK: bu ekranı gösteren taraf (RoleGuard) oturum
-       kontrolü biter bitmez React ağacından kaldırır (masraf gibi, sabit
-       süre yok). */
+    /* Açılış animasyonu (logo dolumu + ışık hüzmesi) tamamlandıktan sonra
+       RoleGuard data-leaving ekler; ekran sert kesilmeden içeriğe fade olur.
+       React, geçiş bitince elemanı ağaçtan kaldırır. */
+    opacity: 1;
+    transition: opacity 380ms ease;
+  }
+
+  .erp-launch-screen[data-leaving="true"] {
+    opacity: 0;
   }
 
   .erp-launch-ambient {
@@ -276,7 +282,9 @@ body > div {
 
   .erp-brand-sheen {
     mix-blend-mode: screen;
-    animation: brand-sheen-sweep 5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    /* Tek geçiş, sonda durur (infinite değil) — açılış ekranı bu geçiş
+       bitmeden içeriğe geçmez. */
+    animation: brand-sheen-sweep 1.9s cubic-bezier(0.4, 0, 0.2, 1) 0.35s forwards;
   }
 
   .erp-launch-wordmark {
