@@ -13,8 +13,10 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, text
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import SQLModel
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, is_platform_admin
@@ -426,7 +428,13 @@ async def create_user(
     normalized_phone = user_in.phone.strip()
     normalized_email = str(user_in.email).lower() if user_in.email else f"hesap-{''.join(c for c in normalized_phone if c.isdigit())}-{str(target_tenant_id)[:8]}@sismik.local"
     existing = await db.execute(select(User).where(or_(func.lower(User.email) == normalized_email, User.phone == normalized_phone)))
-    if existing.scalar_one_or_none():
+    existing_user = existing.scalar_one_or_none()
+    if existing_user is not None:
+        if not existing_user.is_active:
+            raise HTTPException(
+                status_code=400,
+                detail="Bu e-posta veya telefon, pasif bir hesaba ait. Yeni kayıt yerine o hesabı 'Aktif yap' ile yeniden etkinleştirebilirsiniz.",
+            )
         raise HTTPException(status_code=400, detail="Bu e-posta veya telefonla kayıtlı bir kullanıcı zaten var.")
 
     role_result = await db.execute(select(Role).where(Role.name == requested_role))
@@ -514,13 +522,69 @@ async def update_user_details(
     return await _user_read(db, user)
 
 
-@router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["auth"])
+# users.id'ye NULL EDİLEMEYEN bir sütunla bağlı olup satırları kullanıcıya
+# AİT olan (yani kullanıcı silinince beraberinde silinmesi mantıklı) tablolar.
+# Sıra önemli: child'ı olanlar önce.
+_USER_OWNED_DELETE_ORDER: tuple[str, ...] = (
+    # field_report_items -> field_reports (author_id NOT NULL)
+    "DELETE FROM field_report_items WHERE report_id IN "
+    "(SELECT id FROM field_reports WHERE author_id = :uid)",
+    "DELETE FROM field_reports WHERE author_id = :uid",
+    "DELETE FROM project_assignments WHERE user_id = :uid",
+    "DELETE FROM notifications WHERE user_id = :uid",
+    "DELETE FROM user_security_policies WHERE user_id = :uid",
+    "DELETE FROM user_session_versions WHERE user_id = :uid",
+    "DELETE FROM user_roles WHERE user_id = :uid",
+    "DELETE FROM platform_admin_actions WHERE actor_user_id = :uid",
+)
+
+
+async def _hard_delete_user(db: AsyncSession, user_id) -> None:
+    """Kullanıcıyı KALICI siler.
+
+    1) users.id'ye bağlı NULL edilebilir tüm referanslar (created_by,
+       uploaded_by, approved_by, assigned_to_user_id …) NULL'a çekilir —
+       iş emri / rapor / doküman gibi içerikler korunur, yalnızca "yapan
+       kişi" bağı kopar.
+    2) Kullanıcıya ait, NULL edilemeyen satırlar (rol atamaları, bildirimleri,
+       güvenlik politikası, proje atamaları, saha raporları) silinir.
+    3) users satırı silinir.
+    """
+    params = {"uid": user_id}
+
+    # 1) NULL edilebilir tüm FK referansları — metadata üzerinden gez, hiçbirini kaçırma.
+    for tbl in SQLModel.metadata.sorted_tables:
+        if tbl.name == "users":
+            continue
+        for fk in tbl.foreign_keys:
+            tgt = fk.column
+            if tgt.table.name == "users" and tgt.name == "id" and fk.parent.nullable:
+                await db.execute(
+                    text(f'UPDATE "{tbl.name}" SET "{fk.parent.name}" = NULL '
+                         f'WHERE "{fk.parent.name}" = :uid'),
+                    params,
+                )
+
+    # 2) Kullanıcıya ait satırlar
+    for stmt in _USER_OWNED_DELETE_ORDER:
+        await db.execute(text(stmt), params)
+
+    # 3) Kullanıcı
+    await db.execute(text('DELETE FROM users WHERE id = :uid'), params)
+
+
+@router.delete("/users/{user_id}", tags=["auth"])
 async def delete_user_account(
     user_id: str,
     db:      AsyncSession = Depends(get_db),
     admin:   User         = Depends(get_current_user),
-):
-    """Kullanıcı hesabını sil (soft veya hard)."""
+) -> dict:
+    """Kullanıcı hesabını KALICI olarak sil.
+
+    Beklenmeyen bir bağımlılık nedeniyle kalıcı silme başarısız olursa hesap
+    pasifleştirilerek (soft-delete) güvenli tarafta kalınır ve durum mesajla
+    bildirilir — istek asla 500 dönmez.
+    """
     if not _is_manager(admin):
         raise HTTPException(status_code=403, detail="Kullanıcı silme yetkiniz yok.")
 
@@ -536,6 +600,26 @@ async def delete_user_account(
     if _is_manager_tier_role(user.default_role or "") and not is_platform_admin(admin):
         raise HTTPException(status_code=403, detail="Yönetici hesaplarını yalnızca geliştirici admin silebilir.")
 
-    user.is_active = False
-    db.add(user)
+    full_name = user.full_name
+    try:
+        await _hard_delete_user(db, user.id)
+        await db.commit()
+        return {"message": f"{full_name} hesabı kalıcı olarak silindi.", "hard_deleted": True}
+    except (IntegrityError, SQLAlchemyError):
+        await db.rollback()
+
+    # Fallback: kalıcı silme başarısız → pasifleştir.
+    fallback_user = await db.get(User, user_id)
+    if fallback_user is None:
+        return {"message": f"{full_name} hesabı silindi.", "hard_deleted": True}
+    fallback_user.is_active = False
+    db.add(fallback_user)
+    await bump_session_version(db, fallback_user.id)
     await db.commit()
+    return {
+        "message": (
+            f"{full_name} hesabının bağlı kayıtları olduğu için kalıcı silinemedi; "
+            "hesap pasif hale getirildi ve giriş yapamaz."
+        ),
+        "hard_deleted": False,
+    }

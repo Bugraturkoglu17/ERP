@@ -40,6 +40,7 @@ export default function ManagerUsersPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [infoUser, setInfoUser] = useState<UserRow | null>(null);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
   const load = async () => {
     try {
@@ -94,8 +95,15 @@ export default function ManagerUsersPage() {
   };
 
   const remove = async (user: UserRow) => {
-    if (!window.confirm(`${user.full_name} hesabını pasif hale getirmek istediğinize emin misiniz?`)) return;
-    try { await apiDelete(`/auth/users/${user.id}`); await load(); }
+    if (!window.confirm(`${user.full_name} hesabını KALICI olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`)) return;
+    setError("");
+    setNotice("");
+    try {
+      const res = await apiDelete(`/auth/users/${user.id}`) as { message?: string; hard_deleted?: boolean } | undefined;
+      await load();
+      // Kalıcı silinemeyip pasifleştirildiyse kullanıcıyı bilgilendir.
+      if (res && res.hard_deleted === false && res.message) setNotice(res.message);
+    }
     catch (cause) { setError(errorMessage(cause)); }
   };
 
@@ -108,6 +116,7 @@ export default function ManagerUsersPage() {
 
       <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Ad, e-posta veya telefon ara" className={`${inputClass} mt-0 pl-9`} /></div>
       {error && !modalOpen && <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
+      {notice && !modalOpen && <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{notice}</p>}
 
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
         {loading ? <div className="flex items-center justify-center gap-2 py-16 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Kullanıcılar yükleniyor</div> : filtered.length === 0 ? <p className="py-16 text-center text-sm text-slate-500">Eşleşen kullanıcı bulunamadı.</p> : <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-slate-100 bg-slate-50 text-left text-xs text-slate-500"><th className="px-4 py-3 font-medium">Ad Soyad</th><th className="px-4 py-3 font-medium">Rol</th><th className="px-4 py-3 font-medium">Durum</th><th className="px-4 py-3 text-right font-medium">İşlem</th></tr></thead><tbody className="divide-y divide-slate-100">{filtered.map((user) => {
