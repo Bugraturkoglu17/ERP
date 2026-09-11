@@ -37,6 +37,12 @@ def utc_now() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
+def _workflow_value(value) -> str:
+    """Return the stable lowercase API value for legacy enum/string rows."""
+    raw = getattr(value, "value", value)
+    return str(raw).lower()
+
+
 def _can_view_all_work_orders(user: User) -> bool:
     """Admin ve yönetici tüm tenant'ın iş emirlerini görür; diğerleri sadece kendine atananları."""
     role = user.default_role or ""
@@ -365,6 +371,9 @@ def _enrich(
     reports: Optional[list] = None,
 ) -> WorkOrderRead:
     project_meta = _parse_project_meta(project)
+    work_type = _workflow_value(wo.work_type)
+    priority = _workflow_value(wo.priority)
+    status = _workflow_value(wo.status)
     return WorkOrderRead(
         id=wo.id,
         project_id=wo.project_id,
@@ -373,16 +382,16 @@ def _enrich(
         project_region=project_meta.get("bolge") or project_meta.get("region"),
         project_city=project_meta.get("sehir") or project_meta.get("city"),
         project_address=project_meta.get("adres") or project_meta.get("address"),
-        work_type=wo.work_type,
-        work_type_label=WORK_TYPE_LABELS.get(wo.work_type, wo.work_type),
+        work_type=work_type,
+        work_type_label=WORK_TYPE_LABELS.get(work_type, work_type),
         title=wo.title,
         description=wo.description,
         assigned_to_name=wo.assigned_to_name,
         assigned_to_phone=wo.assigned_to_phone,
         assigned_to_user_id=getattr(wo, "assigned_to_user_id", None),
-        priority=wo.priority,
-        status=wo.status,
-        status_label=STATUS_LABELS.get(wo.status, wo.status),
+        priority=priority,
+        status=status,
+        status_label=STATUS_LABELS.get(status, status),
         location_url=wo.location_url,
         due_date=wo.due_date,
         created_by_name=wo.created_by_name,
@@ -440,7 +449,7 @@ async def create_work_order(
         assigned_to_phone=assigned_phone,
         assigned_to_user_id=payload.assigned_to_user_id,
         priority=payload.priority or "normal",
-        status=WorkOrderStatus.PLANNED,
+        status=WorkOrderStatus.PLANNED.value,
         location_url=payload.location_url,
         due_date=_parse_date(payload.due_date),
         created_by=user.id,
@@ -955,7 +964,7 @@ async def update_stage(
     _ensure_work_order_access(wo, user)
 
     if payload.status is not None:
-        if wo.status in {"planned", "draft", "sent", "approval_pending"}:
+        if _workflow_value(wo.status) in {"planned", "draft", "sent", "approval_pending"}:
             raise HTTPException(409, "Aşamaları güncellemeden önce süreci başlatmalısınız.")
         if payload.status not in {"planned", "in_progress", "completed", "cancelled"}:
             raise HTTPException(400, "Geçersiz aşama durumu.")
@@ -986,16 +995,16 @@ async def update_stage(
             item.status = "completed"
             item.updated_at = completed_at
             item.updated_by_name = user.full_name
-        wo.status = WorkOrderStatus.COMPLETED
+        wo.status = WorkOrderStatus.COMPLETED.value
         wo.completed_at = completed_at
     elif all_stages and all(item.status == "cancelled" for item in all_stages):
-        wo.status = WorkOrderStatus.CANCELLED
+        wo.status = WorkOrderStatus.CANCELLED.value
         wo.completed_at = None
     elif all_stages and all(item.status == "planned" for item in all_stages):
-        wo.status = WorkOrderStatus.DRAFT
+        wo.status = WorkOrderStatus.DRAFT.value
         wo.completed_at = None
     elif any(item.status in {"in_progress", "completed"} for item in all_stages):
-        wo.status = WorkOrderStatus.STARTED
+        wo.status = WorkOrderStatus.STARTED.value
         wo.started_at = wo.started_at or utc_now()
         wo.completed_at = None
     wo.updated_at = utc_now()
@@ -1066,7 +1075,7 @@ async def send_whatsapp(
     notif = WorkOrderNotification(
         store_name=proj.name if proj else "—",
         store_code=proj.project_no if proj else None,
-        work_type_label=WORK_TYPE_LABELS.get(wo.work_type, wo.work_type),
+        work_type_label=WORK_TYPE_LABELS.get(_workflow_value(wo.work_type), _workflow_value(wo.work_type)),
         title=wo.title,
         description=wo.description,
         store_address=proj_desc.get("adres") or None,
@@ -1093,7 +1102,7 @@ async def send_whatsapp(
     db.add(wa_msg)
 
     if result["success"]:
-        wo.status = WorkOrderStatus.SENT
+        wo.status = WorkOrderStatus.SENT.value
         wo.sent_at = utc_now()
         await _log_activity(db, wo.id, wo.project_id, "sent", f"İş emri WhatsApp ile gönderildi: {wo.assigned_to_name or wo.assigned_to_phone}")
 
@@ -1378,6 +1387,7 @@ async def _resolve_token(token: str, db: AsyncSession) -> tuple[WorkOrderPublicL
 @public_router.get("/work-orders/{token}", response_model=PublicWorkOrderRead)
 async def public_get_work_order(token: str, db: AsyncSession = Depends(get_db)):
     link, wo, proj = await _resolve_token(token, db)
+    work_type = _workflow_value(wo.work_type)
 
     photos_r = await db.execute(select(WorkOrderPhoto).where(WorkOrderPhoto.work_order_id == wo.id))
     photos = [
@@ -1394,12 +1404,12 @@ async def public_get_work_order(token: str, db: AsyncSession = Depends(get_db)):
         project_no=proj.project_no if proj else None,
         project_address=_parse_project_address(proj),
         project_phone=_parse_project_phone(proj),
-        work_type=wo.work_type,
-        work_type_label=WORK_TYPE_LABELS.get(wo.work_type, wo.work_type),
+        work_type=work_type,
+        work_type_label=WORK_TYPE_LABELS.get(work_type, work_type),
         title=wo.title,
         description=wo.description,
-        priority=wo.priority,
-        status=wo.status,
+        priority=_workflow_value(wo.priority),
+        status=_workflow_value(wo.status),
         location_url=wo.location_url,
         due_date=wo.due_date,
         photos=photos,
@@ -1424,7 +1434,7 @@ async def public_submit_work_order(
         if len(photos) == 0:
             raise HTTPException(400, "İşi tamamlandı olarak kapatmak için en az bir fotoğraf yüklemelisiniz.")
 
-        if wo.work_type == "maintenance":
+        if _workflow_value(wo.work_type) == "maintenance":
             forms_r = await db.execute(select(WorkOrderServiceForm).where(WorkOrderServiceForm.work_order_id == wo.id))
             if not forms_r.scalars().first():
                 raise HTTPException(400, "Bakım işini tamamlamak için servis formu yüklemelisiniz.")

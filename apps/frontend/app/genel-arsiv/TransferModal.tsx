@@ -5,7 +5,7 @@ import {
   ArrowRight, Check, CheckCircle2, ChevronRight, Loader2, Search, Store, X, AlertCircle, Info,
 } from "lucide-react";
 import { buildApiUrl } from "@/lib/api";
-import { getStores } from "@/services/stores";
+import { searchStoresRemote } from "@/services/stores";
 
 // ── Sabitler ─────────────────────────────────────────────────────────────────
 
@@ -62,25 +62,32 @@ export default function TransferModal({
   const [busy,       setBusy]       = useState(false);
   const [err,        setErr]        = useState<string | null>(null);
   const [success,    setSuccess]    = useState<string | null>(null);
-
-  // Mağaza listesini yükle
-  useEffect(() => {
-    getStores().then(setProjects).catch(() => setProjects([]));
-  }, []);
+  const [projectsLoading, setProjectsLoading] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setProjSearchDebounced(projSearch), 200);
     return () => clearTimeout(t);
   }, [projSearch]);
 
-  const filteredProjects = projects.filter((p) => {
-    const q = projSearchDebounced.toLowerCase();
-    if (!q) return true;
-    return (
-      p.name.toLowerCase().includes(q) ||
-      (p.project_no ?? "").toLowerCase().includes(q)
-    );
-  }).slice(0, 50);
+  // Binlerce mağazayı modal açılır açılmaz indirme. Kullanıcı en az iki
+  // karakter yazınca backend üzerinde arayıp yalnızca ilk 50 sonucu getir.
+  useEffect(() => {
+    const query = projSearchDebounced.trim();
+    if (query.length < 2) {
+      setProjects([]);
+      setProjectsLoading(false);
+      return;
+    }
+    let active = true;
+    setProjectsLoading(true);
+    searchStoresRemote(query, 50)
+      .then((items) => { if (active) setProjects(items); })
+      .catch(() => { if (active) setProjects([]); })
+      .finally(() => { if (active) setProjectsLoading(false); });
+    return () => { active = false; };
+  }, [projSearchDebounced]);
+
+  const filteredProjects = projects;
 
   const canNext = step === 1
     ? true
@@ -219,9 +226,13 @@ export default function TransferModal({
                 />
               </div>
               <div className="max-h-56 overflow-y-auto space-y-1">
-                {filteredProjects.length === 0 && (
-                  <p className="text-center text-xs text-slate-400 py-6">Sonuç bulunamadı</p>
-                )}
+                {projSearchDebounced.trim().length < 2 ? (
+                  <p className="py-6 text-center text-xs text-slate-400">Aramak için en az 2 karakter yazın.</p>
+                ) : projectsLoading ? (
+                  <p className="py-6 text-center text-xs text-slate-400">Mağazalar aranıyor…</p>
+                ) : filteredProjects.length === 0 ? (
+                  <p className="py-6 text-center text-xs text-slate-400">Sonuç bulunamadı.</p>
+                ) : null}
                 {filteredProjects.map((p) => (
                   <button
                     key={p.id}

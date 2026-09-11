@@ -23,6 +23,10 @@ function uiRole(user: UserRow) {
   return "USER";
 }
 
+function displayName(user: UserRow) {
+  return uiRole(user) === "ADMIN" ? "Geliştirici Admin" : user.full_name;
+}
+
 function errorMessage(cause: unknown) {
   const detail = (cause as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
   return typeof detail === "string" ? detail : cause instanceof Error ? cause.message : "İşlem tamamlanamadı.";
@@ -124,6 +128,7 @@ export default function ManagerUsersPage() {
           const protectedAdmin = role === "ADMIN";
           const protectedManager = role === "MANAGER" && currentUser?.role !== "ADMIN";
           const isSelf = user.id === currentUser?.id;
+          const visibleName = displayName(user);
           const accountStatus = !user.is_active ? "Pasif" : user.force_password_change || !user.onboarding_complete ? "İlk giriş bekliyor" : "Aktif";
           const rowActions: ToolbarDockAction[] = [
             { key: "info", label: "Bilgiler", icon: Info, onClick: () => setInfoUser(user) },
@@ -135,7 +140,7 @@ export default function ManagerUsersPage() {
               { key: "delete", label: "Hesabı sil", icon: Trash2, variant: "danger", onClick: () => remove(user) } as ToolbarDockAction,
             ] : []),
           ];
-          return <tr key={user.id} className="hover:bg-slate-50"><td className="px-4 py-3"><div className="flex items-center gap-3"><span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">{user.full_name.split(" ").map((part) => part[0]).slice(0, 2).join("").toLocaleUpperCase("tr-TR")}</span><span className="font-medium text-slate-800">{user.full_name}</span></div></td><td className="px-4 py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${role === "ADMIN" ? "bg-indigo-100 text-indigo-700" : role === "MANAGER" ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-600"}`}>{role === "ADMIN" ? "Geliştirici Admin" : role === "MANAGER" ? "Yönetici" : "Kullanıcı"}</span></td><td className="px-4 py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${accountStatus === "Aktif" ? "bg-emerald-100 text-emerald-700" : accountStatus === "Pasif" ? "bg-slate-100 text-slate-500" : "bg-amber-100 text-amber-700"}`}>{accountStatus}</span></td><td className="px-4 py-3"><div className="flex items-center justify-end gap-1">{(protectedAdmin || protectedManager) && <span title={protectedAdmin ? "Admin hesabı korunur" : "Yönetici hesabını yalnızca geliştirici admin düzenleyebilir/silebilir"} className="text-indigo-400"><ShieldCheck className="h-3.5 w-3.5" /></span>}<ToolbarDock actions={rowActions} direction="down" align="end" className="justify-end" /></div></td></tr>;
+          return <tr key={user.id} className="hover:bg-slate-50"><td className="px-4 py-3"><div className="flex items-center gap-3"><span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">{visibleName.split(" ").map((part) => part[0]).slice(0, 2).join("").toLocaleUpperCase("tr-TR")}</span><span className="font-medium text-slate-800">{visibleName}</span></div></td><td className="px-4 py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${role === "ADMIN" ? "bg-indigo-100 text-indigo-700" : role === "MANAGER" ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-600"}`}>{role === "ADMIN" ? "Geliştirici Admin" : role === "MANAGER" ? "Yönetici" : "Kullanıcı"}</span></td><td className="px-4 py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${accountStatus === "Aktif" ? "bg-emerald-100 text-emerald-700" : accountStatus === "Pasif" ? "bg-slate-100 text-slate-500" : "bg-amber-100 text-amber-700"}`}>{accountStatus}</span></td><td className="px-4 py-3"><div className="flex items-center justify-end gap-1">{(protectedAdmin || protectedManager) && <span title={protectedAdmin ? "Admin hesabı korunur" : "Yönetici hesabını yalnızca geliştirici admin düzenleyebilir/silebilir"} className="text-indigo-400"><ShieldCheck className="h-3.5 w-3.5" /></span>}<ToolbarDock actions={rowActions} direction="down" align="end" className="justify-end" /></div></td></tr>;
         })}</tbody></table></div>}
       </div>
 
@@ -147,9 +152,9 @@ export default function ManagerUsersPage() {
           <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/40 p-3 sm:items-center" role="dialog" aria-modal="true" onClick={() => setInfoUser(null)}>
             <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-4">
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-700">{infoUser.full_name.split(" ").map((part) => part[0]).slice(0, 2).join("").toLocaleUpperCase("tr-TR")}</span>
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-700">{displayName(infoUser).split(" ").map((part) => part[0]).slice(0, 2).join("").toLocaleUpperCase("tr-TR")}</span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold text-slate-900">{infoUser.full_name}</p>
+                  <p className="truncate font-semibold text-slate-900">{displayName(infoUser)}</p>
                   <p className="text-xs text-slate-400">{infoRole === "ADMIN" ? "Geliştirici Admin" : infoRole === "MANAGER" ? "Yönetici" : "Kullanıcı"} · {infoStatus}</p>
                 </div>
                 <button onClick={() => setInfoUser(null)} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"><X className="h-5 w-5" /></button>

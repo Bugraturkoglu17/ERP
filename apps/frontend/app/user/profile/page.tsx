@@ -15,11 +15,10 @@ interface UserProfile {
 }
 
 const ROLE_LABEL: Record<string, string> = {
-  saha_muhendisi: "Saha Mühendisi",
-  depo_sorumlusu: "Depo Sorumlusu",
-  musteri_kullanici: "Müşteri",
+  user: "Kullanıcı",
   manager: "Yönetici",
-  admin: "Admin",
+  admin: "Geliştirici Admin",
+  platform_admin: "Geliştirici Admin",
 };
 
 export default function UserProfilePage() {

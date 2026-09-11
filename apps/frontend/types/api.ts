@@ -202,7 +202,11 @@ export interface paths {
         post?: never;
         /**
          * Delete User Account
-         * @description Kullanıcı hesabını sil (soft veya hard).
+         * @description Kullanıcı hesabını KALICI olarak sil.
+         *
+         *     Beklenmeyen bir bağımlılık nedeniyle kalıcı silme başarısız olursa hesap
+         *     pasifleştirilerek (soft-delete) güvenli tarafta kalınır ve durum mesajla
+         *     bildirilir — istek asla 500 dönmez.
          */
         delete: operations["delete_user_account_api_v1_auth_users__user_id__delete"];
         options?: never;
@@ -253,6 +257,27 @@ export interface paths {
         patch: operations["update_customer_api_v1_projects_customers__customer_id__patch"];
         trace?: never;
     };
+    "/api/v1/projects/regions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Regions
+         * @description Tüm bölgeleri getirir — Mağaza Kartı filtre/etiket için tek istekte toplu liste.
+         */
+        get: operations["list_regions_api_v1_projects_regions_get"];
+        put?: never;
+        /** Create Region */
+        post: operations["create_region_api_v1_projects_regions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/regions/{customer_id}": {
         parameters: {
             query?: never;
@@ -267,23 +292,6 @@ export interface paths {
         get: operations["list_regions_by_customer_api_v1_projects_regions__customer_id__get"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/projects/regions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Create Region */
-        post: operations["create_region_api_v1_projects_regions_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -375,6 +383,8 @@ export interface paths {
          * @description Yönetici (admin) tüm projeleri listeler.
          *     Diğer roller yalnızca kendisine ProjectAssignment ile atanmış projeleri görür.
          *     Query parametreleri ile filtreleme desteği vardır.
+         *     Toplam kayıt sayısı (filtrelenmiş) X-Total-Count header'ında döner —
+         *     ayrı bir count isteği gerektirmeden sayfalama UI'ı için kullanılabilir.
          */
         get: operations["list_projects_api_v1_projects_get"];
         put?: never;
@@ -2192,6 +2202,77 @@ export interface paths {
         patch: operations["remove_renovation_store_api_v1_renovation_stores__store_id__remove_patch"];
         trace?: never;
     };
+    "/api/v1/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Notifications
+         * @description Kullanıcının en son bildirimlerini getirir (en yeni önce).
+         */
+        get: operations["list_notifications_api_v1_notifications_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/unread-count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Unread Count */
+        get: operations["unread_count_api_v1_notifications_unread_count_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/read-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Mark All Read */
+        patch: operations["mark_all_read_api_v1_notifications_read_all_patch"];
+        trace?: never;
+    };
+    "/api/v1/notifications/{notification_id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Mark Read */
+        patch: operations["mark_read_api_v1_notifications__notification_id__read_patch"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3333,6 +3414,34 @@ export interface components {
         MessageResponse: {
             /** Message */
             message: string;
+        };
+        /** NotificationRead */
+        NotificationRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Category */
+            category: string;
+            /** Title */
+            title: string;
+            /** Body */
+            body: string | null;
+            /** Work Order Id */
+            work_order_id: string | null;
+            /** Is Read */
+            is_read: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** NotificationUnreadCount */
+        NotificationUnreadCount: {
+            /** Count */
+            count: number;
         };
         /** POReceiveRequest */
         POReceiveRequest: {
@@ -5576,11 +5685,13 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Successful Response */
-            204: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
             /** @description Validation Error */
             422: {
@@ -5745,13 +5856,11 @@ export interface operations {
             };
         };
     };
-    list_regions_by_customer_api_v1_projects_regions__customer_id__get: {
+    list_regions_api_v1_projects_regions_get: {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                customer_id: string;
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
@@ -5763,15 +5872,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RegionRead"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -5796,6 +5896,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RegionRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_regions_by_customer_api_v1_projects_regions__customer_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                customer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegionRead"][];
                 };
             };
             /** @description Validation Error */
@@ -6010,6 +6141,8 @@ export interface operations {
                 status?: components["schemas"]["ProjectStatus"] | null;
                 branch_id?: string | null;
                 customer_id?: string | null;
+                region_id?: string | null;
+                include_cancelled?: boolean;
             };
             header?: never;
             path?: never;
@@ -7242,7 +7375,9 @@ export interface operations {
     };
     download_document_api_v1_documents__doc_id__download_get: {
         parameters: {
-            query?: never;
+            query?: {
+                download?: boolean;
+            };
             header?: never;
             path: {
                 doc_id: string;
@@ -10399,6 +10534,108 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_notifications_api_v1_notifications_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unread_count_api_v1_notifications_unread_count_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationUnreadCount"];
+                };
+            };
+        };
+    };
+    mark_all_read_api_v1_notifications_read_all_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponse"];
+                };
+            };
+        };
+    };
+    mark_read_api_v1_notifications__notification_id__read_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                notification_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponse"];
                 };
             };
             /** @description Validation Error */

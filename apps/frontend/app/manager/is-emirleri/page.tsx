@@ -125,8 +125,9 @@ export default function ManagerWorkOrdersPage() {
 
       <nav className="grid grid-cols-3 overflow-hidden rounded-xl border border-slate-200 bg-white" aria-label="İş emri durumları">
         {TABS.map((tab) => (
-          <button key={tab.key} onClick={() => { setActiveTab(tab.key); setStatusFilter("current"); setOverdueOnly(false); }} className={`border-r border-slate-100 px-3 py-3 text-sm font-medium transition last:border-r-0 ${activeTab === tab.key && statusFilter === "current" && !overdueOnly ? "bg-slate-950 text-white" : "text-slate-500 hover:bg-slate-50"}`}>
-            {tab.label} <span className="ml-1 tabular-nums opacity-70">{counts[tab.key]}</span>
+          <button key={tab.key} onClick={() => { setActiveTab(tab.key); setStatusFilter("current"); setOverdueOnly(false); }} className={`flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap border-r border-slate-100 px-1.5 py-3 text-[11px] font-semibold tracking-[-0.01em] transition last:border-r-0 sm:px-3 sm:text-sm ${activeTab === tab.key && statusFilter === "current" && !overdueOnly ? "bg-slate-950 text-white" : "text-slate-500 hover:bg-slate-50"}`}>
+            <span>{tab.label}</span>
+            <span className="shrink-0 text-[10px] tabular-nums opacity-60 sm:text-xs">{counts[tab.key]}</span>
           </button>
         ))}
       </nav>

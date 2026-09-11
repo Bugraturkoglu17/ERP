@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Search, Store, X } from "lucide-react";
-import { getStores, searchStoresRemote, type Store as StoreOption } from "@/services/stores";
+import { searchStoresRemote, type Store as StoreOption } from "@/services/stores";
 
 export type { StoreOption };
 
@@ -16,21 +16,6 @@ function parseBolge(desc?: string): string {
 function parseAdres(desc?: string): string {
   if (!desc) return "";
   try { return JSON.parse(desc).adres ?? ""; } catch { return ""; }
-}
-
-/** Tüm mağaza dizinini tek seferde çeker — arama/eşleştirme client-side yapılır. */
-export function useStoreDirectory() {
-  const [stores, setStores] = useState<StoreOption[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    getStores()
-      .then(setStores)
-      .catch(() => setStores([]))
-      .finally(() => setLoading(false));
-  }, []);
-
-  return { stores, loading };
 }
 
 /**

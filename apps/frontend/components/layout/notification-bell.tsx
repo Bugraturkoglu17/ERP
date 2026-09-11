@@ -57,14 +57,14 @@ export function NotificationBell() {
   }, []);
 
   // Bildirimler başka bir cihaz/oturum tarafından oluşturulabildiği için
-  // görünür sekmede hafif aralıklarla sayacı yenile. 10 kullanıcı ölçeğinde
-  // yalnızca küçük bir COUNT sorgusu çalışır ve bildirimin gecikmesini önler.
+  // görünür sekmede düşük sıklıkla sayacı yenile. Odak/sekme değişiminde de
+  // anında kontrol ederek bildirim gecikmesini artırmadan gereksiz sorguyu azaltır.
   useEffect(() => {
     loadUnreadCount();
     const refreshWhenVisible = () => {
       if (document.visibilityState === "visible") loadUnreadCount();
     };
-    const interval = window.setInterval(refreshWhenVisible, 15_000);
+    const interval = window.setInterval(refreshWhenVisible, 60_000);
     document.addEventListener("visibilitychange", refreshWhenVisible);
     window.addEventListener("focus", refreshWhenVisible);
     return () => {
