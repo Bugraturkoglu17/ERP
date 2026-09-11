@@ -1,7 +1,9 @@
 # SİSMİK ERP — Son Production Kabul Raporu
 
-Test tarihi: 11 Eylül 2026  
-Ortam: Yerel frontend + backend + PostgreSQL + S3 uyumlu kalıcı depolama  
+Test tarihi: 11 Eylül 2026
+
+Ortam: Yerel frontend + backend + PostgreSQL + S3 uyumlu kalıcı depolama
+
 Test sırası: Kullanıcı → Yönetici → Admin
 
 ## PRODUCTION READINESS
