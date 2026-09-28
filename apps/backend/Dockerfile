@@ -19,10 +19,22 @@ FROM python:3.12-slim-bookworm
 
 WORKDIR /app
 
-# Runtime deps
+# Runtime deps + PostgreSQL client (pg_dump — yerel firma yedekleme sistemi
+# için, madde 11). PGDG resmi deposundan EN GÜNCEL major sürüm kurulur —
+# Debian bookworm'ün öntanımlı postgresql-client'ı (v15) Neon'un daha yeni
+# major sürümlerini dump edemeyebilir; pg_dump sunucudan eşit/daha yeni
+# olmalıdır. gnupg/lsb-release yalnızca repo kurulumu için gerekli, sonra silinir.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
     curl \
+    gnupg \
+    lsb-release \
+    ca-certificates \
+    && install -d /usr/share/postgresql-common/pgdg \
+    && curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+    && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
+    && apt-get update && apt-get install -y --no-install-recommends postgresql-client-17 \
+    && apt-get purge -y --auto-remove gnupg lsb-release \
     && rm -rf /var/lib/apt/lists/*
 
 RUN groupadd -r app && useradd -r -g app -d /home/app -m -s /usr/sbin/nologin app

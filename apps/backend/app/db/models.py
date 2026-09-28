@@ -10,6 +10,7 @@ from typing import List, Optional, Literal
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     Column,
     DateTime,
@@ -1463,3 +1464,33 @@ class Notification(SQLModel, table=True):
     work_order_id:    Optional[UUID] = Field(foreign_key="work_orders.id", default=None, index=True)
     is_read:          bool           = Field(default=False, index=True)
     created_at:       datetime       = Field(default_factory=utc_now, nullable=False, index=True)
+
+
+class BackupRun(SQLModel, table=True):
+    """Firma kontrollü yerel yedekleme koşusu — yalnızca denetim/hatırlatma
+    amaçlı özet kaydı. İncremental karar mantığının KAYNAĞI değildir; o,
+    seçilen HDD/klasördeki backup-index.json manifestidir (sunucu hiçbir
+    "son backup" durumunu incremental karar için kullanmaz — yalnızca
+    Yönetici panelindeki hatırlatma/geçmiş ekranı bu tabloyu okur)."""
+
+    __tablename__ = "backup_runs"
+
+    id:                  UUID           = Field(default_factory=uuid4, primary_key=True)
+    tenant_id:           Optional[UUID] = Field(foreign_key="tenants.id", default=None, index=True)
+    manager_user_id:     UUID           = Field(foreign_key="users.id", index=True)
+    manager_name:        str            = Field(max_length=255)
+    # İstemcinin (tarayıcının) seçilen HDD/klasör için ürettiği kalıcı kimlik —
+    # disk harfi değişebildiği için asla disk harfi/yol saklanmaz.
+    backup_target_id:    str            = Field(max_length=64, index=True)
+    backup_target_label: Optional[str]  = Field(default=None, max_length=255)
+    status:              str            = Field(max_length=20, index=True)  # running | completed | failed | incomplete
+    database_backed_up:  bool           = Field(default=False)
+    r2_objects_new:       int           = Field(default=0)
+    r2_objects_changed:   int           = Field(default=0)
+    r2_objects_failed:    int           = Field(default=0)
+    # BigInteger: bir yedekleme koşusu tek başına 2 GB'ın (INTEGER sınırı) çok
+    # üzerinde veri yazabilir (madde: "1 TB backup").
+    bytes_written:        int           = Field(default=0, sa_column=Column(BigInteger(), nullable=False, server_default="0"))
+    error_message:        Optional[str] = Field(default=None, max_length=2000)
+    started_at:           datetime      = Field(default_factory=utc_now, nullable=False, index=True)
+    completed_at:         Optional[datetime] = Field(default=None)

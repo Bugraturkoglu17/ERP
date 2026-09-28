@@ -5,17 +5,28 @@
 
 from __future__ import annotations
 
+import asyncio
 import boto3
 import re
 import unicodedata
+from datetime import datetime, timezone
 from botocore.client import Config
 from botocore.exceptions import ClientError
 import os
 import shutil
-from typing import Optional
+from typing import Iterator, Optional, TypedDict
 from urllib.parse import quote
 
 from app.core.config import settings
+
+
+class StorageObjectInfo(TypedDict):
+    """Tek bir depolanan objenin (R2/yerel) kimliği — yedekleme sistemi bunu kullanır."""
+
+    key: str
+    size: int
+    etag: str
+    last_modified: str  # ISO 8601
 
 
 def get_local_upload_dir() -> str:
@@ -164,6 +175,97 @@ class StorageService:
             except ClientError as e:
                 print(f"S3 Presigned URL Error: {e}")
                 raise IOError(f"Erişim URL'si oluşturulamadı: {e}")
+
+    def _iter_local_objects(self, prefix: Optional[str]) -> Iterator[StorageObjectInfo]:
+        base = self.local_base_dir
+        walk_root = os.path.join(base, prefix) if prefix else base
+        if not os.path.isdir(walk_root):
+            return
+        for dirpath, _dirnames, filenames in os.walk(walk_root):
+            for name in filenames:
+                full = os.path.join(dirpath, name)
+                key = os.path.relpath(full, base).replace(os.sep, "/")
+                try:
+                    stat = os.stat(full)
+                except OSError:
+                    continue
+                yield StorageObjectInfo(
+                    key=key,
+                    size=stat.st_size,
+                    # Yerel modda gerçek S3 ETag'i yok — mtime+size'dan türetilmiş
+                    # kararlı bir "değişti mi" imzası kullanılır (yedekleme diff'i
+                    # için yeterli; R2'deki gerçek ETag/checksum'un yerini TUTMAZ).
+                    etag=f"local-{int(stat.st_mtime)}-{stat.st_size}",
+                    last_modified=datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
+                )
+
+    def _list_objects_sync(self, prefix: Optional[str]) -> list[StorageObjectInfo]:
+        """Senkron (boto3) obje listeleme — asyncio.to_thread ile sarmalanır."""
+        if self.local_mode:
+            return list(self._iter_local_objects(prefix))
+        results: list[StorageObjectInfo] = []
+        paginator = self.s3_client.get_paginator("list_objects_v2")
+        kwargs = {"Bucket": self.bucket_name}
+        if prefix:
+            kwargs["Prefix"] = prefix
+        try:
+            for page in paginator.paginate(**kwargs):
+                for obj in page.get("Contents", []):
+                    results.append(
+                        StorageObjectInfo(
+                            key=obj["Key"],
+                            size=obj["Size"],
+                            etag=obj["ETag"].strip('"'),
+                            last_modified=obj["LastModified"].isoformat(),
+                        )
+                    )
+        except ClientError as e:
+            print(f"S3 List Objects Error: {e}")
+            raise IOError(f"Depolama listesi alınamadı: {e}")
+        return results
+
+    async def list_objects(self, prefix: Optional[str] = None) -> list[StorageObjectInfo]:
+        """
+        Bucket'taki (veya yerel fallback dizinindeki) TÜM objeleri listeler.
+        Yedekleme sisteminin canlı R2 durumunu öğrenmesi için birincil kaynak —
+        hiçbir DB tablosuna güvenmez (bazı tablolar yalnızca presigned URL
+        snapshot'ı tutuyor, gerçek object key değil).
+        """
+        return await asyncio.to_thread(self._list_objects_sync, prefix)
+
+    async def head_object(self, file_key: str) -> Optional[StorageObjectInfo]:
+        """Tek bir objenin güncel boyut/ETag bilgisini döner (bütünlük doğrulama için). Yoksa None."""
+        if self.local_mode:
+            target_path = os.path.join(self.local_base_dir, file_key)
+            try:
+                stat = os.stat(target_path)
+            except OSError:
+                return None
+            return StorageObjectInfo(
+                key=file_key,
+                size=stat.st_size,
+                etag=f"local-{int(stat.st_mtime)}-{stat.st_size}",
+                last_modified=__import__("datetime").datetime.fromtimestamp(
+                    stat.st_mtime, tz=__import__("datetime").timezone.utc
+                ).isoformat(),
+            )
+
+        def _head() -> Optional[StorageObjectInfo]:
+            try:
+                resp = self.s3_client.head_object(Bucket=self.bucket_name, Key=file_key)
+            except ClientError as e:
+                if e.response.get("Error", {}).get("Code") in ("404", "NoSuchKey"):
+                    return None
+                print(f"S3 Head Object Error: {e}")
+                raise IOError(f"Obje bilgisi alınamadı: {e}")
+            return StorageObjectInfo(
+                key=file_key,
+                size=resp["ContentLength"],
+                etag=resp["ETag"].strip('"'),
+                last_modified=resp["LastModified"].isoformat(),
+            )
+
+        return await asyncio.to_thread(_head)
 
     async def delete_file(self, file_key: str) -> bool:
         """

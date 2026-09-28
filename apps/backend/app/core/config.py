@@ -52,6 +52,18 @@ class Settings(BaseSettings):
     CELERY_WORKERS: int = 4
     AUTO_CREATE_SCHEMA: bool = True
 
+    # ── Firma kontrollü yerel yedekleme sistemi ─────────────────────────────
+    # pg_dump binary yolu — üretimde (Dockerfile) PATH üzerinden "pg_dump"
+    # olarak bulunur; yerel geliştirmede farklı bir kurulum yoluna işaret
+    # etmek için .env'de override edilebilir.
+    PG_DUMP_PATH: str = "pg_dump"
+    # R2/depolama presigned indirme URL'lerinin ömrü — yedekleme akışında
+    # kısa tutulur (madde 26: secret hiçbir şekilde frontend'e gitmez).
+    BACKUP_PRESIGNED_URL_TTL_SECONDS: int = 600
+    # Bir yedekleme kilidinin (Redis) azami ömrü — job kapanmadan süreç
+    # çökerse kilit sonsuza kadar takılı kalmasın diye.
+    BACKUP_LOCK_TTL_SECONDS: int = 7200
+
     # ── Email (Resend) ───────────────────────────────────────────────────────
     RESEND_API_KEY: str = ""
     EMAIL_PROVIDER: str = "resend"

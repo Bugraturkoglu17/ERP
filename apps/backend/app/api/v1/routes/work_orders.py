@@ -709,18 +709,15 @@ async def delete_work_order(
         created_at=utc_now(),
     ))
 
-    # Mağaza kartı görsel envanterinde hâlâ referans edilen file_key'leri koru —
-    # sadece envanterde artık referanslanmayan dosyalar fiziksel olarak silinir.
-    work_refs, report_refs = await _photo_inventory_refs(wo.project_id, db)
-
-    # Child tabloları FK kısıtı oluşturmadan önce sil
+    # Child tabloları FK kısıtı oluşturmadan önce sil.
+    # R2/OCI objeleri FİZİKSEL olarak silinmez (yalnızca DB kayıtları) — dosya
+    # depolamada kalır; yedekleme sistemi ve bucket-retention politikasıyla
+    # uyum için mağaza kartı envanter referansına bakılmaksızın korunur.
     # Report photos önce silinmeli (report'lara FK var)
     reports_r = await db.execute(select(WorkOrderReport).where(WorkOrderReport.work_order_id == work_order_id))
     for rep in reports_r.scalars().all():
         rp_r = await db.execute(select(WorkOrderReportPhoto).where(WorkOrderReportPhoto.report_id == rep.id))
         for rp in rp_r.scalars().all():
-            if rp.file_key not in report_refs:
-                await storage.delete_file(rp.file_key)
             await db.delete(rp)
         await db.flush()
         await db.delete(rep)
@@ -728,8 +725,6 @@ async def delete_work_order(
 
     photos_r = await db.execute(select(WorkOrderPhoto).where(WorkOrderPhoto.work_order_id == work_order_id))
     for photo in photos_r.scalars().all():
-        if photo.file_key not in work_refs:
-            await storage.delete_file(photo.file_key)
         await db.delete(photo)
     await db.flush()
 
@@ -880,13 +875,12 @@ async def delete_report(
     if not wo:
         raise HTTPException(404, "İş emri bulunamadı.")
     _ensure_work_order_access(wo, user)
-    _, report_refs = await _photo_inventory_refs(wo.project_id, db)
+    # R2/OCI objesi fiziksel olarak silinmez — yalnızca DB kaydı kaldırılır
+    # (bkz. delete_work_order_photo üzerindeki aynı kural açıklaması).
     photos_r = await db.execute(
         select(WorkOrderReportPhoto).where(WorkOrderReportPhoto.report_id == report_id)
     )
     for p in photos_r.scalars().all():
-        if p.file_key not in report_refs:
-            await storage.delete_file(p.file_key)
         await db.delete(p)
     await db.flush()
     await db.delete(rep)
@@ -1222,10 +1216,9 @@ async def delete_work_order_photo(
     if photo.file_key in inventory_refs:
         raise HTTPException(409, "Mağaza kartına eklenmiş saha görseli silinemez.")
 
-    deleted = await storage.delete_file(photo.file_key)
-    if not deleted:
-        raise HTTPException(500, "Dosya depolamadan silinemedi.")
-
+    # R2/OCI objesi FİZİKSEL olarak silinmez — yalnızca ERP kaydı (DB satırı)
+    # kaldırılır. Depolamadaki dosya, yedekleme sisteminin görebilmesi ve
+    # bucket-retention (Cloudflare R2 Lock) politikasıyla uyum için korunur.
     await db.delete(photo)
     await _log_activity(
         db,

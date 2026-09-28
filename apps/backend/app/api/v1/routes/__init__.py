@@ -8,7 +8,7 @@ from app.api.v1.routes import (
     auth, projects, inventory, finance, documents, platform,
     procurement, field_reports, whatsapp,
     store_process, service_forms, progress_payments, approvals, invoice_records,
-    work_orders, store_assignments, notifications,
+    work_orders, store_assignments, notifications, backup,
 )
 
 router = APIRouter()
@@ -32,3 +32,4 @@ router.include_router(work_orders.public_router,  prefix="/public",           ta
 router.include_router(work_orders.webhook_router, prefix="/webhooks",         tags=["webhooks"])
 router.include_router(store_assignments.router,   prefix="",                  tags=["store-assignments"])
 router.include_router(notifications.router,       prefix="/notifications",    tags=["notifications"])
+router.include_router(backup.router,              prefix="/backup",           tags=["backup"])
