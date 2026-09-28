@@ -189,7 +189,11 @@ export async function runBackup(
     emit({ message: allOk ? "Yedekleme tamamlandı." : result.errorMessage }, "done");
     return complete(result);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Bilinmeyen hata";
+    const message =
+      err instanceof DOMException && err.name === "NotAllowedError"
+        ? "Klasöre yazma izni reddedildi. Masaüstü/Belgeler/İndirilenler gibi sistem klasörleri yerine, " +
+          "bunların içinde oluşturduğunuz bir alt klasörü seçip tekrar deneyin."
+        : err instanceof Error ? err.message : "Bilinmeyen hata";
     emit({ message }, "error");
     return complete({
       status: "failed",

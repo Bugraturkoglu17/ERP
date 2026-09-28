@@ -20,3 +20,15 @@ interface DirectoryPickerOptions {
 interface Window {
   showDirectoryPicker?(options?: DirectoryPickerOptions): Promise<FileSystemDirectoryHandle>;
 }
+
+// lib.dom.d.ts, FileSystemHandle üzerinde queryPermission/requestPermission'ı
+// henüz tanımlamıyor (bunlar da WICG File System Access uzantısı) — izin
+// doğrulaması (fsAccess.ts: verifyReadWritePermission) için gerekli.
+interface FileSystemHandlePermissionDescriptor {
+  mode?: "read" | "readwrite";
+}
+
+interface FileSystemHandle {
+  queryPermission?(descriptor?: FileSystemHandlePermissionDescriptor): Promise<PermissionState>;
+  requestPermission?(descriptor?: FileSystemHandlePermissionDescriptor): Promise<PermissionState>;
+}

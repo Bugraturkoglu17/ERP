@@ -17,6 +17,26 @@ export async function pickBackupDirectory(): Promise<FileSystemDirectoryHandle |
   }
 }
 
+/**
+ * Klasör seçiminden HEMEN sonra çağrılır — showDirectoryPicker({mode:"readwrite"})
+ * başarıyla dönse BİLE, Chromium; Masaüstü, Belgeler, İndirilenler, Resimler,
+ * Müzik, Videolar veya kullanıcının ana klasörü gibi "tehlikeli" sistem
+ * klasörlerinin DOĞRUDAN seçilmesinde gerçek yazma iznini sessizce reddeder.
+ * Bu durumda okuma (manifest okuma, bütünlük kontrolü) ve hatta klasör seçimi
+ * SORUNSUZ görünür — ilk gerçek dosya yazımı derinlerde "NotAllowedError"
+ * ile patlar. Bunu erkenden yakalamak için burada izin açıkça doğrulanır.
+ */
+export async function verifyReadWritePermission(handle: FileSystemDirectoryHandle): Promise<boolean> {
+  const opts = { mode: "readwrite" as const };
+  try {
+    if ((await handle.queryPermission?.(opts)) === "granted") return true;
+    if ((await handle.requestPermission?.(opts)) === "granted") return true;
+  } catch {
+    // requestPermission bir kullanıcı jesti dışında çağrılırsa hata fırlatabilir.
+  }
+  return false;
+}
+
 async function ensureSubdirectory(root: FileSystemDirectoryHandle, path: string): Promise<FileSystemDirectoryHandle> {
   const parts = path.split("/").filter(Boolean);
   let dir = root;

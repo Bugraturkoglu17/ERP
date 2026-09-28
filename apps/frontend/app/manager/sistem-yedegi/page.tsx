@@ -10,7 +10,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card, CardTitle, StatCard } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { isFileSystemAccessSupported, pickBackupDirectory } from "@/lib/backup/fsAccess";
+import { isFileSystemAccessSupported, pickBackupDirectory, verifyReadWritePermission } from "@/lib/backup/fsAccess";
 import { checkIntegrity, fetchRecentJobs, loadBackupPlan, runBackup, type BackupRunResult } from "@/lib/backup/engine";
 import type { BackupJob, BackupPlan, BackupProgress } from "@/lib/backup/types";
 
@@ -120,6 +120,15 @@ export default function SystemBackupPage() {
     try {
       const handle = await pickBackupDirectory();
       if (!handle) { setPreparing(false); return; } // kullanıcı iptal etti
+      if (!(await verifyReadWritePermission(handle))) {
+        setError(
+          "Seçilen klasöre yazma izni verilemedi. Tarayıcı; Masaüstü, Belgeler, İndirilenler, Resimler, " +
+          "Müzik, Videolar veya kullanıcı ana klasörünün doğrudan seçilmesine güvenlik nedeniyle izin vermez. " +
+          "Lütfen bu klasörlerin İÇİNDE yeni bir alt klasör oluşturup (örn. \"SismikYedek\") onu seçin.",
+        );
+        setPreparing(false);
+        return;
+      }
       const loadedPlan = await loadBackupPlan(handle);
       const missing = loadedPlan.isNewTarget ? [] : await checkIntegrity(handle, loadedPlan.manifest);
       setDirHandle(handle);
@@ -136,6 +145,10 @@ export default function SystemBackupPage() {
     if (!dirHandle || !plan) return;
     setError("");
     setResult(null);
+    if (!(await verifyReadWritePermission(dirHandle))) {
+      setError("Klasöre yazma izni kayboldu. Lütfen klasörü tekrar seçin.");
+      return;
+    }
     const controller = new AbortController();
     abortRef.current = controller;
     try {
