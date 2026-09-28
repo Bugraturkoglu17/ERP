@@ -11,21 +11,12 @@ function fmtBytes(n: number): string {
   return `${(n / 1048576).toFixed(1)} MB`;
 }
 
-export type UploadedArchiveDoc = {
-  id: string;
-  original_name: string;
-  file_size_bytes: number | null;
-  doc_type: string;
-  created_at: string;
-};
-
 export default function UploadModal({
   onClose,
   onDone,
 }: {
   onClose: () => void;
-  /** Yükleme başarıyla bitince, az önce yüklenen dosyaların listesiyle çağrılır (mağaza eşleştirme incelemesi içindir). */
-  onDone: (uploaded: UploadedArchiveDoc[]) => void;
+  onDone: () => void;
 }) {
   const inputRef  = useRef<HTMLInputElement>(null);
   const [files,   setFiles]   = useState<File[]>([]);
@@ -56,7 +47,6 @@ export default function UploadModal({
     setFileProgress(Object.fromEntries(files.map((file) => [file.name, 0])));
     const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
     const sentBytesByIndex = new Array(files.length).fill(0);
-    const uploaded: UploadedArchiveDoc[] = new Array(files.length);
 
     const reportProgress = () => {
       const sentBytes = sentBytesByIndex.reduce((a, b) => a + b, 0);
@@ -68,7 +58,7 @@ export default function UploadModal({
       const fd = new FormData();
       fd.append("file", file);
       fd.append("doc_type", "other");
-      const doc = await uploadFormData<UploadedArchiveDoc>("/documents/archive/upload", {
+      await uploadFormData("/documents/archive/upload", {
         formData: fd,
         onProgress: (percent) => {
           setFileProgress((current) => ({ ...current, [file.name]: percent }));
@@ -78,7 +68,6 @@ export default function UploadModal({
       });
       sentBytesByIndex[index] = file.size;
       reportProgress();
-      uploaded[index] = doc;
     };
 
     // Dosyalar artık TEK TEK sırayla değil, aynı anda birkaç tanesi birden
@@ -109,7 +98,7 @@ export default function UploadModal({
       setErr(failure);
       return;
     }
-    onDone(uploaded);
+    onDone();
   };
 
   return (

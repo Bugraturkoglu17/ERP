@@ -26,7 +26,7 @@ function isDwg(name: string) {
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-export type ArchiveDoc = {
+type ArchiveDoc = {
   id: string;
   original_name: string;
   file_size_bytes: number | null;
@@ -34,7 +34,7 @@ export type ArchiveDoc = {
   created_at: string;
 };
 
-export type Project = {
+type Project = {
   id: string;
   name: string;
   project_no?: string;
@@ -44,23 +44,20 @@ export type Project = {
 
 export default function TransferModal({
   docs,
-  initialStore,
   onClose,
   onDone,
 }: {
   docs: ArchiveDoc[];
-  /** Önceden bilinen (öneri/eşleşme) mağaza — verilirse mağaza arama adımı atlanıp doğrudan kategori adımına geçilir. */
-  initialStore?: Project;
   onClose: () => void;
   onDone: () => void;
 }) {
   const allDwg = docs.every((d) => isDwg(d.original_name));
 
-  const [step,       setStep]       = useState<1 | 2 | 3>(initialStore ? 3 : 1);
+  const [step,       setStep]       = useState<1 | 2 | 3>(1);
   const [projects,   setProjects]   = useState<Project[]>([]);
   const [projSearch, setProjSearch] = useState("");
   const [projSearchDebounced, setProjSearchDebounced] = useState("");
-  const [selected,   setSelected]   = useState<Project | null>(initialStore ?? null);
+  const [selected,   setSelected]   = useState<Project | null>(null);
   const [category,   setCategory]   = useState<string>(allDwg ? "project_file" : "");
   const [busy,       setBusy]       = useState(false);
   const [err,        setErr]        = useState<string | null>(null);
