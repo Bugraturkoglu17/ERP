@@ -55,30 +55,60 @@ export default function UploadModal({
     setProgress(0);
     setFileProgress(Object.fromEntries(files.map((file) => [file.name, 0])));
     const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
-    let uploadedBytes = 0;
-    const uploaded: UploadedArchiveDoc[] = [];
-    for (const file of files) {
+    const sentBytesByIndex = new Array(files.length).fill(0);
+    const uploaded: UploadedArchiveDoc[] = new Array(files.length);
+
+    const reportProgress = () => {
+      const sentBytes = sentBytesByIndex.reduce((a, b) => a + b, 0);
+      setProgress(totalBytes ? Math.round((sentBytes / totalBytes) * 100) : 100);
+    };
+
+    const uploadOne = async (index: number) => {
+      const file = files[index];
       const fd = new FormData();
       fd.append("file", file);
       fd.append("doc_type", "other");
-      try {
-        const doc = await uploadFormData<UploadedArchiveDoc>("/documents/archive/upload", {
-          formData: fd,
-          onProgress: (percent) => {
-            setFileProgress((current) => ({ ...current, [file.name]: percent }));
-            const sentBytes = uploadedBytes + (file.size * percent / 100);
-            setProgress(totalBytes ? Math.round((sentBytes / totalBytes) * 100) : 100);
-          },
-        });
-        uploaded.push(doc);
-        uploadedBytes += file.size;
-      } catch (ex: unknown) {
-        setErr(ex instanceof Error ? ex.message : "Yükleme başarısız.");
-        setBusy(false);
-        return;
+      const doc = await uploadFormData<UploadedArchiveDoc>("/documents/archive/upload", {
+        formData: fd,
+        onProgress: (percent) => {
+          setFileProgress((current) => ({ ...current, [file.name]: percent }));
+          sentBytesByIndex[index] = file.size * (percent / 100);
+          reportProgress();
+        },
+      });
+      sentBytesByIndex[index] = file.size;
+      reportProgress();
+      uploaded[index] = doc;
+    };
+
+    // Dosyalar artık TEK TEK sırayla değil, aynı anda birkaç tanesi birden
+    // yükleniyor (basit bir eşzamanlılık havuzu) — tarayıcı/sunucu tarafında
+    // tek bir isteğin ağ gecikmesini beklemek yerine bant genişliği paralel
+    // kullanılır, çoklu dosya yüklemesi gözle görülür şekilde hızlanır.
+    const UPLOAD_CONCURRENCY = 3;
+    let nextIndex = 0;
+    let failure: string | null = null;
+
+    const worker = async () => {
+      while (nextIndex < files.length && !failure) {
+        const index = nextIndex++;
+        try {
+          await uploadOne(index);
+        } catch (ex: unknown) {
+          failure = ex instanceof Error ? ex.message : "Yükleme başarısız.";
+        }
       }
-    }
+    };
+
+    await Promise.all(
+      Array.from({ length: Math.min(UPLOAD_CONCURRENCY, files.length) }, worker),
+    );
+
     setBusy(false);
+    if (failure) {
+      setErr(failure);
+      return;
+    }
     onDone(uploaded);
   };
 
