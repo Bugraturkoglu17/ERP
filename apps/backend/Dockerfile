@@ -23,7 +23,9 @@ WORKDIR /app
 # için, madde 11). PGDG resmi deposundan EN GÜNCEL major sürüm kurulur —
 # Debian bookworm'ün öntanımlı postgresql-client'ı (v15) Neon'un daha yeni
 # major sürümlerini dump edemeyebilir; pg_dump sunucudan eşit/daha yeni
-# olmalıdır. gnupg/lsb-release yalnızca repo kurulumu için gerekli, sonra silinir.
+# olmalıdır (Neon production şu an PostgreSQL 18.6 — 17 istemcisi "server
+# version mismatch" ile reddediyordu). gnupg/lsb-release yalnızca repo
+# kurulumu için gerekli, sonra silinir.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
     curl \
@@ -33,7 +35,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && install -d /usr/share/postgresql-common/pgdg \
     && curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc \
     && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
-    && apt-get update && apt-get install -y --no-install-recommends postgresql-client-17 \
+    && apt-get update && apt-get install -y --no-install-recommends postgresql-client-18 \
     && apt-get purge -y --auto-remove gnupg lsb-release \
     && rm -rf /var/lib/apt/lists/*
 

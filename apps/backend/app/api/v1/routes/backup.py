@@ -161,13 +161,15 @@ async def manifest_diff(
 # Veritabanı — her koşuda FULL logical dump (madde 11, incremental YOK)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-async def _stream_pg_dump(proc: "asyncio.subprocess.Process") -> AsyncIterator[bytes]:
-    """proc ÖNCEDEN başlatılmış olmalı (bkz. database_dump) — böylece süreç
-    başlatma hatası, stream istemciye açılmadan ÖNCE temiz bir HTTP hatasına
-    dönüşebilir; başladıktan sonra Starlette'in body_iterator'ında oluşan bir
-    istisna bağlantıyı sessizce/eksik kapatır (IncompleteRead)."""
+async def _stream_pg_dump(proc: "asyncio.subprocess.Process", first_chunk: bytes) -> AsyncIterator[bytes]:
+    """proc ÖNCEDEN başlatılmış ve ilk chunk'ı okunmuş olmalı (bkz.
+    database_dump) — böylece hem başlatma hatası hem de pg_dump'ın hiç veri
+    üretmeden çıkması, stream istemciye açılmadan ÖNCE temiz bir HTTP
+    hatasına dönüşebilir; başladıktan sonra Starlette'in body_iterator'ında
+    oluşan bir istisna bağlantıyı sessizce/eksik kapatır (IncompleteRead)."""
     assert proc.stdout is not None
     try:
+        yield first_chunk
         while True:
             chunk = await proc.stdout.read(256 * 1024)
             if not chunk:
@@ -224,10 +226,31 @@ async def database_dump(manager: User = Depends(require_role("admin", "platform_
     except OSError as exc:
         raise HTTPException(status_code=503, detail=f"pg_dump başlatılamadı: {exc}")
 
+    # pg_dump bağlantı/sürüm hatalarında (örn. "server version mismatch")
+    # stdout'a HİÇ yazmadan çıkar. İlk chunk'ı stream açılmadan önce okuyarak
+    # bu durumu boş bir "200 OK" yerine gerçek hata mesajıyla dönüyoruz.
+    assert proc.stdout is not None
+    first_chunk = await proc.stdout.read(256 * 1024)
+    if not first_chunk:
+        return_code = await proc.wait()
+        stderr = await proc.stderr.read() if proc.stderr else b""
+        message = stderr.decode("utf-8", errors="replace").strip()
+        # DSN'i (şifre içerir) asla istemciye sızdırma.
+        message = message.replace(_PG_DUMP_DSN, "<DATABASE_URL>")[:500]
+        try:
+            safe = message.encode("ascii", errors="replace").decode("ascii")
+            print(f"[ERROR] pg_dump basarisiz (code={return_code}): {safe}")
+        except Exception:
+            pass
+        raise HTTPException(
+            status_code=502,
+            detail=f"Veritabanı yedeği alınamadı (pg_dump çıkış kodu {return_code}): {message or 'bilinmeyen hata'}",
+        )
+
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H%M")
     filename = f"sismik_db_{ts}.dump"
     return StreamingResponse(
-        _stream_pg_dump(proc),
+        _stream_pg_dump(proc, first_chunk),
         media_type="application/octet-stream",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
