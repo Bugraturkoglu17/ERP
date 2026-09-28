@@ -174,10 +174,7 @@ export default function SystemBackupPage() {
 
   return (
     <div className="space-y-5">
-      <PageHeader
-        title="Sistem Yedeği"
-        subtitle="Firma verilerinizi (veritabanı + tüm dosyalar) kendi seçtiğiniz yerel klasöre/harici diske yedekleyin. GitHub veya başka bir bulut kullanılmaz."
-      />
+      <PageHeader title="Sistem Yedeği" />
 
       {supported === false && (
         <Card className="border-amber-200 bg-amber-50">
