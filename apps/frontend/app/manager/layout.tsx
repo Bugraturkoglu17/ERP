@@ -23,13 +23,14 @@ const BASE_NAV: CorporateNavItem[] = [
 
 export default function ManagerLayout({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
-  // "Sistem Yedeği" yalnızca GERÇEK Yönetici (MANAGER) rolüne gösterilir.
-  // platform_admin ("Geliştirici Admin") /manager/* panelini görüntüleyebilir
-  // (RoleGuard'ın superuser bypass'ı) ama bu özelliği kullanamaz — backend
-  // require_manager_only() ile platform_admin'i de 403'ler; buton da hiç
-  // görünmemeli (istek maddesi: "ADMIN: Yedekleme butonunu görmemeli").
+  // "Sistem Yedeği": Yönetici (MANAGER) VE Geliştirici Admin (ADMIN, platform_admin)
+  // görür/kullanabilir — Admin, "Panel Görünümü"nden Yönetici Görünümü'nü
+  // seçtiğinde fiilen bir Yönetici gibi çalışabilmeli (backend de
+  // require_role("admin","platform_admin") ile ikisine de izin verir).
+  // Yalnızca USER hiç görmez/erişemez.
+  const canSeeBackup = user?.role === "MANAGER" || user?.role === "ADMIN";
   const navItems: CorporateNavItem[] =
-    user?.role === "MANAGER"
+    canSeeBackup
       ? [...BASE_NAV, { href: "/manager/sistem-yedegi", label: "Sistem Yedeği", icon: DatabaseBackup }]
       : BASE_NAV;
 

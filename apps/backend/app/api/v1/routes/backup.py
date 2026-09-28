@@ -1,12 +1,12 @@
 # ─────────────────────────────────────────────────────────────────────────────
 #  V1 — Firma Kontrollü Yerel Yedekleme Sistemi
 #
-#  YALNIZCA MANAGER (DB rolü "admin" = UI "Yönetici") erişebilir — platform_admin
-#  ("Geliştirici Admin") ve USER dahil değildir. `require_manager_only()`
-#  kullanılır (app/core/dependencies.py): ne `_is_manager()` (platform_admin'i
-#  de içeri alır) ne de salt `require_role("admin")` (platform_admin hesapları
-#  genelde HEM platform_admin HEM admin rolüne sahip olduğundan, salt "admin"
-#  kontrolü de platform_admin'i içeri bırakır — gerçek testte tespit edildi).
+#  YÖNETİCİ (DB rolü "admin") VE Geliştirici Admin (platform_admin) erişebilir —
+#  USER erişemez. Geliştirici Admin dahil edilmesi bilinçli bir üründe kararı:
+#  Admin, Yönetici Görünümü'ne geçtiğinde fiilen bir Yönetici gibi çalışabilmeli
+#  (bkz. Panel Görünümü anahtarı — frontend'de ayrı bir "mod" tutmuyor, aynı JWT
+#  ile /manager/* rotalarını geziyor). `require_role("admin", "platform_admin")`
+#  kullanılır; yalnızca USER (bu iki rolden hiçbiri) 403 alır.
 #
 #  Bu router:
 #   - Neon PostgreSQL'e veya R2/OCI depolamaya hiçbir YIKICI işlem yapmaz
@@ -37,7 +37,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.backup_lock import acquire_lock, release_lock
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.dependencies import require_manager_only
+from app.core.dependencies import require_role
 from app.core.storage import storage
 from app.db.models import BackupRun, User
 
@@ -120,7 +120,7 @@ def _lock_keys(backup_target_id: str, manager_id: UUID) -> tuple[str, str]:
 @router.post("/manifest-diff", response_model=ManifestDiffResponse, tags=["backup"])
 async def manifest_diff(
     payload: ManifestDiffRequest,
-    manager: User = Depends(require_manager_only()),
+    manager: User = Depends(require_role("admin", "platform_admin")),
 ) -> ManifestDiffResponse:
     """
     İstemcinin seçtiği HDD/klasördeki backup-index.json'dan okuduğu obje
@@ -191,7 +191,7 @@ async def _stream_pg_dump(proc: "asyncio.subprocess.Process") -> AsyncIterator[b
 
 
 @router.get("/database-dump", tags=["backup"])
-async def database_dump(manager: User = Depends(require_manager_only())) -> StreamingResponse:
+async def database_dump(manager: User = Depends(require_role("admin", "platform_admin"))) -> StreamingResponse:
     """Neon PostgreSQL'in FULL logical dump'ını (pg_dump --format=custom) chunk chunk stream eder. Salt okunur — hiçbir DDL/DML çalıştırmaz."""
     if shutil.which(settings.PG_DUMP_PATH) is None:
         raise HTTPException(
@@ -241,7 +241,7 @@ async def database_dump(manager: User = Depends(require_manager_only())) -> Stre
 async def start_backup_job(
     payload: BackupJobStartRequest,
     db:      AsyncSession = Depends(get_db),
-    manager: User         = Depends(require_manager_only()),
+    manager: User         = Depends(require_role("admin", "platform_admin")),
 ) -> BackupRun:
     """
     Yeni bir yedekleme koşusu başlatır. Aynı hedef için ya da aynı yönetici
@@ -275,7 +275,7 @@ async def complete_backup_job(
     job_id:  UUID,
     payload: BackupJobCompleteRequest,
     db:      AsyncSession = Depends(get_db),
-    manager: User         = Depends(require_manager_only()),
+    manager: User         = Depends(require_role("admin", "platform_admin")),
 ) -> BackupRun:
     """
     Yedekleme koşusunu kapatır (frontend bildirir — asıl bütünlük doğrulaması
@@ -307,7 +307,7 @@ async def complete_backup_job(
 async def recent_backup_jobs(
     limit:   int          = 20,
     db:      AsyncSession = Depends(get_db),
-    manager: User         = Depends(require_manager_only()),
+    manager: User         = Depends(require_role("admin", "platform_admin")),
 ) -> list[BackupRun]:
     """Yönetici panelindeki 'Yedek Geçmişi' + 'son başarılı yedek' hatırlatma banner'ı için."""
     query = select(BackupRun).order_by(BackupRun.started_at.desc()).limit(min(limit, 100))

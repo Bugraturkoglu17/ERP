@@ -177,39 +177,6 @@ def require_role(*role_names: str):
     return _checker
 
 
-def require_manager_only():
-    """
-    Yalnızca "MANAGER" (DB rolü "admin") kabul eder — platform_admin dahil
-    HİÇBİR başka rol değil.
-
-    ``require_role("admin")`` bu amaç için YETERSİZ: platform_admin hesapları
-    (bkz. app/bootstrap_admin.py) genellikle hem "platform_admin" hem "admin"
-    rolüne birden sahip olacak şekilde oluşturulur, bu yüzden salt "admin"
-    kontrolü platform_admin'i de içeri alır. Bu fonksiyon "platform_admin"
-    rolünü AÇIKÇA dışlar — yalnızca yerel yedekleme sistemi gibi "gerçekten
-    sadece Yönetici, geliştirici admin bile değil" gerektiren uç noktalar için.
-    """
-    async def _checker(
-        token: str          = Depends(oauth2_scheme),
-        db:    AsyncSession = Depends(get_db),
-    ) -> User:
-        if not token:
-            raise HTTPException(status_code=401, detail="Kimlik doğrulama gerekli.")
-        try:
-            payload = decode_token(token)
-        except jwt.PyJWTError:
-            raise HTTPException(status_code=401, detail="Geçersiz token.")
-        user = await _get_user_by_sub(db, payload["sub"], token_version=payload.get("tv", 0))
-        live_roles = await get_user_roles(db, user.id)
-        if "platform_admin" in live_roles or "admin" not in live_roles:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Bu işlem için yetkiniz yok.",
-            )
-        return user
-    return _checker
-
-
 async def require_permission(
     token:        str          = Depends(oauth2_scheme),
     db:           AsyncSession = Depends(get_db),

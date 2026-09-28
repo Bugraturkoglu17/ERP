@@ -38,13 +38,14 @@ export default function SystemBackupPage() {
   const { user } = useAuth();
   const router = useRouter();
 
-  // ── Yalnızca GERÇEK Yönetici (MANAGER) — platform_admin dahil değil. ──────
-  // CorporateShell'in RoleGuard'ı platform_admin'i her panelde geçirir
-  // (superuser bypass); bu sayfa için AÇIKÇA ezilir — backend de
-  // require_manager_only() ile platform_admin'i 403'ler.
+  // ── Yönetici (MANAGER) VE Geliştirici Admin (ADMIN) erişebilir; USER erişemez. ──
+  // Admin, "Panel Görünümü"nden Yönetici Görünümü'nü seçtiğinde fiilen bir
+  // Yönetici gibi çalışabilmeli — backend de require_role("admin","platform_admin")
+  // ile ikisine birden izin verir (bkz. app/api/v1/routes/backup.py).
+  const canUseBackup = user?.role === "MANAGER" || user?.role === "ADMIN";
   useEffect(() => {
-    if (user && user.role !== "MANAGER") router.replace("/403");
-  }, [user, router]);
+    if (user && !canUseBackup) router.replace("/403");
+  }, [user, canUseBackup, router]);
 
   const [supported, setSupported] = useState<boolean | null>(null);
   const [jobs, setJobs] = useState<BackupJob[]>([]);
@@ -153,7 +154,7 @@ export default function SystemBackupPage() {
     try { localStorage.setItem(REMINDER_HOUR_KEY, String(hour)); } catch { /* yoksay */ }
   };
 
-  if (user && user.role !== "MANAGER") return null;
+  if (user && !canUseBackup) return null;
 
   const isRunning = progress !== null && progress.phase !== "done" && progress.phase !== "error";
   const filesPct = progress && progress.bytesTotal > 0 ? Math.min(100, Math.round((progress.bytesDone / progress.bytesTotal) * 100)) : 0;

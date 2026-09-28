@@ -8,7 +8,7 @@ Plan dosyası: `C:\Users\bturkoglu\.claude\plans\whimsical-seeking-pnueli.md` (a
 
 | Kriter | Sonuç | Not |
 |---|---|---|
-| MANAGER ONLY | **PASS** | Backend `require_manager_only()` + frontend açık rol kontrolü; platform_admin VE user, 8 farklı istekte 403/yönlendirme ile doğrulandı |
+| MANAGER ONLY | **PASS (kapsam kullanıcı tarafından genişletildi)** | İlk uygulamada `require_manager_only()` platform_admin'i de dışlıyordu (403 doğrulandı). Kullanıcı canlıda test ederken "Panel Görünümü"nden Yönetici Görünümü'nü seçtiğinde de görmek istediğini belirtti → backend `require_role("admin","platform_admin")`'e, frontend `role==="MANAGER"⎮⎮"ADMIN"`'e güncellendi. Nihai kural: **Yönetici + Geliştirici Admin erişebilir, yalnızca USER erişemez** — hem yerel API testiyle (ADMIN artık 200, USER hâlâ 403) hem gerçek tarayıcı girişiyle doğrulandı |
 | Folder Picker | **PASS** | Gerçek tarayıcıda "Klasör Seç" butonu tıklandı, `showDirectoryPicker()` gerçekten açıldı ve bir dizin handle'ı döndü (tarayıcı desteği + native izin akışı çalışıyor) |
 | New Disk Detection | **PASS** | Gerçek tıklamayla: seçilen (boş) klasörde manifest bulunamadı → "Bu klasörde daha önce SİSMİK ERP yedeği bulunamadı" uyarısı, doğru sayılarla ("72 dosya, 48.12 MB") ekrana geldi |
 | Full Initial Backup | **PARTIAL — gerçek hata yakalandı** | "Tam Yedeklemeyi Başlat"a basıldı; DB dump + R2 indirme adımları tetiklendi ama diske YAZMA adımında tarayıcı `getDirectoryHandle`'ı reddetti: *"The request is not allowed by the user agent or the platform in the current context."* Bu, uzaktan kumanda edilen otomasyon tarayıcısının native yazma iznini native OS akışı olmadan veremeyişinden kaynaklanıyor gibi görünüyor (gerçek masaüstü Chrome/Edge'de klasör seçimi anında readwrite izni verir). **Önemli:** Bu hata BİLE sistemin doğru çalıştığını kanıtlıyor — aşağıya bak. |
@@ -78,3 +78,6 @@ Plan dosyası: `C:\Users\bturkoglu\.claude\plans\whimsical-seeking-pnueli.md` (a
 3. İlerleme çubuğunun gerçek dosya/byte sayılarıyla ilerlediğini izle.
 4. Bitince klasörde `backup-index.json`, `DATABASE/`, `FILES/`, `MANIFEST/` oluştuğunu doğrula.
 5. Aynı klasörü tekrar seç → yalnızca yeni/değişen dosyaların listelendiğini doğrula.
+
+## Deploy Sonrası Not: Rol Kapsamı Genişletildi
+İlk uygulama commit'i (`a0ed03a`) production'a çıktıktan sonra, kullanıcı canlıda kendi Geliştirici Admin hesabıyla "Yönetici Görünümü"nü seçtiğinde "Sistem Yedeği"nin görünmediğini fark etti. Bu, ilk yazılan kurala göre DOĞRU davranıştı ("ADMIN görmemeli") ama kullanıcı, Admin'in Yönetici Görünümü'ndeyken fiilen Yönetici gibi çalışabilmesini istediğini netleştirdi. İkinci bir commit'le (bkz. git log) kural şuna güncellendi: **Yönetici (MANAGER) VE Geliştirici Admin (ADMIN/platform_admin) erişebilir, yalnızca USER erişemez.** `require_manager_only()` kaldırıldı, yerine `require_role("admin", "platform_admin")` kullanıldı; frontend'de de aynı genişletme yapıldı. USER'ın hâlâ 403 aldığı hem yerelde hem üretimde doğrulandı.
