@@ -7,8 +7,9 @@ import {
   Files, PenTool, FileText, Image as ImageIcon, FileSpreadsheet, CheckCircle2, Clock,
 } from "lucide-react";
 import { apiGet, buildApiUrl } from "@/lib/api";
-import UploadModal   from "./UploadModal";
+import UploadModal, { type UploadedArchiveDoc } from "./UploadModal";
 import TransferModal from "./TransferModal";
+import UploadMatchReview from "./UploadMatchReview";
 import { useAuth } from "@/contexts/auth-context";
 import { ToolbarDock, type ToolbarDockAction } from "@/components/ui/toolbar-dock";
 
@@ -115,6 +116,7 @@ export default function GenelArsivPage() {
   const [selected,    setSelected]    = useState<Set<string>>(new Set());
   const [uploadOpen,  setUploadOpen]  = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
+  const [reviewDocs,  setReviewDocs]  = useState<UploadedArchiveDoc[] | null>(null);
   const [deleteErr,   setDeleteErr]   = useState<string | null>(null);
   const [downloadErr, setDownloadErr] = useState<string | null>(null);
 
@@ -430,7 +432,11 @@ export default function GenelArsivPage() {
       {uploadOpen && (
         <UploadModal
           onClose={() => setUploadOpen(false)}
-          onDone={() => { setUploadOpen(false); loadDocs(); }}
+          onDone={(uploaded) => {
+            setUploadOpen(false);
+            loadDocs();
+            if (uploaded.length > 0) setReviewDocs(uploaded);
+          }}
         />
       )}
       {transferOpen && selectedDocs.length > 0 && (
@@ -438,6 +444,13 @@ export default function GenelArsivPage() {
           docs={selectedDocs}
           onClose={() => setTransferOpen(false)}
           onDone={() => { setTransferOpen(false); setSelected(new Set()); loadDocs(); }}
+        />
+      )}
+      {reviewDocs && reviewDocs.length > 0 && (
+        <UploadMatchReview
+          docs={reviewDocs}
+          onClose={() => setReviewDocs(null)}
+          onChanged={loadDocs}
         />
       )}
     </div>

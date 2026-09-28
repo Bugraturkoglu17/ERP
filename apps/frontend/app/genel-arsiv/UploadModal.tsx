@@ -11,12 +11,21 @@ function fmtBytes(n: number): string {
   return `${(n / 1048576).toFixed(1)} MB`;
 }
 
+export type UploadedArchiveDoc = {
+  id: string;
+  original_name: string;
+  file_size_bytes: number | null;
+  doc_type: string;
+  created_at: string;
+};
+
 export default function UploadModal({
   onClose,
   onDone,
 }: {
   onClose: () => void;
-  onDone: () => void;
+  /** Yükleme başarıyla bitince, az önce yüklenen dosyaların listesiyle çağrılır (mağaza eşleştirme incelemesi içindir). */
+  onDone: (uploaded: UploadedArchiveDoc[]) => void;
 }) {
   const inputRef  = useRef<HTMLInputElement>(null);
   const [files,   setFiles]   = useState<File[]>([]);
@@ -47,12 +56,13 @@ export default function UploadModal({
     setFileProgress(Object.fromEntries(files.map((file) => [file.name, 0])));
     const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
     let uploadedBytes = 0;
+    const uploaded: UploadedArchiveDoc[] = [];
     for (const file of files) {
       const fd = new FormData();
       fd.append("file", file);
       fd.append("doc_type", "other");
       try {
-        await uploadFormData("/documents/archive/upload", {
+        const doc = await uploadFormData<UploadedArchiveDoc>("/documents/archive/upload", {
           formData: fd,
           onProgress: (percent) => {
             setFileProgress((current) => ({ ...current, [file.name]: percent }));
@@ -60,6 +70,7 @@ export default function UploadModal({
             setProgress(totalBytes ? Math.round((sentBytes / totalBytes) * 100) : 100);
           },
         });
+        uploaded.push(doc);
         uploadedBytes += file.size;
       } catch (ex: unknown) {
         setErr(ex instanceof Error ? ex.message : "Yükleme başarısız.");
@@ -68,7 +79,7 @@ export default function UploadModal({
       }
     }
     setBusy(false);
-    onDone();
+    onDone(uploaded);
   };
 
   return (
