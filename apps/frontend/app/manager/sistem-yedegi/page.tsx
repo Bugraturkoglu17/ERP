@@ -125,7 +125,16 @@ export default function SystemBackupPage() {
     setPreparing(true);
     try {
       const handle = await pickBackupDirectory();
-      if (!handle) { setPreparing(false); return; } // kullanıcı iptal etti
+      if (!handle) {
+        // İptal ya da pencere hiç açılamadı (uygulama içi/gömülü tarayıcılar
+        // klasör penceresini açıp hemen iptal eder) — sessiz kalma.
+        setError(
+          "Klasör seçilmedi. Klasör penceresi hiç açılmadıysa bu sayfayı Chrome veya Edge tarayıcısında açın " +
+          "(uygulama içi tarayıcı klasör seçmeyi desteklemez).",
+        );
+        setPreparing(false);
+        return;
+      }
       if (!(await verifyReadWritePermission(handle))) {
         setError(
           "Seçilen klasöre yazma izni verilemedi. Tarayıcı; Masaüstü, Belgeler, İndirilenler, Resimler, " +
