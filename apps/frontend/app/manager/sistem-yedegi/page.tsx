@@ -223,31 +223,35 @@ export default function SystemBackupPage() {
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
-          label="Son Başarılı Yedek"
+          label="Son Yedek"
           value={lastSuccessful ? formatDateTime(lastSuccessful.completed_at) : "—"}
+          valueClassName="text-base sm:text-lg"
           icon={<Clock className="h-4 w-4 text-slate-300" />}
         />
         <StatCard
-          label="Son Hedef"
+          label="Hedef"
           value={
             <span
-              className="block truncate text-lg sm:text-xl"
+              className="block truncate"
               title={lastSuccessful?.backup_target_label || lastSuccessful?.backup_target_id || undefined}
             >
               {lastSuccessful?.backup_target_label || lastSuccessful?.backup_target_id?.slice(-8) || "—"}
             </span>
           }
+          valueClassName="text-base sm:text-lg"
           icon={<HardDrive className="h-4 w-4 text-slate-300" />}
         />
         <StatCard
-          label="Son Koşuda Yeni/Değişen"
-          value={lastSuccessful ? `${lastSuccessful.r2_objects_new + lastSuccessful.r2_objects_changed}` : "—"}
+          label="Son Koşu"
+          value={lastSuccessful ? `${lastSuccessful.r2_objects_new + lastSuccessful.r2_objects_changed} dosya` : "—"}
+          valueClassName="text-base sm:text-lg"
           description={lastSuccessful ? formatBytes(lastSuccessful.bytes_written) : undefined}
           icon={<DatabaseBackup className="h-4 w-4 text-slate-300" />}
         />
         <StatCard
           label="Durum"
           value={lastSuccessful ? "Tamamlandı" : "Yok"}
+          valueClassName="text-base sm:text-lg"
           icon={lastSuccessful ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <XCircle className="h-4 w-4 text-slate-300" />}
         />
       </div>
