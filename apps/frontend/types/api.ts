@@ -2273,6 +2273,133 @@ export interface paths {
         patch: operations["mark_read_api_v1_notifications__notification_id__read_patch"];
         trace?: never;
     };
+    "/api/v1/backup/manifest-diff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Manifest Diff
+         * @description İstemcinin seçtiği HDD/klasördeki backup-index.json'dan okuduğu obje
+         *     listesini (key/etag/size) CANLI depolama (R2/yerel) durumuyla karşılaştırır.
+         *     Boş bir liste gönderilirse (yeni/boş klasör) TÜM objeler "new" döner —
+         *     bu, "yeni HDD → tam yedek" akışının (madde 5) temelidir.
+         */
+        post: operations["manifest_diff_api_v1_backup_manifest_diff_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/backup/object": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Backup Object
+         * @description Tek bir depolama objesini (R2/yerel) backend üzerinden chunk chunk stream
+         *     eder — salt okunur. Content-Length gönderilir; istemci yazdığı byte
+         *     sayısını manifest-diff'teki boyutla karşılaştırarak eksik indirmeyi yakalar.
+         */
+        get: operations["backup_object_api_v1_backup_object_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/backup/database-dump": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Database Dump
+         * @description Neon PostgreSQL'in FULL logical dump'ını (pg_dump --format=custom) chunk chunk stream eder. Salt okunur — hiçbir DDL/DML çalıştırmaz.
+         */
+        get: operations["database_dump_api_v1_backup_database_dump_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/backup/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Backup Job
+         * @description Yeni bir yedekleme koşusu başlatır. Aynı hedef için ya da aynı yönetici
+         *     için zaten devam eden bir koşu varsa 409 döner (madde 26/27).
+         */
+        post: operations["start_backup_job_api_v1_backup_jobs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/backup/jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Complete Backup Job
+         * @description Yedekleme koşusunu kapatır (frontend bildirir — asıl bütünlük doğrulaması
+         *     istemci tarafında yapılmıştır, madde 30) ve kilitlerini serbest bırakır.
+         */
+        patch: operations["complete_backup_job_api_v1_backup_jobs__job_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/backup/jobs/recent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Recent Backup Jobs
+         * @description Yönetici panelindeki 'Yedek Geçmişi' + 'son başarılı yedek' hatırlatma banner'ı için.
+         */
+        get: operations["recent_backup_jobs_api_v1_backup_jobs_recent_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2423,6 +2550,83 @@ export interface components {
         AssignBody: {
             /** Store Ids */
             store_ids: string[];
+        };
+        /** BackupJobCompleteRequest */
+        BackupJobCompleteRequest: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "completed" | "failed" | "incomplete";
+            /**
+             * Database Backed Up
+             * @default false
+             */
+            database_backed_up: boolean;
+            /**
+             * R2 Objects New
+             * @default 0
+             */
+            r2_objects_new: number;
+            /**
+             * R2 Objects Changed
+             * @default 0
+             */
+            r2_objects_changed: number;
+            /**
+             * R2 Objects Failed
+             * @default 0
+             */
+            r2_objects_failed: number;
+            /**
+             * Bytes Written
+             * @default 0
+             */
+            bytes_written: number;
+            /** Error Message */
+            error_message?: string | null;
+        };
+        /** BackupJobRead */
+        BackupJobRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Backup Target Id */
+            backup_target_id: string;
+            /** Backup Target Label */
+            backup_target_label: string | null;
+            /** Status */
+            status: string;
+            /** Manager Name */
+            manager_name: string;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Completed At */
+            completed_at: string | null;
+            /** Database Backed Up */
+            database_backed_up: boolean;
+            /** R2 Objects New */
+            r2_objects_new: number;
+            /** R2 Objects Changed */
+            r2_objects_changed: number;
+            /** R2 Objects Failed */
+            r2_objects_failed: number;
+            /** Bytes Written */
+            bytes_written: number;
+            /** Error Message */
+            error_message: string | null;
+        };
+        /** BackupJobStartRequest */
+        BackupJobStartRequest: {
+            /** Backup Target Id */
+            backup_target_id: string;
+            /** Backup Target Label */
+            backup_target_label?: string | null;
         };
         /** Body_create_report_api_v1_work_orders__work_order_id__reports_post */
         Body_create_report_api_v1_work_orders__work_order_id__reports_post: {
@@ -3287,6 +3491,47 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** ManifestDiffEntry */
+        ManifestDiffEntry: {
+            /** Key */
+            key: string;
+            /** Size */
+            size: number;
+            /** Last Modified */
+            last_modified: string;
+            /** Etag */
+            etag: string;
+            /** Download Url */
+            download_url: string;
+        };
+        /** ManifestDiffRequest */
+        ManifestDiffRequest: {
+            /**
+             * Entries
+             * @default []
+             */
+            entries: components["schemas"]["ManifestEntryIn"][];
+        };
+        /** ManifestDiffResponse */
+        ManifestDiffResponse: {
+            /** New */
+            new: components["schemas"]["ManifestDiffEntry"][];
+            /** Changed */
+            changed: components["schemas"]["ManifestDiffEntry"][];
+            /** Unchanged Count */
+            unchanged_count: number;
+            /** Total Bytes */
+            total_bytes: number;
+        };
+        /** ManifestEntryIn */
+        ManifestEntryIn: {
+            /** Key */
+            key: string;
+            /** Etag */
+            etag: string;
+            /** Size */
+            size: number;
         };
         /**
          * Material
@@ -10636,6 +10881,189 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MessageResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    manifest_diff_api_v1_backup_manifest_diff_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManifestDiffRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManifestDiffResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    backup_object_api_v1_backup_object_get: {
+        parameters: {
+            query: {
+                key: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    database_dump_api_v1_backup_database_dump_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    start_backup_job_api_v1_backup_jobs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BackupJobStartRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupJobRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    complete_backup_job_api_v1_backup_jobs__job_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BackupJobCompleteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupJobRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recent_backup_jobs_api_v1_backup_jobs_recent_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupJobRead"][];
                 };
             };
             /** @description Validation Error */
