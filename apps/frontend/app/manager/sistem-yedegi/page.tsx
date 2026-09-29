@@ -152,7 +152,12 @@ export default function SystemBackupPage() {
     const controller = new AbortController();
     abortRef.current = controller;
     try {
-      const res = await runBackup(dirHandle, plan, setProgress, controller.signal);
+      // Planı klasördeki GÜNCEL manifest'ten yeniden hesapla: "Tekrar Dene"
+      // önceki koşuda başarıyla inen dosyaları tekrar indirmez, yalnızca
+      // eksik/başarısız olanları ister.
+      const freshPlan = await loadBackupPlan(dirHandle, plan.manifest.backup_target_label);
+      setPlan(freshPlan);
+      const res = await runBackup(dirHandle, freshPlan, setProgress, controller.signal);
       setResult(res);
       await loadJobs();
     } catch (err) {

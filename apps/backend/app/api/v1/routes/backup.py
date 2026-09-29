@@ -11,8 +11,9 @@
 #  Bu router:
 #   - Neon PostgreSQL'e veya R2/OCI depolamaya hiçbir YIKICI işlem yapmaz
 #     (yalnızca SELECT/list/head/dump — okuma).
-#   - R2 secret'larını hiçbir zaman istemciye göndermez; yalnızca kısa ömürlü
-#     presigned GET URL'leri döner.
+#   - R2 secret'larını hiçbir zaman istemciye göndermez; dosyalar yetki
+#     kontrollü /backup/object endpoint'i üzerinden backend'den akar
+#     (tarayıcı R2'ye doğrudan gitmez → bucket'ta CORS kuralı gerekmez).
 #   - "Son backup" durumunu incremental karar mekanizması için KULLANMAZ —
 #     karşılaştırma tamamen istemcinin gönderdiği manifest'e göre yapılır
 #     (her yedekleme hedefi kendi zincirini taşır). BackupRun tablosu yalnızca
@@ -25,9 +26,10 @@ import asyncio
 import shutil
 from datetime import datetime, timezone
 from typing import AsyncIterator, Literal, Optional
+from urllib.parse import quote
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -147,14 +149,40 @@ async def manifest_diff(
             size=obj["size"],
             last_modified=obj["last_modified"],
             etag=obj["etag"],
-            download_url=await storage.generate_presigned_url(
-                obj["key"], expires_in=settings.BACKUP_PRESIGNED_URL_TTL_SECONDS
-            ),
+            # API'ye göreli yol (frontend buildApiUrl ile tamamlar). Tarayıcı
+            # R2'ye doğrudan gitmez — dosya /backup/object üzerinden akar; R2
+            # bucket'ında CORS kuralı gerekmez ve süresi dolan presigned URL
+            # yüzünden "Tekrar Dene" bozulmaz.
+            download_url=f"/backup/object?key={quote(obj['key'], safe='')}",
         )
         total_bytes += obj["size"]
         (new if prior is None else changed).append(entry)
 
     return ManifestDiffResponse(new=new, changed=changed, unchanged_count=unchanged_count, total_bytes=total_bytes)
+
+
+@router.get("/object", tags=["backup"])
+async def backup_object(
+    key: str = Query(..., min_length=1),
+    manager: User = Depends(require_role("admin", "platform_admin")),
+) -> StreamingResponse:
+    """
+    Tek bir depolama objesini (R2/yerel) backend üzerinden chunk chunk stream
+    eder — salt okunur. Content-Length gönderilir; istemci yazdığı byte
+    sayısını manifest-diff'teki boyutla karşılaştırarak eksik indirmeyi yakalar.
+    """
+    try:
+        opened = await storage.open_object_stream(key)
+    except IOError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+    if opened is None:
+        raise HTTPException(status_code=404, detail="Obje bulunamadı.")
+    size, chunks = opened
+    return StreamingResponse(
+        chunks,
+        media_type="application/octet-stream",
+        headers={"Content-Length": str(size)},
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

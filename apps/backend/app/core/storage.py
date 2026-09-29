@@ -14,7 +14,7 @@ from botocore.client import Config
 from botocore.exceptions import ClientError
 import os
 import shutil
-from typing import Iterator, Optional, TypedDict
+from typing import AsyncIterator, Iterator, Optional, TypedDict
 from urllib.parse import quote
 
 from app.core.config import settings
@@ -232,6 +232,62 @@ class StorageService:
         snapshot'ı tutuyor, gerçek object key değil).
         """
         return await asyncio.to_thread(self._list_objects_sync, prefix)
+
+    async def open_object_stream(
+        self, file_key: str, chunk_size: int = 256 * 1024
+    ) -> Optional[tuple[int, AsyncIterator[bytes]]]:
+        """
+        Bir objeyi (boyut, chunk iteratörü) olarak açar — dosyanın tamamı asla
+        RAM'e alınmaz. Obje yoksa None. Yedekleme sistemi dosyaları bu yolla
+        backend üzerinden akıtır; böylece tarayıcının doğrudan R2'ye gitmesi
+        (ve R2 bucket'ında CORS kuralı olması) gerekmez.
+        """
+        if self.local_mode:
+            base = os.path.realpath(self.local_base_dir)
+            target_path = os.path.realpath(os.path.join(base, file_key))
+            # "../" ile yerel yükleme klasörünün dışına çıkılmasını engelle.
+            if os.path.commonpath([base, target_path]) != base or not os.path.isfile(target_path):
+                return None
+            size = os.path.getsize(target_path)
+
+            async def _iter_local() -> AsyncIterator[bytes]:
+                fh = await asyncio.to_thread(open, target_path, "rb")
+                try:
+                    while True:
+                        chunk = await asyncio.to_thread(fh.read, chunk_size)
+                        if not chunk:
+                            break
+                        yield chunk
+                finally:
+                    await asyncio.to_thread(fh.close)
+
+            return size, _iter_local()
+
+        def _get():
+            try:
+                return self.s3_client.get_object(Bucket=self.bucket_name, Key=file_key)
+            except ClientError as e:
+                if e.response.get("Error", {}).get("Code") in ("404", "NoSuchKey"):
+                    return None
+                print(f"S3 Get Object Error: {e}")
+                raise IOError(f"Obje okunamadı: {e}")
+
+        resp = await asyncio.to_thread(_get)
+        if resp is None:
+            return None
+        body = resp["Body"]
+
+        async def _iter_s3() -> AsyncIterator[bytes]:
+            try:
+                while True:
+                    chunk = await asyncio.to_thread(body.read, chunk_size)
+                    if not chunk:
+                        break
+                    yield chunk
+            finally:
+                await asyncio.to_thread(body.close)
+
+        return int(resp["ContentLength"]), _iter_s3()
 
     async def head_object(self, file_key: str) -> Optional[StorageObjectInfo]:
         """Tek bir objenin güncel boyut/ETag bilgisini döner (bütünlük doğrulama için). Yoksa None."""

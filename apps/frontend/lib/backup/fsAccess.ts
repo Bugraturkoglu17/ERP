@@ -54,8 +54,13 @@ function splitDirAndName(relativePath: string): { dir: string; name: string } {
 /**
  * Bir ReadableStream'i (fetch response body) doğrudan diske YAZAR — hiçbir
  * anda dosyanın tamamı RAM'e alınmaz (1 TB'lık yedeklerde bellek şişmesin
- * diye). Geçici olarak `<isim>.partial` adıyla yazılır; başarıyla bitince
- * gerçek isme taşınır (kesinti durumunda yarım dosya asla "tamam" sanılmaz).
+ * diye).
+ *
+ * Kesinti güvenliği createWritable()'ın kendisinden gelir: Chromium yazılanları
+ * geçici bir swap dosyasında tutar ve hedef dosyaya YALNIZCA close() ile
+ * atomik olarak yansıtır; abort() swap'ı atar. Böylece yarım dosya asla
+ * "tamam" görünmez — ayrı bir `.partial` kopyası (ve onu gerçek isme taşımak
+ * için dosyanın tamamını RAM'e okumak) gerekmez.
  *
  * `onBytes` her chunk sonrası çağrılır — gerçek byte sayacı için (fake
  * timer YOK).
@@ -68,10 +73,10 @@ export async function writeStreamToFile(
 ): Promise<number> {
   const { dir, name } = splitDirAndName(relativePath);
   const dirHandle = dir ? await ensureSubdirectory(root, dir) : root;
-  const partialName = `${name}.partial`;
 
-  const partialHandle = await dirHandle.getFileHandle(partialName, { create: true });
-  const writable = await partialHandle.createWritable();
+  const existedBefore = await dirHandle.getFileHandle(name).then(() => true, () => false);
+  const fileHandle = await dirHandle.getFileHandle(name, { create: true });
+  const writable = await fileHandle.createWritable();
 
   let total = 0;
   const reader = stream.getReader();
@@ -90,18 +95,12 @@ export async function writeStreamToFile(
     }
     await writable.close();
   } catch (err) {
+    await reader.cancel().catch(() => undefined);
     await writable.abort().catch(() => undefined);
+    // Bu koşuda yeni oluşturulan boş dosyayı geride bırakma.
+    if (!existedBefore) await dirHandle.removeEntry(name).catch(() => undefined);
     throw err;
   }
-
-  // .partial -> gerçek isim: File System Access API'de doğrudan "rename" yok —
-  // hedefe kopyalayıp geçici olanı sil.
-  const finalHandle = await dirHandle.getFileHandle(name, { create: true });
-  const finalWritable = await finalHandle.createWritable();
-  const partialFile = await partialHandle.getFile();
-  await finalWritable.write(await partialFile.arrayBuffer());
-  await finalWritable.close();
-  await dirHandle.removeEntry(partialName).catch(() => undefined);
 
   return total;
 }

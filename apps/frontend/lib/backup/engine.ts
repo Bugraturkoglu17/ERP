@@ -51,8 +51,9 @@ export async function checkIntegrity(root: FileSystemDirectoryHandle, manifest: 
 async function downloadDatabaseDump(
   root: FileSystemDirectoryHandle,
   onProgress: (p: Partial<BackupProgress>) => void,
+  signal?: AbortSignal,
 ): Promise<{ ok: boolean; bytes: number }> {
-  const res = await fetch(buildApiUrl("/backup/database-dump"), { headers: authHeader() });
+  const res = await fetch(buildApiUrl("/backup/database-dump"), { headers: authHeader(), signal });
   if (!res.ok || !res.body) {
     const detail = await res.text().catch(() => "");
     onProgress({ message: `Veritabanı yedeği alınamadı (HTTP ${res.status}): ${detail.slice(0, 200)}` });
@@ -127,19 +128,25 @@ export async function runBackup(
     // DB dump byte'ları bytesTotal/bytesDone'a KATILMAZ (dump boyutu önceden
     // bilinmiyor — pg_dump bitene kadar belli olmaz); ilerlemesi ayrı
     // "database" fazında currentFile/mesaj üzerinden izlenir.
-    const dbResult = await downloadDatabaseDump(root, (p) => emit(p, "database"));
+    const dbResult = await downloadDatabaseDump(root, (p) => emit(p, "database"), signal);
 
     // 2) R2 objeleri — yalnızca yeni/değişenler.
     for (const entry of toDownload) {
       if (signal?.aborted) throw new DOMException("İptal edildi", "AbortError");
       emit({ currentFile: entry.key }, "files");
       try {
-        const res = await fetch(entry.download_url); // presigned URL — Authorization header GÖNDERİLMEZ
+        // Dosya backend üzerinden akar (/backup/object) — tarayıcı R2'ye
+        // doğrudan gitmediği için bucket'ta CORS kuralı gerekmez.
+        const res = await fetch(buildApiUrl(entry.download_url), { headers: authHeader(), signal });
         if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
         const relativePath = `FILES/${todayFolder()}/${entry.key}`;
-        await writeStreamToFile(root, relativePath, res.body, (b) => {
+        const written = await writeStreamToFile(root, relativePath, res.body, (b) => {
           emit({ bytesDone: bytesDone + b, currentFile: entry.key }, "files");
         });
+        // Eksik/kesik indirme asla "başarılı" sayılmaz (madde 30).
+        if (written !== entry.size) {
+          throw new Error(`Boyut uyuşmuyor: ${written} / ${entry.size} byte`);
+        }
         bytesDone += entry.size;
         filesDone += 1;
         newEntries.push({
