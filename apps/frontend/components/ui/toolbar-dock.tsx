@@ -58,6 +58,10 @@ export function ToolbarDock({
   // kırpılıyordu (tablo kabı overflow-hidden). Açarken altta yer yoksa
   // yukarı doğru aç.
   const [flipUp, setFlipUp] = useState(false);
+  // Panel `position: fixed` ile ekrana göre konumlanır: tetikleyicinin atalarından
+  // biri overflow-hidden/auto ise (kart, tablo kabı, sekme kutusu) absolute panel
+  // o kabın kenarında kırpılıyordu (son satır "Sil" görünmüyordu).
+  const [pos, setPos] = useState<{ top?: number; bottom?: number; left?: number; right?: number }>({});
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -65,8 +69,16 @@ export function ToolbarDock({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
+    // Sabit konumlu panel sayfa kayınca tetikleyiciden ayrılır → kaydırınca kapat.
+    const close = () => setOpen(false);
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
   }, [open]);
 
   const toggle = () => {
@@ -76,7 +88,13 @@ export function ToolbarDock({
         const rect = rootRef.current.getBoundingClientRect();
         const spaceBelow = window.innerHeight - rect.bottom;
         const estimatedHeight = actions.length * 40 + 16;
-        setFlipUp(spaceBelow < estimatedHeight && rect.top > spaceBelow);
+        const up = spaceBelow < estimatedHeight && rect.top > spaceBelow;
+        setFlipUp(up);
+        const viewportW = document.documentElement.clientWidth;
+        setPos({
+          ...(up ? { bottom: window.innerHeight - rect.top + 4 } : { top: rect.bottom + 4 }),
+          ...(align === "end" ? { right: Math.max(4, viewportW - rect.right) } : { left: Math.max(4, rect.left) }),
+        });
       }
       return next;
     });
@@ -141,10 +159,10 @@ export function ToolbarDock({
           {direction === "down" ? (
             <div
               role="menu"
+              style={pos}
+              data-flip={flipUp ? "up" : "down"}
               className={cn(
-                "absolute z-40 w-52 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-lg",
-                flipUp ? "bottom-full mb-1" : "top-full mt-1",
-                align === "end" ? "right-0" : "left-0",
+                "fixed z-40 w-52 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-lg",
                 panelClassName,
               )}
             >

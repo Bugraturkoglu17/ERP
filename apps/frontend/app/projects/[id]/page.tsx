@@ -1,14 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, usePathname } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 import {
   AlertCircle,
   Archive,
   ChevronRight,
   ClipboardPlus,
-  Download,
   Edit2,
   FileText,
   Folder,
@@ -18,7 +17,8 @@ import {
   X,
 } from "lucide-react";
 import { apiGet, apiPatch } from "@/lib/api";
-import { openFileInNewTab } from "@/lib/download";
+import { useDocActions } from "@/hooks/use-doc-actions";
+import { ToolbarDock } from "@/components/ui/toolbar-dock";
 import ServisFormTab from "./ServisFormTab";
 import WorkOrdersTab from "./WorkOrdersTab";
 import VisualInventoryTab from "./VisualInventoryTab";
@@ -181,12 +181,10 @@ function writeTabToUrl(tab: TabKey) {
 
 // ── Doc List ───────────────────────────────────────────────────────────────────
 
-function DocList({ docs, archiveHref }: { docs: Document[]; archiveHref: string }) {
-  const handleDownload = async (doc: Document) => {
-    try {
-      await openFileInNewTab(async () => (await apiGet<{ url: string }>(`/documents/${doc.id}/download`))?.url);
-    } catch { alert("İndirme bağlantısı alınamadı."); }
-  };
+function DocList({ docs, archiveHref, onDeleted }: { docs: Document[]; archiveHref: string; onDeleted: (docId: string) => void }) {
+  const router = useRouter();
+  // Aç / İndir / Sil: mağaza sayfasındaki tüm dosya listeleriyle ortak "≡" menüsü.
+  const { actionsFor, busyId, error: actionError } = useDocActions(onDeleted);
 
   if (docs.length === 0) {
     return (
@@ -199,6 +197,9 @@ function DocList({ docs, archiveHref }: { docs: Document[]; archiveHref: string 
 
   return (
     <div className="space-y-2">
+      {actionError && (
+        <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{actionError}</p>
+      )}
       {docs.map((doc) => {
         const typeInfo = DOC_TYPES[doc.doc_type];
         return (
@@ -230,22 +231,21 @@ function DocList({ docs, archiveHref }: { docs: Document[]; archiveHref: string 
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button onClick={() => handleDownload(doc)} title="İndir"
-                className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-green-50 hover:text-green-600"><Download className="h-3.5 w-3.5" /></button>
-              {doc.is_archive && (
-                <Link
-                  href={archiveHref}
-                  title="Genel Arşivde Göster"
-                  className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-purple-50 hover:text-purple-600"
-                >
-                  <Archive className="h-3.5 w-3.5" />
-                </Link>
-              )}
-            </div>
             <div className="shrink-0 text-[11px] text-slate-400 ml-1">
               {new Date(doc.created_at).toLocaleDateString("tr-TR")}
             </div>
+            {/* Çerçevesiz tek "≡" — dokunmatikte de görünür (eskiden yalnızca hover'da çıkıyordu). */}
+            {busyId === doc.id ? (
+              <Loader2 className="h-4 w-4 shrink-0 animate-spin text-slate-400" />
+            ) : (
+              <ToolbarDock
+                actions={actionsFor(doc, doc.is_archive
+                  ? [{ key: "archive", label: "Genel Arşivde Göster", icon: Archive, onClick: () => router.push(archiveHref) }]
+                  : [])}
+                panelClassName="w-48"
+                triggerClassName="bg-transparent text-slate-400 hover:bg-transparent hover:text-slate-800"
+              />
+            )}
           </div>
         );
       })}
@@ -377,6 +377,8 @@ export default function MagazaDetailPage() {
 
   const [project, setProject] = useState<Project | null>(null);
   const [docs,    setDocs]    = useState<Document[]>([]);
+  // Bir dosya silinince (tüm sekmelerdeki "≡ > Sil") listeden hemen çıkar.
+  const removeDoc = (docId: string) => setDocs((prev) => prev.filter((d) => d.id !== docId));
   const [loading, setLoading] = useState(true);
   const [tab,     setTab]     = useState<TabKey>("identity");
 
@@ -608,7 +610,7 @@ export default function MagazaDetailPage() {
                   ))}
                 </div>
               )}
-              <DocList docs={filteredProjectDocs} archiveHref={archiveHref} />
+              <DocList docs={filteredProjectDocs} archiveHref={archiveHref} onDeleted={removeDoc} />
             </div>
           )}
 
@@ -622,13 +624,13 @@ export default function MagazaDetailPage() {
             <VisualInventoryTab
               projectId={project.id}
               docs={visualInventoryDocs}
-              onDeleted={(docId) => setDocs((prev) => prev.filter((d) => d.id !== docId))}
+              onDeleted={removeDoc}
             />
           )}
 
           {/* ── Servis Formları ── */}
           {tab === "servisform" && (
-            <ServisFormTab docs={fieldReportDocs} />
+            <ServisFormTab docs={fieldReportDocs} onDeleted={removeDoc} />
           )}
 
           {/* ── Diğer Dosyalar ── */}
@@ -638,7 +640,7 @@ export default function MagazaDetailPage() {
                 <AlertCircle className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" />
                 <p className="text-xs text-slate-500">Bu alan mağazaya bağlanmış dosyaları görüntülemek içindir. Dosya ekleme işlemleri Genel Arşiv üzerinden yapılır.</p>
               </div>
-              <DocList docs={otherDocs} archiveHref={archiveHref} />
+              <DocList docs={otherDocs} archiveHref={archiveHref} onDeleted={removeDoc} />
             </div>
           )}
         </div>

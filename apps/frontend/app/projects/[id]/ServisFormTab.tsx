@@ -1,10 +1,9 @@
 "use client";
 
-import { Archive, Download, Eye, FileText, Folder } from "lucide-react";
-import { apiGet } from "@/lib/api";
-import { openFileInNewTab } from "@/lib/download";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { Archive, FileText, Folder, Loader2 } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { useDocActions } from "@/hooks/use-doc-actions";
+import { ToolbarDock } from "@/components/ui/toolbar-dock";
 
 type Document = {
   id: string;
@@ -23,16 +22,11 @@ function fmtBytes(n?: number): string {
   return `${(n / 1048576).toFixed(1)} MB`;
 }
 
-async function openDoc(docId: string) {
-  try {
-    await openFileInNewTab(async () => (await apiGet<{ url: string }>(`/documents/${docId}/download`))?.url);
-  } catch {
-    alert("Dosya açılamadı.");
-  }
-}
-
-export default function ServisFormTab({ docs }: { docs: Document[] }) {
+export default function ServisFormTab({ docs, onDeleted }: { docs: Document[]; onDeleted: (docId: string) => void }) {
   const pathname = usePathname();
+  const router = useRouter();
+  // Aç / İndir / Sil: mağaza sayfasındaki tüm dosya listeleriyle ortak "≡" menüsü.
+  const { actionsFor, busyId, error: actionError } = useDocActions(onDeleted);
   const archiveHref = pathname.startsWith("/manager") ? "/manager/genel-arsiv" : pathname.startsWith("/user") ? "/user/genel-arsiv" : "/genel-arsiv";
   if (docs.length === 0) {
     return (
@@ -56,6 +50,10 @@ export default function ServisFormTab({ docs }: { docs: Document[] }) {
         <h3 className="text-sm font-semibold text-slate-800">Servis Formları</h3>
         <p className="text-xs text-slate-400 mt-0.5">Bu mağazaya ait servis formları burada görüntülenir.</p>
       </div>
+
+      {actionError && (
+        <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{actionError}</p>
+      )}
 
       <div className="space-y-2">
         {docs.map((doc) => {
@@ -87,22 +85,19 @@ export default function ServisFormTab({ docs }: { docs: Document[] }) {
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button onClick={() => openDoc(doc.id)} title="Aç"
-                  className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700">
-                  <Eye className="h-3.5 w-3.5" />
-                </button>
-                <button onClick={() => openDoc(doc.id)} title="İndir"
-                  className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-green-50 hover:text-green-600">
-                  <Download className="h-3.5 w-3.5" />
-                </button>
-                {doc.is_archive && (
-                  <Link href={archiveHref} title="Genel Arşivde Göster"
-                    className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-purple-50 hover:text-purple-600">
-                    <Archive className="h-3.5 w-3.5" />
-                  </Link>
-                )}
-              </div>
+              {/* Çerçevesiz tek "≡" — dokunmatikte de görünür (eskiden yalnızca hover'da çıkıyordu;
+                  "İndir" da aslında yalnızca açıyordu). */}
+              {busyId === doc.id ? (
+                <Loader2 className="h-4 w-4 shrink-0 animate-spin text-slate-400" />
+              ) : (
+                <ToolbarDock
+                  actions={actionsFor(doc, doc.is_archive
+                    ? [{ key: "archive", label: "Genel Arşivde Göster", icon: Archive, onClick: () => router.push(archiveHref) }]
+                    : [])}
+                  panelClassName="w-48"
+                  triggerClassName="bg-transparent text-slate-400 hover:bg-transparent hover:text-slate-800"
+                />
+              )}
             </div>
           );
         })}

@@ -6,18 +6,14 @@ import {
   ChevronLeft,
   ChevronRight,
   ClipboardList,
-  Download,
-  ExternalLink,
   Filter,
   Image as ImageIcon,
   Loader2,
   MapPin,
-  Trash2,
   X,
 } from "lucide-react";
-import { apiDelete, apiGet } from "@/lib/api";
-import { downloadFromUrl, openFileInNewTab } from "@/lib/download";
-import { useAuth } from "@/contexts/auth-context";
+import { apiGet } from "@/lib/api";
+import { useDocActions } from "@/hooks/use-doc-actions";
 import { ToolbarDock, type ToolbarDockAction } from "@/components/ui/toolbar-dock";
 import { ZoomableImage } from "@/components/ui/zoomable-image";
 
@@ -296,76 +292,25 @@ export default function VisualInventoryTab({
 }: {
   projectId: string;
   docs: Document[];
-  /** Görsel silindiğinde üst sayfanın kendi listesini de güncellemesi için. */
-  onDeleted?: (docId: string) => void;
+  /** Görsel silindiğinde üst sayfa kendi listesinden çıkarır. */
+  onDeleted: (docId: string) => void;
 }) {
   const [lightboxIdx, setLightboxIdx]       = useState<number | null>(null);
   const [filterCategory, setFilterCategory] = useState("all");
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [actionError, setActionError] = useState("");
-  // Silinen fotoğraflar hemen gizlenir; üst sayfa da onDeleted ile kendi listesini günceller.
-  const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
 
-  // Aç / İndir: tüm roller (görebildiği dosyayı kaydedebilir; erişimi sunucu zaten
-  // mağaza kapsamına göre denetliyor). Sil: yalnızca yönetici/admin — sunucu da
-  // kullanıcıya 403 döner, bu yüzden kullanıcıya satırı hiç göstermiyoruz.
-  const { user } = useAuth();
-  const canDelete = user?.role === "MANAGER" || user?.role === "ADMIN";
+  // Aç / İndir / Sil: mağaza sayfasındaki tüm dosya listeleriyle ORTAK menü
+  // (bkz. hooks/use-doc-actions.ts). Silinince büyük fotoğraf ekranı da kapanır.
+  const { actionsFor, busyId, error: actionError } = useDocActions((docId) => {
+    setLightboxIdx(null);
+    onDeleted(docId);
+  });
 
-  const visibleDocs = docs.filter((d) => !removedIds.has(d.id));
   const filteredDocs = filterCategory === "all"
-    ? visibleDocs
-    : visibleDocs.filter((d) => parseMeta(d.vi_meta).c === filterCategory);
-
-  const fetchUrl = async (doc: Document, download: boolean) => {
-    const res = await apiGet<{ url: string }>(`/documents/${doc.id}/download${download ? "?download=true" : ""}`);
-    return res?.url;
-  };
-
-  const handleOpen = async (doc: Document) => {
-    setActionError("");
-    try {
-      await openFileInNewTab(() => fetchUrl(doc, false));
-    } catch {
-      setActionError(`"${doc.original_name}" açılamadı. Bağlantıyı kontrol edip tekrar deneyin.`);
-    }
-  };
-
-  const handleDownload = async (doc: Document) => {
-    setActionError("");
-    try {
-      await downloadFromUrl(() => fetchUrl(doc, true), doc.original_name);
-    } catch {
-      setActionError(`"${doc.original_name}" indirilemedi. Bağlantıyı kontrol edip tekrar deneyin.`);
-    }
-  };
-
-  const handleDelete = async (doc: Document) => {
-    if (!window.confirm(`"${doc.original_name}" görselini kaldırmak istediğinize emin misiniz?`)) return;
-    setActionError("");
-    setBusyId(doc.id);
-    try {
-      await apiDelete(`/documents/${doc.id}`);
-      setRemovedIds((prev) => new Set(prev).add(doc.id));
-      onDeleted?.(doc.id);
-      setLightboxIdx(null);
-    } catch {
-      setActionError("Görsel silinemedi. Yetkinizi kontrol edip tekrar deneyin.");
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  const actionsFor = (doc: Document): ToolbarDockAction[] => [
-    { key: "open", label: "Aç", icon: ExternalLink, onClick: () => handleOpen(doc) },
-    { key: "download", label: "İndir", icon: Download, onClick: () => handleDownload(doc) },
-    ...(canDelete
-      ? [{ key: "delete", label: "Sil", icon: Trash2, variant: "danger", onClick: () => handleDelete(doc) } as ToolbarDockAction]
-      : []),
-  ];
+    ? docs
+    : docs.filter((d) => parseMeta(d.vi_meta).c === filterCategory);
 
   const usedCategories = Array.from(
-    new Set(visibleDocs.map((d) => parseMeta(d.vi_meta).c).filter(Boolean))
+    new Set(docs.map((d) => parseMeta(d.vi_meta).c).filter(Boolean))
   ) as string[];
 
   return (
@@ -383,10 +328,10 @@ export default function VisualInventoryTab({
                   : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
               }`}
             >
-              Tümü <span className="ml-0.5 opacity-70">({visibleDocs.length})</span>
+              Tümü <span className="ml-0.5 opacity-70">({docs.length})</span>
             </button>
             {usedCategories.map((cat) => {
-              const count = visibleDocs.filter((d) => parseMeta(d.vi_meta).c === cat).length;
+              const count = docs.filter((d) => parseMeta(d.vi_meta).c === cat).length;
               return (
                 <button
                   key={cat}
@@ -413,11 +358,11 @@ export default function VisualInventoryTab({
         <div className="flex flex-col items-center justify-center py-16 gap-3">
           <Camera className="h-10 w-10 text-slate-200" />
           <p className="text-sm text-slate-400">
-            {visibleDocs.length === 0
+            {docs.length === 0
               ? "Bu mağazaya ait görsel bulunmuyor."
               : "Bu kategoride görsel yok."}
           </p>
-          {visibleDocs.length === 0 && (
+          {docs.length === 0 && (
             <p className="text-xs text-slate-300">Görseller Genel Arşiv üzerinden bu sekmeye taşınabilir.</p>
           )}
         </div>
