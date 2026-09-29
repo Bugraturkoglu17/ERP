@@ -24,13 +24,19 @@ function formatBytes(bytes: number): string {
   return `${(bytes / 1024 ** i).toFixed(i === 0 ? 0 : 2)} ${units[i]}`;
 }
 
+// Backend saatleri UTC olarak, saat dilimi eki OLMADAN döner ("2026-09-29T19:02:00").
+// Ek yoksa tarayıcı bunu yerel saat sanıp 3 saat geri gösterir — UTC olarak yorumla.
+function parseServerDate(iso: string): Date {
+  return new Date(/(Z|[+-]\d{2}:?\d{2})$/.test(iso) ? iso : `${iso}Z`);
+}
+
 function formatDateTime(iso: string | null): string {
   if (!iso) return "—";
-  return new Date(iso).toLocaleString("tr-TR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  return parseServerDate(iso).toLocaleString("tr-TR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
 function daysSince(iso: string): number {
-  const diffMs = Date.now() - new Date(iso).getTime();
+  const diffMs = Date.now() - parseServerDate(iso).getTime();
   return Math.floor(diffMs / (24 * 60 * 60 * 1000));
 }
 
@@ -223,7 +229,14 @@ export default function SystemBackupPage() {
         />
         <StatCard
           label="Son Hedef"
-          value={lastSuccessful?.backup_target_label || lastSuccessful?.backup_target_id?.slice(-8) || "—"}
+          value={
+            <span
+              className="block truncate text-lg sm:text-xl"
+              title={lastSuccessful?.backup_target_label || lastSuccessful?.backup_target_id || undefined}
+            >
+              {lastSuccessful?.backup_target_label || lastSuccessful?.backup_target_id?.slice(-8) || "—"}
+            </span>
+          }
           icon={<HardDrive className="h-4 w-4 text-slate-300" />}
         />
         <StatCard
