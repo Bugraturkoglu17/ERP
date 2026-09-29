@@ -619,7 +619,11 @@ export default function MagazaDetailPage() {
 
           {/* ── Görsel Envanter ── */}
           {tab === "visual_inventory" && project && (
-            <VisualInventoryTab projectId={project.id} docs={visualInventoryDocs} />
+            <VisualInventoryTab
+              projectId={project.id}
+              docs={visualInventoryDocs}
+              onDeleted={(docId) => setDocs((prev) => prev.filter((d) => d.id !== docId))}
+            />
           )}
 
           {/* ── Servis Formları ── */}

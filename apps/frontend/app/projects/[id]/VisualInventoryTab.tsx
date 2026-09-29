@@ -6,13 +6,19 @@ import {
   ChevronLeft,
   ChevronRight,
   ClipboardList,
+  Download,
+  ExternalLink,
   Filter,
   Image as ImageIcon,
   Loader2,
   MapPin,
+  Trash2,
   X,
 } from "lucide-react";
-import { apiGet } from "@/lib/api";
+import { apiDelete, apiGet } from "@/lib/api";
+import { downloadFromUrl, openFileInNewTab } from "@/lib/download";
+import { useAuth } from "@/contexts/auth-context";
+import { ToolbarDock, type ToolbarDockAction } from "@/components/ui/toolbar-dock";
 import { ZoomableImage } from "@/components/ui/zoomable-image";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -68,7 +74,14 @@ function parseMeta(raw?: string): ViMeta {
 
 // ── Photo Card ─────────────────────────────────────────────────────────────────
 
-function PhotoCard({ doc, onClick }: { doc: Document; onClick: () => void }) {
+function PhotoCard({
+  doc, onClick, actions, busy,
+}: {
+  doc: Document;
+  onClick: () => void;
+  actions: ToolbarDockAction[];
+  busy: boolean;
+}) {
   const meta = parseMeta(doc.vi_meta);
   const [url, setUrl] = useState<string | null>(null);
   const [imgErr, setImgErr] = useState(false);
@@ -81,61 +94,87 @@ function PhotoCard({ doc, onClick }: { doc: Document; onClick: () => void }) {
 
   const isImage = doc.mime_type?.startsWith("image/") ?? true;
 
+  // Dış kabuk overflow-hidden DEĞİL: aşağı açılan işlem menüsü kırpılmasın.
+  // Kırpma/zoom yalnızca fotoğraf butonunda; menü onun kardeşi (iç içe buton yok).
   return (
-    <button
-      onClick={onClick}
-      className="group relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50 aspect-square hover:border-blue-300 hover:shadow-md transition-all text-left w-full"
-    >
-      {url && isImage && !imgErr ? (
-        <img
-          src={url}
-          alt={meta.t ?? doc.original_name}
-          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          onError={() => setImgErr(true)}
-        />
-      ) : (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <ImageIcon className="h-8 w-8 text-slate-300" />
-        </div>
-      )}
+    <div className="relative aspect-square w-full">
+      <button
+        type="button"
+        onClick={onClick}
+        className="group absolute inset-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 text-left transition-all hover:border-blue-300 hover:shadow-md"
+      >
+        {url && isImage && !imgErr ? (
+          <img
+            src={url}
+            alt={meta.t ?? doc.original_name}
+            className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            onError={() => setImgErr(true)}
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <ImageIcon className="h-8 w-8 text-slate-300" />
+          </div>
+        )}
 
-      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
 
-      {meta.c && (
-        <span className="absolute top-2 left-2 rounded-full bg-black/50 px-2 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm">
-          {getCategoryLabel(meta.c)}
-        </span>
-      )}
-      {meta.source === "work_order" && (
-        <span className="absolute top-2 right-2 rounded-full bg-blue-600/80 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm flex items-center gap-1">
-          <ClipboardList className="h-2.5 w-2.5" /> İş Emri
-        </span>
-      )}
+        {meta.c && (
+          <span className="absolute left-2 top-2 max-w-[60%] truncate rounded-full bg-black/50 px-2 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm">
+            {getCategoryLabel(meta.c)}
+          </span>
+        )}
 
-      <div className="absolute bottom-0 left-0 right-0 p-2.5 opacity-0 group-hover:opacity-100 transition-opacity">
-        <p className="text-xs font-medium text-white truncate leading-tight">
-          {meta.t ?? doc.original_name}
-        </p>
-        {meta.dt && (
-          <p className="text-[10px] text-white/70 mt-0.5">
-            {new Date(meta.dt).toLocaleDateString("tr-TR")}
+        <div className="absolute bottom-0 left-0 right-0 p-2.5 opacity-0 transition-opacity group-hover:opacity-100">
+          <p className="truncate text-xs font-medium leading-tight text-white">
+            {meta.t ?? doc.original_name}
           </p>
+          {meta.dt && (
+            <p className="mt-0.5 text-[10px] text-white/70">
+              {new Date(meta.dt).toLocaleDateString("tr-TR")}
+            </p>
+          )}
+        </div>
+      </button>
+
+      {/* Sağ üst köşe: iş emri işareti (yalnızca ikon) + tek "≡" işlem menüsü.
+          Yer kaplamaz; dokunmatikte de hep görünür (hover gerektirmez). */}
+      <div className="absolute right-1.5 top-1.5 z-10 flex items-center gap-1">
+        {meta.source === "work_order" && (
+          <span
+            title="İş emrinden aktarıldı"
+            className="pointer-events-none flex h-6 w-6 items-center justify-center rounded-full bg-blue-600/85 text-white backdrop-blur-sm"
+          >
+            <ClipboardList className="h-3 w-3" />
+          </span>
+        )}
+        {busy ? (
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-black/50 text-white backdrop-blur-sm sm:h-7 sm:w-7">
+            <Loader2 className="h-4 w-4 animate-spin" />
+          </span>
+        ) : (
+          <ToolbarDock
+            actions={actions}
+            panelClassName="w-36"
+            triggerClassName="h-8 w-8 rounded-lg bg-black/45 text-white backdrop-blur-sm hover:bg-black/65 hover:text-white sm:h-7 sm:w-7"
+          />
         )}
       </div>
-    </button>
+    </div>
   );
 }
 
 // ── Lightbox ───────────────────────────────────────────────────────────────────
 
 function Lightbox({
-  docs, index, onClose, onPrev, onNext,
+  docs, index, onClose, onPrev, onNext, actions,
 }: {
   docs: Document[];
   index: number;
   onClose: () => void;
   onPrev: () => void;
   onNext: () => void;
+  /** Açık fotoğrafın işlemleri (Aç / İndir / Sil) — kart menüsüyle aynı. */
+  actions: ToolbarDockAction[];
 }) {
   const doc = docs[index];
   const meta = parseMeta(doc?.vi_meta);
@@ -167,6 +206,16 @@ function Lightbox({
         className="absolute top-4 right-4 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors z-10">
         <X className="h-5 w-5" />
       </button>
+
+      {/* stopPropagation: menünün "dışarı tıkla → kapat" katmanı lightbox'ın
+          kendi onClick={onClose}'una kabarıp fotoğrafı da kapatmasın. */}
+      <div className="absolute right-16 top-4 z-10" onClick={(e) => e.stopPropagation()}>
+        <ToolbarDock
+          actions={actions}
+          panelClassName="w-36"
+          triggerClassName="h-9 w-9 rounded-full bg-white/10 text-white hover:bg-white/20 hover:text-white"
+        />
+      </div>
 
       {index > 0 && (
         <button onClick={(e) => { e.stopPropagation(); onPrev(); }}
@@ -241,19 +290,80 @@ function Lightbox({
 export default function VisualInventoryTab({
   projectId: _projectId,
   docs,
+  onDeleted,
 }: {
   projectId: string;
   docs: Document[];
+  /** Görsel silindiğinde üst sayfanın kendi listesini de güncellemesi için. */
+  onDeleted?: (docId: string) => void;
 }) {
   const [lightboxIdx, setLightboxIdx]       = useState<number | null>(null);
   const [filterCategory, setFilterCategory] = useState("all");
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState("");
+  // Silinen fotoğraflar hemen gizlenir; üst sayfa da onDeleted ile kendi listesini günceller.
+  const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
 
+  // Aç / İndir: tüm roller (görebildiği dosyayı kaydedebilir; erişimi sunucu zaten
+  // mağaza kapsamına göre denetliyor). Sil: yalnızca yönetici/admin — sunucu da
+  // kullanıcıya 403 döner, bu yüzden kullanıcıya satırı hiç göstermiyoruz.
+  const { user } = useAuth();
+  const canDelete = user?.role === "MANAGER" || user?.role === "ADMIN";
+
+  const visibleDocs = docs.filter((d) => !removedIds.has(d.id));
   const filteredDocs = filterCategory === "all"
-    ? docs
-    : docs.filter((d) => parseMeta(d.vi_meta).c === filterCategory);
+    ? visibleDocs
+    : visibleDocs.filter((d) => parseMeta(d.vi_meta).c === filterCategory);
+
+  const fetchUrl = async (doc: Document, download: boolean) => {
+    const res = await apiGet<{ url: string }>(`/documents/${doc.id}/download${download ? "?download=true" : ""}`);
+    return res?.url;
+  };
+
+  const handleOpen = async (doc: Document) => {
+    setActionError("");
+    try {
+      await openFileInNewTab(() => fetchUrl(doc, false));
+    } catch {
+      setActionError(`"${doc.original_name}" açılamadı. Bağlantıyı kontrol edip tekrar deneyin.`);
+    }
+  };
+
+  const handleDownload = async (doc: Document) => {
+    setActionError("");
+    try {
+      await downloadFromUrl(() => fetchUrl(doc, true), doc.original_name);
+    } catch {
+      setActionError(`"${doc.original_name}" indirilemedi. Bağlantıyı kontrol edip tekrar deneyin.`);
+    }
+  };
+
+  const handleDelete = async (doc: Document) => {
+    if (!window.confirm(`"${doc.original_name}" görselini kaldırmak istediğinize emin misiniz?`)) return;
+    setActionError("");
+    setBusyId(doc.id);
+    try {
+      await apiDelete(`/documents/${doc.id}`);
+      setRemovedIds((prev) => new Set(prev).add(doc.id));
+      onDeleted?.(doc.id);
+      setLightboxIdx(null);
+    } catch {
+      setActionError("Görsel silinemedi. Yetkinizi kontrol edip tekrar deneyin.");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const actionsFor = (doc: Document): ToolbarDockAction[] => [
+    { key: "open", label: "Aç", icon: ExternalLink, onClick: () => handleOpen(doc) },
+    { key: "download", label: "İndir", icon: Download, onClick: () => handleDownload(doc) },
+    ...(canDelete
+      ? [{ key: "delete", label: "Sil", icon: Trash2, variant: "danger", onClick: () => handleDelete(doc) } as ToolbarDockAction]
+      : []),
+  ];
 
   const usedCategories = Array.from(
-    new Set(docs.map((d) => parseMeta(d.vi_meta).c).filter(Boolean))
+    new Set(visibleDocs.map((d) => parseMeta(d.vi_meta).c).filter(Boolean))
   ) as string[];
 
   return (
@@ -271,10 +381,10 @@ export default function VisualInventoryTab({
                   : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
               }`}
             >
-              Tümü <span className="ml-0.5 opacity-70">({docs.length})</span>
+              Tümü <span className="ml-0.5 opacity-70">({visibleDocs.length})</span>
             </button>
             {usedCategories.map((cat) => {
-              const count = docs.filter((d) => parseMeta(d.vi_meta).c === cat).length;
+              const count = visibleDocs.filter((d) => parseMeta(d.vi_meta).c === cat).length;
               return (
                 <button
                   key={cat}
@@ -293,33 +403,44 @@ export default function VisualInventoryTab({
         )}
       </div>
 
+      {actionError && (
+        <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{actionError}</p>
+      )}
+
       {filteredDocs.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 gap-3">
           <Camera className="h-10 w-10 text-slate-200" />
           <p className="text-sm text-slate-400">
-            {docs.length === 0
+            {visibleDocs.length === 0
               ? "Bu mağazaya ait görsel bulunmuyor."
               : "Bu kategoride görsel yok."}
           </p>
-          {docs.length === 0 && (
+          {visibleDocs.length === 0 && (
             <p className="text-xs text-slate-300">Görseller Genel Arşiv üzerinden bu sekmeye taşınabilir.</p>
           )}
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
           {filteredDocs.map((doc, idx) => (
-            <PhotoCard key={doc.id} doc={doc} onClick={() => setLightboxIdx(idx)} />
+            <PhotoCard
+              key={doc.id}
+              doc={doc}
+              onClick={() => setLightboxIdx(idx)}
+              actions={actionsFor(doc)}
+              busy={busyId === doc.id}
+            />
           ))}
         </div>
       )}
 
-      {lightboxIdx !== null && (
+      {lightboxIdx !== null && filteredDocs[lightboxIdx] && (
         <Lightbox
           docs={filteredDocs}
           index={lightboxIdx}
           onClose={() => setLightboxIdx(null)}
           onPrev={() => setLightboxIdx((i) => (i !== null && i > 0 ? i - 1 : i))}
           onNext={() => setLightboxIdx((i) => (i !== null && i < filteredDocs.length - 1 ? i + 1 : i))}
+          actions={actionsFor(filteredDocs[lightboxIdx])}
         />
       )}
     </div>

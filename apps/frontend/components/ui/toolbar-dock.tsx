@@ -36,6 +36,7 @@ export function ToolbarDock({
   align = "end",
   trigger,
   triggerClassName,
+  panelClassName,
   className,
 }: {
   actions: ToolbarDockAction[];
@@ -47,6 +48,9 @@ export function ToolbarDock({
       görünür (örn. dosya türü filtresi). */
   trigger?: { icon: LucideIcon; label: string };
   triggerClassName?: string;
+  /** direction="down" panelinin sınıfları (örn. "w-36" ile daralt) — dar ekranda
+      kenardaki kartların menüsü ekran dışına taşmasın diye. */
+  panelClassName?: string;
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -141,6 +145,7 @@ export function ToolbarDock({
                 "absolute z-40 w-52 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-lg",
                 flipUp ? "bottom-full mb-1" : "top-full mt-1",
                 align === "end" ? "right-0" : "left-0",
+                panelClassName,
               )}
             >
               {actions.map((a) => (
