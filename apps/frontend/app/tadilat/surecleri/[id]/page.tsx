@@ -11,6 +11,7 @@ import {
   RefreshCw, Save, Send, StickyNote, Trash2, Upload, Wrench, X, XCircle,
 } from "lucide-react";
 import { apiDelete, apiGet, apiPatch, apiPost, buildApiUrl } from "@/lib/api";
+import { openFileInNewTab } from "@/lib/download";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -116,13 +117,18 @@ async function uploadFile(file: File, projectId: string, docType: string): Promi
 }
 
 async function openDoc(docId: string) {
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-  const res = await fetch(buildApiUrl(`/documents/${docId}/download`), {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  }).catch(() => null);
-  if (!res?.ok) { alert("Dosya açılamadı."); return; }
-  const { url } = await res.json();
-  window.open(url, "_blank");
+  try {
+    await openFileInNewTab(async () => {
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      const res = await fetch(buildApiUrl(`/documents/${docId}/download`), {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error();
+      return (await res.json()).url;
+    });
+  } catch {
+    alert("Dosya açılamadı.");
+  }
 }
 
 // ── Stage config ───────────────────────────────────────────────────────────────

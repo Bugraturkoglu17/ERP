@@ -6,7 +6,7 @@ import {
   CheckCircle2, Clock, Download, Eye, FileText, FolderOpen, Search, Store, Wrench,
 } from "lucide-react";
 import { apiGet, buildApiUrl } from "@/lib/api";
-import { downloadFile } from "@/lib/download";
+import { downloadFromUrl, openFileInNewTab } from "@/lib/download";
 
 type Project = { id: string; name: string; project_no?: string; status: string; scope_codes?: string[] };
 
@@ -52,8 +52,7 @@ async function resolveFileUrl(fileUrlOrDocId: string, forceDownload = false): Pr
 
 async function openDoc(fileUrlOrDocId: string) {
   try {
-    const url = await resolveFileUrl(fileUrlOrDocId);
-    window.open(url, "_blank");
+    await openFileInNewTab(() => resolveFileUrl(fileUrlOrDocId));
   } catch {
     alert("Dosya açılamadı.");
   }
@@ -64,8 +63,7 @@ async function downloadDoc(fileUrlOrDocId: string, fileName?: string) {
     // forceDownload=true → OCI presigned URL zaten Content-Disposition:
     // attachment taşıyor; downloadFile blob-fetch CORS'a takılırsa otomatik
     // düz navigasyona düşer, indirme yine de tetiklenir.
-    const url = await resolveFileUrl(fileUrlOrDocId, true);
-    await downloadFile(url, fileName ?? "servis-formu");
+    await downloadFromUrl(() => resolveFileUrl(fileUrlOrDocId, true), fileName ?? "servis-formu");
   } catch {
     alert("Dosya indirilemedi.");
   }

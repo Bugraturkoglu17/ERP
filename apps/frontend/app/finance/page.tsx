@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { apiGet, apiPost } from "@/lib/api";
+import { openFileInNewTab } from "@/lib/download";
 import { 
   CircleDollarSign, 
   Plus, 
@@ -1247,11 +1248,11 @@ export default function FinancePage() {
                           onClick={async (e) => {
                             e.stopPropagation();
                             try {
-                              const res = await apiGet<{ url?: string }>(`/documents/${doc.id}/download`);
-                              const downloadUrl = typeof res?.url === "string" ? res.url : "";
-                              if (!downloadUrl) throw new Error();
-                              window.open(downloadUrl, "_blank");
-                            } catch (err) {
+                              await openFileInNewTab(async () => {
+                                const res = await apiGet<{ url?: string }>(`/documents/${doc.id}/download`);
+                                return typeof res?.url === "string" ? res.url : "";
+                              });
+                            } catch {
                               alert("Belge indirme bağlantısı alınamadı.");
                             }
                           }}

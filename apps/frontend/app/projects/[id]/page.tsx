@@ -18,6 +18,7 @@ import {
   X,
 } from "lucide-react";
 import { apiGet, apiPatch } from "@/lib/api";
+import { openFileInNewTab } from "@/lib/download";
 import ServisFormTab from "./ServisFormTab";
 import WorkOrdersTab from "./WorkOrdersTab";
 import VisualInventoryTab from "./VisualInventoryTab";
@@ -183,8 +184,7 @@ function writeTabToUrl(tab: TabKey) {
 function DocList({ docs, archiveHref }: { docs: Document[]; archiveHref: string }) {
   const handleDownload = async (doc: Document) => {
     try {
-      const data = await apiGet<{ url: string }>(`/documents/${doc.id}/download`);
-      if (data?.url) window.open(data.url, "_blank");
+      await openFileInNewTab(async () => (await apiGet<{ url: string }>(`/documents/${doc.id}/download`))?.url);
     } catch { alert("İndirme bağlantısı alınamadı."); }
   };
 

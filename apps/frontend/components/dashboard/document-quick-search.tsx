@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Download, ExternalLink, FileSearch, Loader2, Search, Trash2, X } from "lucide-react";
 import { apiGet, apiDelete } from "@/lib/api";
-import { downloadFile } from "@/lib/download";
+import { downloadFromUrl, openFileInNewTab } from "@/lib/download";
 
 type ArchiveDocument = {
   id: string;
@@ -103,23 +103,12 @@ export default function DocumentQuickSearch() {
   const openDocument = async (doc: ArchiveDocument, download = false) => {
     setActiveDocument(doc.id);
     setError("");
-    // Open the preview tab synchronously while the click still has browser
-    // permission. Mobile Safari blocks window.open calls made after an await.
-    const previewWindow = download ? null : window.open("", "_blank");
+    const getUrl = async () =>
+      (await apiGet<{ url: string }>(`/documents/${doc.id}/download${download ? "?download=true" : ""}`)).url;
     try {
-      const { url } = await apiGet<{ url: string }>(`/documents/${doc.id}/download${download ? "?download=true" : ""}`);
-      if (download) {
-        // Farklı origin'deki (backend) URL'de <a download> yok sayılır —
-        // dosyayı blob olarak çekip sayfanın kendi origin'inden indiriyoruz.
-        await downloadFile(url, doc.original_name);
-      } else if (previewWindow) {
-        previewWindow.opener = null;
-        previewWindow.location.replace(url);
-      } else {
-        window.location.assign(url);
-      }
+      if (download) await downloadFromUrl(getUrl, doc.original_name);
+      else await openFileInNewTab(getUrl);
     } catch {
-      previewWindow?.close();
       setError(download ? "Dosya indirilemedi." : "Dosya bağlantısı oluşturulamadı.");
     } finally {
       setActiveDocument(null);

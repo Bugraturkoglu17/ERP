@@ -37,3 +37,55 @@ export async function downloadFile(url: string, filename: string): Promise<void>
     throw err;
   }
 }
+
+/** Telefon/tablet veya ana ekrana eklenmiş uygulama (PWA standalone) mı. */
+export function isMobileOrInstalledApp(): boolean {
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    (navigator as Navigator & { standalone?: boolean }).standalone === true ||
+    window.matchMedia("(pointer: coarse)").matches
+  );
+}
+
+/**
+ * Dosyayı yeni sekmede açar; `getUrl` imzalı dosya adresini sunucudan alır.
+ *
+ * Sekme, bu fonksiyon çağrıldığı anda — ilk await'ten ÖNCE — açılır:
+ * mobil Safari/Chrome, API yanıtını bekledikten sonra çağrılan window.open'ı
+ * pop-up sayıp sessizce engelliyor. Bu yüzden tıklama işleyicisinden,
+ * araya başka bir await girmeden çağrılmalıdır.
+ */
+type UrlGetter = () => Promise<string | null | undefined>;
+
+export async function openFileInNewTab(getUrl: UrlGetter): Promise<void> {
+  const tab = window.open("", "_blank");
+  try {
+    const url = await getUrl();
+    if (!url) throw new Error("Dosya bağlantısı alınamadı.");
+    if (tab) {
+      tab.opener = null;
+      tab.location.replace(url);
+    } else {
+      window.location.assign(url);
+    }
+  } catch (err) {
+    tab?.close();
+    throw err;
+  }
+}
+
+/**
+ * Dosyayı indirir. Masaüstünde downloadFile ile; telefonda ve ana ekrana
+ * eklenmiş uygulamada ise indirme bağlantısına uygulama penceresinde gitmek
+ * hiçbir şey yapmadığı için dosya yeni sekmede açılır (indirmeyi tarayıcı
+ * yapar). openFileInNewTab ile aynı kural: araya await girmeden çağrılmalı.
+ */
+export async function downloadFromUrl(getUrl: UrlGetter, filename: string): Promise<void> {
+  if (isMobileOrInstalledApp()) {
+    await openFileInNewTab(getUrl);
+    return;
+  }
+  const url = await getUrl();
+  if (!url) throw new Error("Dosya bağlantısı alınamadı.");
+  await downloadFile(url, filename);
+}

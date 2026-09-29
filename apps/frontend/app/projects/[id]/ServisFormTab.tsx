@@ -2,6 +2,7 @@
 
 import { Archive, Download, Eye, FileText, Folder } from "lucide-react";
 import { apiGet } from "@/lib/api";
+import { openFileInNewTab } from "@/lib/download";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -23,9 +24,11 @@ function fmtBytes(n?: number): string {
 }
 
 async function openDoc(docId: string) {
-  const data = await apiGet<{ url: string }>(`/documents/${docId}/download`).catch(() => null);
-  if (data?.url) window.open(data.url, "_blank");
-  else alert("Dosya açılamadı.");
+  try {
+    await openFileInNewTab(async () => (await apiGet<{ url: string }>(`/documents/${docId}/download`))?.url);
+  } catch {
+    alert("Dosya açılamadı.");
+  }
 }
 
 export default function ServisFormTab({ docs }: { docs: Document[] }) {

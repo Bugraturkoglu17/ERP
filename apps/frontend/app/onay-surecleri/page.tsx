@@ -9,6 +9,7 @@ import {
   FileCheck, Receipt, FileText, Upload, X,
 } from "lucide-react";
 import { apiGet, apiPatch, apiPost, buildApiUrl } from "@/lib/api";
+import { openFileInNewTab } from "@/lib/download";
 
 type ApprovalRequest = {
   id: string;
@@ -361,13 +362,14 @@ function OnayPage() {
 
   const openDoc = async (docId: string) => {
     try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-      const res = await fetch(buildApiUrl(`/documents/${docId}/download`), {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      await openFileInNewTab(async () => {
+        const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+        const res = await fetch(buildApiUrl(`/documents/${docId}/download`), {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (!res.ok) throw new Error();
+        return (await res.json()).url;
       });
-      if (!res.ok) throw new Error();
-      const { url } = await res.json();
-      window.open(url, "_blank");
     } catch {
       alert("Dosya açılamadı.");
     }

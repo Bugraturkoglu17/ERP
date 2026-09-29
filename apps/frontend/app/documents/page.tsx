@@ -18,6 +18,7 @@ import {
   X,
 } from "lucide-react";
 import { apiGet, apiDelete, buildApiUrl } from "@/lib/api";
+import { openFileInNewTab } from "@/lib/download";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -259,8 +260,7 @@ function HistoryPanel({ doc, onClose }: { doc: Document; onClose: () => void }) 
 
   const download = async (ver: DocVersion) => {
     try {
-      const data = await apiGet<{ url: string }>(`/documents/${ver.id}/download`);
-      if (data?.url) window.open(data.url, "_blank");
+      await openFileInNewTab(async () => (await apiGet<{ url: string }>(`/documents/${ver.id}/download`))?.url);
     } catch { alert("İndirme bağlantısı alınamadı."); }
   };
 
@@ -360,8 +360,7 @@ export default function DocumentsPage() {
 
   const handleDownload = async (doc: Document) => {
     try {
-      const data = await apiGet<{ url: string }>(`/documents/${doc.id}/download`);
-      if (data?.url) window.open(data.url, "_blank");
+      await openFileInNewTab(async () => (await apiGet<{ url: string }>(`/documents/${doc.id}/download`))?.url);
     } catch { alert("İndirme bağlantısı alınamadı."); }
   };
 

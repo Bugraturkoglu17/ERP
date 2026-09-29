@@ -9,7 +9,7 @@ import {
   Trash2, Upload, Wrench, X,
 } from "lucide-react";
 import { apiDelete, apiGet, apiPost, buildApiUrl } from "@/lib/api";
-import { downloadFile } from "@/lib/download";
+import { downloadFromUrl, openFileInNewTab } from "@/lib/download";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -75,28 +75,29 @@ function getRegion(project: Project): string {
   } catch { return ""; }
 }
 
-async function openDoc(docId: string) {
+async function fetchDocUrl(docId: string, download: boolean): Promise<string> {
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-  const res = await fetch(buildApiUrl(`/documents/${docId}/download`), {
+  const res = await fetch(buildApiUrl(`/documents/${docId}/download${download ? "?download=true" : ""}`), {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
-  if (!res.ok) { alert("Dosya açılamadı."); return; }
-  const { url } = await res.json();
-  window.open(url, "_blank");
+  if (!res.ok) throw new Error();
+  return (await res.json()).url;
+}
+
+async function openDoc(docId: string) {
+  try {
+    await openFileInNewTab(() => fetchDocUrl(docId, false));
+  } catch {
+    alert("Dosya açılamadı.");
+  }
 }
 
 async function downloadDoc(docId: string, fileName?: string) {
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-  const res = await fetch(buildApiUrl(`/documents/${docId}/download?download=true`), {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
-  if (!res.ok) { alert("İndirilemiyor."); return; }
-  const { url } = await res.json();
   // download=true → OCI presigned URL zaten Content-Disposition: attachment
   // taşıyor. downloadFile önce blob-fetch dener, storage bucket CORS
   // vermiyorsa otomatik düz navigasyona düşer (indirme yine de tetiklenir).
   try {
-    await downloadFile(url, fileName ?? "dosya");
+    await downloadFromUrl(() => fetchDocUrl(docId, true), fileName ?? "dosya");
   } catch {
     alert("İndirilemiyor.");
   }

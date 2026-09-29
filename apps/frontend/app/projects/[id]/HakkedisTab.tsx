@@ -7,6 +7,7 @@ import {
   Eye, Loader2, Paperclip, Receipt, XCircle,
 } from "lucide-react";
 import { apiGet, buildApiUrl } from "@/lib/api";
+import { openFileInNewTab } from "@/lib/download";
 
 type ProgressPayment = {
   id: string; project_id: string; payment_type: string; period?: string;
@@ -92,13 +93,14 @@ function fmtTRY(amount?: number, currency?: string) {
 
 async function openDocument(docId: string) {
   try {
-    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-    const res = await fetch(buildApiUrl(`/documents/${docId}/download`), {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    await openFileInNewTab(async () => {
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      const res = await fetch(buildApiUrl(`/documents/${docId}/download`), {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error();
+      return (await res.json()).url;
     });
-    if (!res.ok) throw new Error();
-    const { url } = await res.json();
-    window.open(url, "_blank");
   } catch {
     alert("Dosya açılamadı. Lütfen tekrar deneyin.");
   }

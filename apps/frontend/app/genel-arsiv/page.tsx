@@ -7,6 +7,7 @@ import {
   Files, PenTool, FileText, Image as ImageIcon, FileSpreadsheet, CheckCircle2, Clock,
 } from "lucide-react";
 import { apiGet, buildApiUrl } from "@/lib/api";
+import { isMobileOrInstalledApp, openFileInNewTab } from "@/lib/download";
 import UploadModal   from "./UploadModal";
 import TransferModal from "./TransferModal";
 import { useAuth } from "@/contexts/auth-context";
@@ -66,13 +67,12 @@ function getExtension(name: string) {
   return name.split(".").pop()?.toUpperCase() ?? "";
 }
 
-function isMobileOrInstalledApp(): boolean {
-  return (
-    window.matchMedia("(display-mode: standalone)").matches ||
-    (navigator as Navigator & { standalone?: boolean }).standalone === true ||
-    window.matchMedia("(pointer: coarse)").matches
-  );
+async function fetchDocUrl(docId: string, download: boolean): Promise<string> {
+  const res = await apiGet<{ url: string }>(`/documents/${docId}/download${download ? "?download=true" : ""}`);
+  if (!res?.url) throw new Error("no url");
+  return res.url;
 }
+
 
 function ExtBadge({ name }: { name: string }) {
   const ext = getExtension(name);
@@ -179,39 +179,20 @@ export default function GenelArsivPage() {
   // pencerede gitmek hiçbir şey yapmıyor; orada dosya yeni sekmede açılır.
   const handleDownload = async (doc: ArchiveDoc) => {
     setDownloadErr(null);
-    const target = isMobileOrInstalledApp() ? window.open("", "_blank") : null;
+    const getUrl = () => fetchDocUrl(doc.id, true);
     try {
-      const res = await apiGet<{ url: string }>(`/documents/${doc.id}/download?download=true`);
-      if (!res?.url) throw new Error("no url");
-      if (target) {
-        target.opener = null;
-        target.location.replace(res.url);
-      } else {
-        window.location.href = res.url;
-      }
+      if (isMobileOrInstalledApp()) await openFileInNewTab(getUrl);
+      else window.location.href = await getUrl();
     } catch {
-      target?.close();
       setDownloadErr(`"${doc.original_name}" indirilemedi. Bağlantıyı kontrol edip tekrar deneyin.`);
     }
   };
 
-  // Aç — sekme, dokunma/tıklama anında (await'ten ÖNCE) açılır: mobil
-  // Safari ve Chrome, await sonrası çağrılan window.open'ı pop-up sayıp
-  // sessizce engelliyordu, telefonda "Aç" hiçbir şey yapmıyordu.
   const handleOpen = async (doc: ArchiveDoc) => {
     setDownloadErr(null);
-    const preview = window.open("", "_blank");
     try {
-      const res = await apiGet<{ url: string }>(`/documents/${doc.id}/download`);
-      if (!res?.url) throw new Error("no url");
-      if (preview) {
-        preview.opener = null;
-        preview.location.replace(res.url);
-      } else {
-        window.location.assign(res.url);
-      }
+      await openFileInNewTab(() => fetchDocUrl(doc.id, false));
     } catch {
-      preview?.close();
       setDownloadErr(`"${doc.original_name}" açılamadı. Bağlantıyı kontrol edip tekrar deneyin.`);
     }
   };
