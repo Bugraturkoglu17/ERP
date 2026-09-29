@@ -118,7 +118,6 @@ export default function LoginPage() {
         </div>
 
         <div className="relative max-w-xl pb-8">
-          <BrandMark tone="red" animated className="mb-10 h-24 w-24" />
           <p className="mb-4 text-xs font-semibold tracking-[0.24em] text-red-400">OPERASYON MERKEZİ</p>
           <h1 className="max-w-lg text-balance text-4xl font-bold leading-[1.08] tracking-[-0.045em] xl:text-5xl">
             Saha operasyonunuz tek, güvenli bir merkezde.
