@@ -148,14 +148,16 @@ function PhotoCard({
           </span>
         )}
         {busy ? (
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-black/50 text-white backdrop-blur-sm sm:h-7 sm:w-7">
+          <span className="flex h-8 w-8 items-center justify-center text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.75)] sm:h-7 sm:w-7">
             <Loader2 className="h-4 w-4 animate-spin" />
           </span>
         ) : (
+          // Çerçevesiz: yalnızca üç çizgi. Zemin/kenarlık yok; okunabilirlik için ince
+          // gölge. Dokunma alanı (h-8 w-8) görünmez şekilde korunur.
           <ToolbarDock
             actions={actions}
             panelClassName="w-36"
-            triggerClassName="h-8 w-8 rounded-lg bg-black/45 text-white backdrop-blur-sm hover:bg-black/65 hover:text-white sm:h-7 sm:w-7"
+            triggerClassName="h-8 w-8 bg-transparent text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.75)] hover:bg-transparent hover:text-white sm:h-7 sm:w-7"
           />
         )}
       </div>
@@ -213,7 +215,7 @@ function Lightbox({
         <ToolbarDock
           actions={actions}
           panelClassName="w-36"
-          triggerClassName="h-9 w-9 rounded-full bg-white/10 text-white hover:bg-white/20 hover:text-white"
+          triggerClassName="h-9 w-9 bg-transparent text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.75)] hover:bg-transparent hover:text-white"
         />
       </div>
 
