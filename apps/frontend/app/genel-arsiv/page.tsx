@@ -66,6 +66,14 @@ function getExtension(name: string) {
   return name.split(".").pop()?.toUpperCase() ?? "";
 }
 
+function isMobileOrInstalledApp(): boolean {
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    (navigator as Navigator & { standalone?: boolean }).standalone === true ||
+    window.matchMedia("(pointer: coarse)").matches
+  );
+}
+
 function ExtBadge({ name }: { name: string }) {
   const ext = getExtension(name);
   const cls =
@@ -167,23 +175,45 @@ export default function GenelArsivPage() {
   // (OCI bucket farklı origin) CORS'a takılıp SESSİZCE başarısız oluyordu.
   // download=true ile OCI URL'in kendisi zaten "attachment" header'ı taşıyor,
   // bu yüzden düz navigasyon yeterli — CORS'a hiç girmiyoruz.
+  // Telefonda (özellikle ana ekrana eklenmiş uygulamada) indirme linkine aynı
+  // pencerede gitmek hiçbir şey yapmıyor; orada dosya yeni sekmede açılır.
   const handleDownload = async (doc: ArchiveDoc) => {
     setDownloadErr(null);
+    const target = isMobileOrInstalledApp() ? window.open("", "_blank") : null;
     try {
       const res = await apiGet<{ url: string }>(`/documents/${doc.id}/download?download=true`);
       if (!res?.url) throw new Error("no url");
-      window.location.href = res.url;
+      if (target) {
+        target.opener = null;
+        target.location.replace(res.url);
+      } else {
+        window.location.href = res.url;
+      }
     } catch {
+      target?.close();
       setDownloadErr(`"${doc.original_name}" indirilemedi. Bağlantıyı kontrol edip tekrar deneyin.`);
     }
   };
 
-  // Aç
+  // Aç — sekme, dokunma/tıklama anında (await'ten ÖNCE) açılır: mobil
+  // Safari ve Chrome, await sonrası çağrılan window.open'ı pop-up sayıp
+  // sessizce engelliyordu, telefonda "Aç" hiçbir şey yapmıyordu.
   const handleOpen = async (doc: ArchiveDoc) => {
+    setDownloadErr(null);
+    const preview = window.open("", "_blank");
     try {
       const res = await apiGet<{ url: string }>(`/documents/${doc.id}/download`);
-      if (res?.url) window.open(res.url, "_blank");
-    } catch { /* ignore */ }
+      if (!res?.url) throw new Error("no url");
+      if (preview) {
+        preview.opener = null;
+        preview.location.replace(res.url);
+      } else {
+        window.location.assign(res.url);
+      }
+    } catch {
+      preview?.close();
+      setDownloadErr(`"${doc.original_name}" açılamadı. Bağlantıyı kontrol edip tekrar deneyin.`);
+    }
   };
 
   // Sil (arşive al)
