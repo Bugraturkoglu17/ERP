@@ -868,6 +868,8 @@ export default function WorkOrderDetailPage() {
       source: photoSourceLabel[photo.photo_type] ?? "İş Emri",
     }));
   const eligiblePhotos = allPhotoItems.filter((photo) => !photo.isAdded && photo.mime?.startsWith("image/"));
+  // Resim görüntüleyici yalnızca resimleri gezer; PDF/DWG ekleri dosya olarak açılır.
+  const imageItems = allPhotoItems.filter((photo) => photo.mime?.startsWith("image/"));
   const hasCriticalReport = reports.some(r => r.severity === "critical");
 
   // ── Raporlar Sekmesi ──────────────────────────────────────────────────────────
@@ -1231,24 +1233,43 @@ export default function WorkOrderDetailPage() {
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   )}
-                  <button
-                    onClick={() => setLightbox({
-                      urls: allPhotoItems.map((item) => item.url ?? ""),
-                      names: allPhotoItems.map((item) => item.name ?? ""),
-                      idx,
-                    })}
-                    className={`w-full aspect-square overflow-hidden rounded-xl border transition-all ${
-                      isChecked ? "border-blue-500 ring-2 ring-blue-400" : "border-slate-200 hover:border-slate-300"
-                    }`}
-                  >
-                    {photo.url && photo.mime?.startsWith("image/") ? (
-                      <img src={photo.url} alt={photo.name ?? "İş emri fotoğrafı"} loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" />
-                    ) : (
-                      <div className="w-full h-full bg-slate-100 flex items-center justify-center">
-                        <ImageIcon className="h-8 w-8 text-slate-300" />
-                      </div>
-                    )}
-                  </button>
+                  {photo.mime?.startsWith("image/") ? (
+                    <button
+                      onClick={() => setLightbox({
+                        urls: imageItems.map((item) => item.url ?? ""),
+                        names: imageItems.map((item) => item.name ?? ""),
+                        idx: imageItems.indexOf(photo),
+                      })}
+                      className={`w-full aspect-square overflow-hidden rounded-xl border transition-all ${
+                        isChecked ? "border-blue-500 ring-2 ring-blue-400" : "border-slate-200 hover:border-slate-300"
+                      }`}
+                    >
+                      {photo.url ? (
+                        <img src={photo.url} alt={photo.name ?? "İş emri fotoğrafı"} loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" />
+                      ) : (
+                        <div className="w-full h-full bg-slate-100 flex items-center justify-center">
+                          <ImageIcon className="h-8 w-8 text-slate-300" />
+                        </div>
+                      )}
+                    </button>
+                  ) : (
+                    // PDF / DWG eki: resim değil, dosya. Tıklanınca yeni sekmede açılır
+                    // (PDF görüntülenir, DWG iner). Eskiden boş resim kutusu olarak
+                    // görünüp resim görüntüleyicide bozuk açılıyordu.
+                    <a
+                      href={photo.url ?? undefined}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`${photo.name ?? "Dosya"} dosyasını aç`}
+                      className="flex w-full aspect-square flex-col items-center justify-center gap-2 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 px-2 text-center transition-all hover:border-slate-300 hover:bg-slate-100"
+                    >
+                      <FileText className="h-8 w-8 text-slate-400" />
+                      <span className="rounded bg-white px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-slate-600 ring-1 ring-slate-200">
+                        {(photo.name?.split(".").pop() ?? "DOSYA").toUpperCase().slice(0, 5)}
+                      </span>
+                      <span className="text-[10px] font-medium text-blue-600">Aç / İndir</span>
+                    </a>
+                  )}
                   <div className="mt-1.5 px-0.5">
                     <p className="text-[10px] font-medium text-slate-600">{photo.source}</p>
                     <p className="text-[10px] text-slate-500 truncate">{photo.name ?? "Dosya"}</p>

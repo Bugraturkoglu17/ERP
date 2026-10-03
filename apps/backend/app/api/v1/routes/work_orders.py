@@ -86,6 +86,9 @@ STATUS_LABELS = {
     "approved":         "Onaylandı",
 }
 
+# DWG için saklanan tür (bkz. upload_admin_photo).
+DWG_MIME_TYPE = "application/acad"
+
 STAGE_STATUS_LABELS = {
     "planned": "Planlandı",
     "in_progress": "Devam Ediyor",
@@ -1170,19 +1173,29 @@ async def upload_admin_photo(
     _ensure_work_order_access(wo, user)
     if photo_type not in {"before", "after", "issue", "completion"}:
         raise HTTPException(400, "Geçersiz fotoğraf kaynağı.")
-    allowed_file = bool(file.content_type and (
-        file.content_type.startswith("image/")
-        or (photo_type == "before" and file.content_type == "application/pdf")
-    ))
+    # DWG (AutoCAD çizimi) uzantıya göre tanınır: tarayıcılar DWG için tür
+    # bilgisini boş, "application/octet-stream" ya da "image/vnd.dwg" gönderir.
+    # Saklanan tür her zaman "application/acad" yapılır — "image/…" kalırsa
+    # arayüz çizimi fotoğraf sanıp bozuk resim gösterir ve görsel envantere
+    # eklenebilir sayar.
+    is_dwg = (file.filename or "").lower().endswith(".dwg")
+    content_type = DWG_MIME_TYPE if is_dwg else file.content_type
+    if is_dwg:
+        allowed_file = photo_type == "before"
+    else:
+        allowed_file = bool(content_type and (
+            content_type.startswith("image/")
+            or (photo_type == "before" and content_type == "application/pdf")
+        ))
     if not allowed_file:
-        raise HTTPException(400, "Yalnızca JPG, JPEG, PNG veya başlangıç eki olarak PDF yükleyebilirsiniz.")
+        raise HTTPException(400, "Yalnızca JPG, JPEG, PNG veya başlangıç eki olarak PDF ya da DWG yükleyebilirsiniz.")
 
     content = await file.read()
     safe_name = sanitize_filename(file.filename or "photo.jpg")
     file_key = f"work-orders/{work_order_id}/photos/{int(time.time())}_{safe_name}"
 
     uploaded_key = await storage.upload_file(
-        file_content=content, file_key=file_key, content_type=file.content_type
+        file_content=content, file_key=file_key, content_type=content_type
     )
     file_url = await storage.generate_presigned_url(uploaded_key)
 
@@ -1190,7 +1203,7 @@ async def upload_admin_photo(
         id=uuid4(), work_order_id=wo.id,
         file_key=uploaded_key, file_url=file_url,
         file_name=file.filename, file_size_bytes=len(content),
-        mime_type=file.content_type, photo_type=photo_type,
+        mime_type=content_type, photo_type=photo_type,
         uploaded_by_name=user.full_name, uploaded_at=utc_now(),
     )
     db.add(photo)
@@ -1305,6 +1318,11 @@ async def add_photos_to_inventory(
         )
         photo = photo_r.scalar_one_or_none()
         if not photo:
+            continue
+        # Görsel Envanter yalnızca resim alır; başlangıç eki olarak yüklenen
+        # PDF/DWG oraya aktarılmaz.
+        if not (photo.mime_type or "").startswith("image/"):
+            skipped.append(str(photo_id))
             continue
         if photo.file_key in work_inventory_refs:
             skipped.append(str(photo_id))
