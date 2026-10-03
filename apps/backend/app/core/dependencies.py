@@ -23,6 +23,11 @@ from app.db.models import User, RolePermission
 def is_platform_admin(user: User) -> bool:
     return "platform_admin" in (user.default_role or "")
 
+
+def _reject_forced_password_change(payload: dict) -> None:
+    if payload.get("force_password_change"):
+        raise HTTPException(status_code=403, detail="Devam etmeden önce yeni şifrenizi oluşturun.")
+
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="/api/v1/auth/login",
     auto_error=False,     # isteğe bağlı: optional auth endpoint'leri için
@@ -84,7 +89,9 @@ async def get_current_user(
     if not sub:
         raise HTTPException(status_code=401, detail="Token içeriği geçersiz.")
 
-    return await _get_user_by_sub(db, sub, token_version=payload.get("tv", 0))
+    user = await _get_user_by_sub(db, sub, token_version=payload.get("tv", 0))
+    _reject_forced_password_change(payload)
+    return user
 
 
 async def get_current_tenant_id(
@@ -98,6 +105,7 @@ async def get_current_tenant_id(
     except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail="Geçersiz token.")
 
+    _reject_forced_password_change(payload)
     user = await _get_user_by_sub(db, payload["sub"], token_version=payload.get("tv", 0))
     if is_platform_admin(user):
         return None
@@ -125,6 +133,8 @@ async def get_current_user_optional(
     try:
         payload = decode_token(token)
     except jwt.PyJWTError:
+        return None
+    if payload.get("force_password_change"):
         return None
     return await _get_user_by_sub(db, payload["sub"], token_version=payload.get("tv", 0))
 
@@ -164,6 +174,7 @@ def require_role(*role_names: str):
             payload = decode_token(token)
         except jwt.PyJWTError:
             raise HTTPException(status_code=401, detail="Geçersiz token.")
+        _reject_forced_password_change(payload)
         user = await _get_user_by_sub(db, payload["sub"], token_version=payload.get("tv", 0))
         # Token'daki değil, DB'deki güncel rollerle kontrol et — rol değişikliği
         # anında etkili olsun diye (token süresi dolana kadar eski yetki kalmasın).
@@ -192,6 +203,7 @@ async def require_permission(
         payload = decode_token(token)
     except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail="Geçersiz token.")
+    _reject_forced_password_change(payload)
     user = await _get_user_by_sub(db, payload["sub"], token_version=payload.get("tv", 0))
     live_perms = await get_user_permissions(db, user.id)
     if permission not in live_perms:

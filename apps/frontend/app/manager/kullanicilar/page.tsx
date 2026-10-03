@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Edit3, Eye, EyeOff, Info, Loader2, Mail, Phone, Plus, Search, ShieldCheck, Trash2, UserCheck, UserX, X } from "lucide-react";
+import { Edit3, Eye, EyeOff, Info, KeyRound, Loader2, Mail, Phone, Plus, Search, ShieldCheck, Trash2, UserCheck, UserX, X } from "lucide-react";
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
 import { ToolbarDock, type ToolbarDockAction } from "@/components/ui/toolbar-dock";
@@ -45,6 +45,7 @@ export default function ManagerUsersPage() {
   const [infoUser, setInfoUser] = useState<UserRow | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [issuedPassword, setIssuedPassword] = useState<{ name: string; password: string } | null>(null);
 
   const load = async () => {
     try {
@@ -82,7 +83,7 @@ export default function ManagerUsersPage() {
     setError("");
     try {
       const payload = { full_name: `${form.first_name.trim()} ${form.last_name.trim()}`, phone: form.phone.trim(), roles: [form.role], is_active: form.is_active };
-      if (editing) await apiPatch(`/auth/users/${editing.id}`, payload);
+      if (editing) await apiPatch(`/auth/users/${editing.id}`, currentUser?.role === "ADMIN" ? payload : { full_name: payload.full_name, phone: payload.phone, is_active: payload.is_active });
       else await apiPost("/auth/users", { ...payload, email: form.email.trim() || null, password: form.password, discipline: null, discipline_only: false });
       setModalOpen(false);
       await load();
@@ -111,6 +112,16 @@ export default function ManagerUsersPage() {
     catch (cause) { setError(errorMessage(cause)); }
   };
 
+  const resetPassword = async (user: UserRow) => {
+    if (!window.confirm(`${user.full_name} için yeni bir geçici şifre oluşturulsun mu? Eski şifre ve açık oturumlar geçersiz olur; kullanıcı verileri korunur.`)) return;
+    setError("");
+    try {
+      const result = await apiPost<{ temporary_password: string }>(`/auth/users/${user.id}/temporary-password`);
+      setIssuedPassword({ name: user.full_name, password: result.temporary_password });
+      await load();
+    } catch (cause) { setError(errorMessage(cause)); }
+  };
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -134,6 +145,7 @@ export default function ManagerUsersPage() {
             { key: "info", label: "Bilgiler", icon: Info, onClick: () => setInfoUser(user) },
             ...((protectedAdmin || protectedManager) ? [] : [
               { key: "edit", label: "Düzenle", icon: Edit3, onClick: () => openEdit(user) } as ToolbarDockAction,
+              ...(!isSelf ? [{ key: "reset-password", label: "Geçici şifre oluştur", icon: KeyRound, onClick: () => resetPassword(user) } as ToolbarDockAction] : []),
             ]),
             ...(!(protectedAdmin || protectedManager) && !isSelf ? [
               { key: "toggle", label: user.is_active ? "Pasif yap" : "Aktif yap", icon: user.is_active ? UserX : UserCheck, onClick: () => toggleActive(user) } as ToolbarDockAction,
@@ -143,6 +155,8 @@ export default function ManagerUsersPage() {
           return <tr key={user.id} className="hover:bg-slate-50"><td className="px-4 py-3"><div className="flex items-center gap-3"><span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">{visibleName.split(" ").map((part) => part[0]).slice(0, 2).join("").toLocaleUpperCase("tr-TR")}</span><span className="font-medium text-slate-800">{visibleName}</span></div></td><td className="px-4 py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${role === "ADMIN" ? "bg-indigo-100 text-indigo-700" : role === "MANAGER" ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-600"}`}>{role === "ADMIN" ? "Geliştirici Admin" : role === "MANAGER" ? "Yönetici" : "Kullanıcı"}</span></td><td className="px-4 py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${accountStatus === "Aktif" ? "bg-emerald-100 text-emerald-700" : accountStatus === "Pasif" ? "bg-slate-100 text-slate-500" : "bg-amber-100 text-amber-700"}`}>{accountStatus}</span></td><td className="px-4 py-3"><div className="flex items-center justify-end gap-1">{(protectedAdmin || protectedManager) && <span title={protectedAdmin ? "Admin hesabı korunur" : "Yönetici hesabını yalnızca geliştirici admin düzenleyebilir/silebilir"} className="text-indigo-400"><ShieldCheck className="h-3.5 w-3.5" /></span>}<ToolbarDock actions={rowActions} direction="down" align="end" className="justify-end" /></div></td></tr>;
         })}</tbody></table></div>}
       </div>
+
+      {issuedPassword && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true"><div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl"><h2 className="font-bold text-slate-900">Geçici şifre hazır</h2><p className="mt-2 text-sm text-slate-600">{issuedPassword.name} bu şifreyle giriş yapınca yeni şifre oluşturmalıdır. Şifre yalnızca burada bir kez gösterilir.</p><div className="mt-4 flex items-center gap-2"><code className="min-w-0 flex-1 select-all break-all rounded-lg bg-slate-100 px-3 py-2 text-sm">{issuedPassword.password}</code><button onClick={() => void navigator.clipboard.writeText(issuedPassword.password)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">Kopyala</button></div><button onClick={() => setIssuedPassword(null)} className="mt-5 w-full rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white">Kapat</button></div></div>}
 
       {infoUser && (() => {
         const infoRole = uiRole(infoUser);

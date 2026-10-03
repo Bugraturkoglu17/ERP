@@ -16,8 +16,9 @@ interface UserProfile {
 
 const ROLE_LABEL: Record<string, string> = {
   user: "Kullanıcı",
+  saha_muhendisi: "Kullanıcı",
   manager: "Yönetici",
-  admin: "Geliştirici Admin",
+  admin: "Yönetici",
   platform_admin: "Geliştirici Admin",
 };
 
@@ -27,12 +28,17 @@ export default function UserProfilePage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [phone, setPhone] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [error, setError] = useState("");
 
   useEffect(() => {
     apiGet<UserProfile>("/auth/me")
       .then((p) => {
         setProfile(p);
         setPhone(p.phone ?? "");
+        setFullName(p.full_name);
+        setEmail(p.email.endsWith("@sismik.local") ? "" : p.email);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -40,12 +46,20 @@ export default function UserProfilePage() {
 
   const handleSave = async () => {
     if (!profile) return;
+    setError("");
+    if (!fullName.trim() || !phone.trim()) { setError("Ad soyad ve telefon boş olamaz."); return; }
     setSaving(true);
     try {
-      await apiPatch(`/auth/users/${profile.id}`, { phone });
+      const updated = await apiPatch<UserProfile>("/auth/me", { full_name: fullName.trim(), phone: phone.trim(), ...(email.trim() ? { email: email.trim() } : {}) });
+      setProfile(updated);
+      setPhone(updated.phone ?? "");
+      setFullName(updated.full_name);
+      setEmail(updated.email.endsWith("@sismik.local") ? "" : updated.email);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-    } catch {
+    } catch (cause) {
+      const detail = (cause as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setError(detail || "Profil güncellenemedi.");
     } finally {
       setSaving(false);
     }
@@ -90,9 +104,9 @@ export default function UserProfilePage() {
           <label className="block text-xs font-medium text-slate-500 mb-1.5">Ad Soyad</label>
           <input
             type="text"
-            value={profile.full_name}
-            disabled
-            className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500 cursor-not-allowed"
+            value={fullName}
+            onChange={(event) => setFullName(event.target.value)}
+            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700"
           />
         </div>
 
@@ -100,9 +114,10 @@ export default function UserProfilePage() {
           <label className="block text-xs font-medium text-slate-500 mb-1.5">E-posta</label>
           <input
             type="email"
-            value={profile.email}
-            disabled
-            className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500 cursor-not-allowed"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="E-posta isteğe bağlı"
+            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700"
           />
         </div>
 
@@ -117,6 +132,8 @@ export default function UserProfilePage() {
           />
         </div>
 
+        {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+        <p className="text-xs text-slate-500">Telefonu değiştirdiğinizde yeni numaranızla giriş yapabilirsiniz.</p>
         <button
           onClick={handleSave}
           disabled={saving}

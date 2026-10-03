@@ -124,6 +124,16 @@ class UserUpdate(BaseModel):
     roles:      list[str] | None   = None
 
 
+class UserProfileUpdate(BaseModel):
+    full_name: str | None = None
+    email: EmailStr | None = None
+    phone: str | None = None
+
+
+class TemporaryPasswordResponse(BaseModel):
+    temporary_password: str
+
+
 class TenantCreate(BaseModel):
     name: str
     code: str

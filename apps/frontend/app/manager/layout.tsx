@@ -8,6 +8,7 @@ import {
   BarChart3,
   Users,
   DatabaseBackup,
+  UserRound,
 } from "lucide-react";
 import { CorporateShell, type CorporateNavItem } from "@/components/layout/corporate-shell";
 import { useAuth } from "@/contexts/auth-context";
@@ -19,6 +20,7 @@ const BASE_NAV: CorporateNavItem[] = [
   { href: "/manager/genel-arsiv", label: "Genel Arşiv", icon: Archive },
   { href: "/manager/kullanicilar", label: "Kullanıcılar", icon: Users },
   { href: "/manager/raporlar", label: "Raporlar", icon: BarChart3 },
+  { href: "/manager/profile", label: "Profilim", icon: UserRound },
 ];
 
 export default function ManagerLayout({ children }: { children: React.ReactNode }) {

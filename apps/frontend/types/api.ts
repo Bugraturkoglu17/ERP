@@ -112,7 +112,8 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** Update Me */
+        patch: operations["update_me_api_v1_auth_me_patch"];
         trace?: never;
     };
     "/api/v1/auth/tenant-context": {
@@ -216,6 +217,23 @@ export interface paths {
          * @description Kullanıcı bilgilerini ve yetkilerini güncelle.
          */
         patch: operations["update_user_details_api_v1_auth_users__user_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/auth/users/{user_id}/temporary-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Issue Temporary Password */
+        post: operations["issue_temporary_password_api_v1_auth_users__user_id__temporary_password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/projects/customers": {
@@ -4782,6 +4800,11 @@ export interface components {
             /** Is Active */
             is_active?: boolean | null;
         };
+        /** TemporaryPasswordResponse */
+        TemporaryPasswordResponse: {
+            /** Temporary Password */
+            temporary_password: string;
+        };
         /** TenantAdminProvisionRequest */
         TenantAdminProvisionRequest: {
             /**
@@ -5163,6 +5186,15 @@ export interface components {
             is_active: boolean;
             /** Tenant Id */
             tenant_id?: string | null;
+        };
+        /** UserProfileUpdate */
+        UserProfileUpdate: {
+            /** Full Name */
+            full_name?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Phone */
+            phone?: string | null;
         };
         /** UserRead */
         UserRead: {
@@ -5779,6 +5811,39 @@ export interface operations {
             };
         };
     };
+    update_me_api_v1_auth_me_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserProfileUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_tenant_context_api_v1_auth_tenant_context_get: {
         parameters: {
             query?: never;
@@ -5971,6 +6036,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    issue_temporary_password_api_v1_auth_users__user_id__temporary_password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemporaryPasswordResponse"];
                 };
             };
             /** @description Validation Error */

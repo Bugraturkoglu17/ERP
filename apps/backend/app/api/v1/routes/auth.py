@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import secrets
 import time
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -23,7 +24,7 @@ from app.core.dependencies import get_current_user, is_platform_admin
 from app.core.security import create_access_token, create_refresh_token, get_user_permissions, get_user_roles, hash_password, verify_password
 from app.core.session_versions import bump_session_version, get_session_version
 from app.db.models import PlatformTenantSettings, Role, Tenant, TenantEmailMode, User, UserRole, UserSecurityPolicy
-from app.db.schemas import CompletePasswordResetRequest, MessageResponse, TenantContextRead, TenantProfileUpdate, TenantSettingsUpsert, Token, TokenRefresh, UserRead
+from app.db.schemas import CompletePasswordResetRequest, MessageResponse, TemporaryPasswordResponse, TenantContextRead, TenantProfileUpdate, TenantSettingsUpsert, Token, TokenRefresh, UserProfileUpdate, UserRead
 
 router = APIRouter()
 
@@ -42,6 +43,18 @@ def _is_manager(user: User) -> bool:
 def _is_manager_tier_role(role_name: str) -> bool:
     """'admin' default_role'ü — frontend'de 'Yönetici' (Manager) olarak gösterilir."""
     return role_name == "admin"
+
+
+async def _ensure_login_available(db: AsyncSession, user_id, *, email: str | None = None, phone: str | None = None) -> None:
+    conditions = []
+    if email is not None:
+        conditions.append(func.lower(User.email) == email.lower())
+    if phone is not None:
+        conditions.append(User.phone == phone)
+    if conditions:
+        existing = await db.execute(select(User.id).where(User.id != user_id, or_(*conditions)).limit(1))
+        if existing.scalar_one_or_none() is not None:
+            raise HTTPException(status_code=409, detail="Bu e-posta veya telefon numarası başka bir hesapta kullanılıyor.")
 
 
 # ── Login rate limiting ──────────────────────────────────────────────────────
@@ -214,10 +227,13 @@ async def complete_password_reset(
     policy = await db.get(UserSecurityPolicy, user.id)
     if not policy or not policy.force_password_change:
         raise HTTPException(status_code=400, detail="Bu kullanıcı için parola yenileme gerekli değil.")
+    if payload.new_password == payload.temporary_password:
+        raise HTTPException(status_code=422, detail="Yeni şifre geçici şifreden farklı olmalıdır.")
 
     user.hashed_password = hash_password(payload.new_password)
     user.is_verified = True
     policy.force_password_change = False
+    await bump_session_version(db, user.id)
     db.add(user)
     db.add(policy)
     await db.commit()
@@ -231,6 +247,39 @@ async def get_me(
     user: User = Depends(get_current_user),
 ) -> UserRead:
     """Token'ındaki kullanıcı profilini döner."""
+    return await _user_read(db, user)
+
+
+@router.patch("/me", response_model=UserRead, tags=["auth"])
+async def update_me(
+    payload: UserProfileUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> UserRead:
+    user = await db.get(User, current_user.id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı.")
+    full_name = payload.full_name.strip() if payload.full_name is not None else None
+    phone = payload.phone.strip() if payload.phone is not None else None
+    email = str(payload.email).strip().lower() if payload.email is not None else None
+    if full_name is not None and not full_name:
+        raise HTTPException(status_code=422, detail="Ad soyad boş olamaz.")
+    if phone is not None and not phone:
+        raise HTTPException(status_code=422, detail="Telefon numarası boş olamaz.")
+    await _ensure_login_available(db, user.id, email=email, phone=phone)
+    if full_name is not None:
+        user.full_name = full_name
+    if phone is not None:
+        user.phone = phone
+    if email is not None:
+        user.email = email
+    db.add(user)
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Bu e-posta veya telefon numarası başka bir hesapta kullanılıyor.")
+    await db.refresh(user)
     return await _user_read(db, user)
 
 
@@ -492,7 +541,11 @@ async def update_user_details(
     if user_in.full_name is not None:
         user.full_name = user_in.full_name
     if user_in.phone is not None:
-        user.phone = user_in.phone
+        normalized_phone = user_in.phone.strip()
+        if not normalized_phone:
+            raise HTTPException(status_code=422, detail="Telefon numarası boş olamaz.")
+        await _ensure_login_available(db, user.id, phone=normalized_phone)
+        user.phone = normalized_phone
     if user_in.discipline is not None:
         user.discipline = user_in.discipline
     if user_in.is_active is not None:
@@ -520,6 +573,34 @@ async def update_user_details(
     await db.commit()
     await db.refresh(user)
     return await _user_read(db, user)
+
+
+@router.post("/users/{user_id}/temporary-password", response_model=TemporaryPasswordResponse, tags=["auth"])
+async def issue_temporary_password(
+    user_id: str,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_user),
+) -> TemporaryPasswordResponse:
+    if not _is_manager(admin):
+        raise HTTPException(status_code=403, detail="Şifre yenileme yetkiniz yok.")
+    target = await db.get(User, user_id)
+    if not target:
+        raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı.")
+    if target.id == admin.id or is_platform_admin(target):
+        raise HTTPException(status_code=403, detail="Bu hesabın şifresi buradan yenilenemez.")
+    if not is_platform_admin(admin) and (target.tenant_id != admin.tenant_id or _is_manager_tier_role(target.default_role or "")):
+        raise HTTPException(status_code=403, detail="Bu hesabın şifresini yenileme yetkiniz yok.")
+    temporary_password = secrets.token_urlsafe(12)
+    target.hashed_password = hash_password(temporary_password)
+    policy = await db.get(UserSecurityPolicy, target.id)
+    if policy is None:
+        policy = UserSecurityPolicy(user_id=target.id)
+    policy.force_password_change = True
+    db.add(target)
+    db.add(policy)
+    await bump_session_version(db, target.id)
+    await db.commit()
+    return TemporaryPasswordResponse(temporary_password=temporary_password)
 
 
 # users.id'ye NULL EDİLEMEYEN bir sütunla bağlı olup satırları kullanıcıya
