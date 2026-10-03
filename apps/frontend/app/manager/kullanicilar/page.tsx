@@ -122,6 +122,39 @@ export default function ManagerUsersPage() {
     } catch (cause) { setError(errorMessage(cause)); }
   };
 
+  // Her satırın verisi BİR kez hesaplanır; telefon listesi ve masaüstü tablosu aynı veriyi kullanır.
+  const rows = filtered.map((user) => {
+    const role = uiRole(user);
+    const protectedAdmin = role === "ADMIN";
+    const protectedManager = role === "MANAGER" && currentUser?.role !== "ADMIN";
+    const isProtected = protectedAdmin || protectedManager;
+    const isSelf = user.id === currentUser?.id;
+    const visibleName = displayName(user);
+    const accountStatus = !user.is_active ? "Pasif" : user.force_password_change || !user.onboarding_complete ? "İlk giriş bekliyor" : "Aktif";
+    const status = accountStatus === "Aktif"
+      ? { label: accountStatus, pill: "bg-emerald-100 text-emerald-700", dot: "bg-emerald-500", text: "text-emerald-700" }
+      : accountStatus === "Pasif"
+        ? { label: accountStatus, pill: "bg-slate-100 text-slate-500", dot: "bg-slate-400", text: "text-slate-500" }
+        : { label: accountStatus, pill: "bg-amber-100 text-amber-700", dot: "bg-amber-500", text: "text-amber-700" };
+    const actions: ToolbarDockAction[] = [
+      { key: "info", label: "Bilgiler", icon: Info, onClick: () => setInfoUser(user) },
+      ...(isProtected ? [] : [
+        { key: "edit", label: "Düzenle", icon: Edit3, onClick: () => openEdit(user) } as ToolbarDockAction,
+        ...(!isSelf ? [{ key: "reset-password", label: "Geçici şifre oluştur", icon: KeyRound, onClick: () => resetPassword(user) } as ToolbarDockAction] : []),
+      ]),
+      ...(!isProtected && !isSelf ? [
+        { key: "toggle", label: user.is_active ? "Pasif yap" : "Aktif yap", icon: user.is_active ? UserX : UserCheck, onClick: () => toggleActive(user) } as ToolbarDockAction,
+        { key: "delete", label: "Hesabı sil", icon: Trash2, variant: "danger", onClick: () => remove(user) } as ToolbarDockAction,
+      ] : []),
+    ];
+    return {
+      user, role, visibleName, status, isProtected, actions,
+      roleLabel: role === "ADMIN" ? "Geliştirici Admin" : role === "MANAGER" ? "Yönetici" : "Kullanıcı",
+      initials: visibleName.split(" ").map((part) => part[0]).slice(0, 2).join("").toLocaleUpperCase("tr-TR"),
+      protectedTitle: protectedAdmin ? "Admin hesabı korunur" : "Yönetici hesabını yalnızca geliştirici admin düzenleyebilir/silebilir",
+    };
+  });
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -134,26 +167,74 @@ export default function ManagerUsersPage() {
       {notice && !modalOpen && <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{notice}</p>}
 
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-        {loading ? <div className="flex items-center justify-center gap-2 py-16 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Kullanıcılar yükleniyor</div> : filtered.length === 0 ? <p className="py-16 text-center text-sm text-slate-500">Eşleşen kullanıcı bulunamadı.</p> : <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-slate-100 bg-slate-50 text-left text-xs text-slate-500"><th className="px-4 py-3 font-medium">Ad Soyad</th><th className="px-4 py-3 font-medium">Rol</th><th className="px-4 py-3 font-medium">Durum</th><th className="px-4 py-3 text-right font-medium">İşlem</th></tr></thead><tbody className="divide-y divide-slate-100">{filtered.map((user) => {
-          const role = uiRole(user);
-          const protectedAdmin = role === "ADMIN";
-          const protectedManager = role === "MANAGER" && currentUser?.role !== "ADMIN";
-          const isSelf = user.id === currentUser?.id;
-          const visibleName = displayName(user);
-          const accountStatus = !user.is_active ? "Pasif" : user.force_password_change || !user.onboarding_complete ? "İlk giriş bekliyor" : "Aktif";
-          const rowActions: ToolbarDockAction[] = [
-            { key: "info", label: "Bilgiler", icon: Info, onClick: () => setInfoUser(user) },
-            ...((protectedAdmin || protectedManager) ? [] : [
-              { key: "edit", label: "Düzenle", icon: Edit3, onClick: () => openEdit(user) } as ToolbarDockAction,
-              ...(!isSelf ? [{ key: "reset-password", label: "Geçici şifre oluştur", icon: KeyRound, onClick: () => resetPassword(user) } as ToolbarDockAction] : []),
-            ]),
-            ...(!(protectedAdmin || protectedManager) && !isSelf ? [
-              { key: "toggle", label: user.is_active ? "Pasif yap" : "Aktif yap", icon: user.is_active ? UserX : UserCheck, onClick: () => toggleActive(user) } as ToolbarDockAction,
-              { key: "delete", label: "Hesabı sil", icon: Trash2, variant: "danger", onClick: () => remove(user) } as ToolbarDockAction,
-            ] : []),
-          ];
-          return <tr key={user.id} className="hover:bg-slate-50"><td className="px-4 py-3"><div className="flex items-center gap-3"><span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">{visibleName.split(" ").map((part) => part[0]).slice(0, 2).join("").toLocaleUpperCase("tr-TR")}</span><span className="font-medium text-slate-800">{visibleName}</span></div></td><td className="px-4 py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${role === "ADMIN" ? "bg-indigo-100 text-indigo-700" : role === "MANAGER" ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-600"}`}>{role === "ADMIN" ? "Geliştirici Admin" : role === "MANAGER" ? "Yönetici" : "Kullanıcı"}</span></td><td className="px-4 py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${accountStatus === "Aktif" ? "bg-emerald-100 text-emerald-700" : accountStatus === "Pasif" ? "bg-slate-100 text-slate-500" : "bg-amber-100 text-amber-700"}`}>{accountStatus}</span></td><td className="px-4 py-3"><div className="flex items-center justify-end gap-1">{(protectedAdmin || protectedManager) && <span title={protectedAdmin ? "Admin hesabı korunur" : "Yönetici hesabını yalnızca geliştirici admin düzenleyebilir/silebilir"} className="text-indigo-400"><ShieldCheck className="h-3.5 w-3.5" /></span>}<ToolbarDock actions={rowActions} direction="down" align="end" className="justify-end" /></div></td></tr>;
-        })}</tbody></table></div>}
+        {loading ? (
+          <div className="flex items-center justify-center gap-2 py-16 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Kullanıcılar yükleniyor</div>
+        ) : rows.length === 0 ? (
+          <p className="py-16 text-center text-sm text-slate-500">Eşleşen kullanıcı bulunamadı.</p>
+        ) : (
+          <>
+            {/* Telefon: tablo yerine sade liste. Dört sütun dar ekrana sığmıyordu;
+                rol etiketi iki satıra bölünüp bozuluyor, tablo yana kayıyordu. */}
+            <ul className="divide-y divide-slate-100 sm:hidden">
+              {rows.map(({ user, initials, visibleName, roleLabel, status, isProtected, protectedTitle, actions }) => (
+                <li key={user.id} className="flex items-center gap-3 px-4 py-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600">{initials}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-slate-900">{visibleName}</p>
+                    <p className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-500">
+                      <span className="truncate">{roleLabel}</span>
+                      <span aria-hidden className="text-slate-300">·</span>
+                      <span className="inline-flex shrink-0 items-center gap-1">
+                        <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${status.dot}`} />
+                        <span className={status.text}>{status.label}</span>
+                      </span>
+                    </p>
+                  </div>
+                  {isProtected && <span title={protectedTitle} className="shrink-0 text-slate-300"><ShieldCheck className="h-4 w-4" /></span>}
+                  <ToolbarDock actions={actions} panelClassName="w-48" triggerClassName="bg-transparent text-slate-400 hover:bg-transparent hover:text-slate-800" />
+                </li>
+              ))}
+            </ul>
+
+            {/* Masaüstü: tablo. */}
+            <div className="hidden overflow-x-auto sm:block">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50 text-left text-xs text-slate-500">
+                    <th className="px-4 py-3 font-medium">Ad Soyad</th>
+                    <th className="px-4 py-3 font-medium">Rol</th>
+                    <th className="px-4 py-3 font-medium">Durum</th>
+                    <th className="px-4 py-3 text-right font-medium">İşlem</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {rows.map(({ user, initials, visibleName, roleLabel, role, status, isProtected, protectedTitle, actions }) => (
+                    <tr key={user.id} className="hover:bg-slate-50">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600">{initials}</span>
+                          <span className="font-medium text-slate-800">{visibleName}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${role === "ADMIN" ? "bg-indigo-100 text-indigo-700" : role === "MANAGER" ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-600"}`}>{roleLabel}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${status.pill}`}>{status.label}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-end gap-1">
+                          {isProtected && <span title={protectedTitle} className="text-indigo-400"><ShieldCheck className="h-3.5 w-3.5" /></span>}
+                          <ToolbarDock actions={actions} direction="down" align="end" className="justify-end" />
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </div>
 
       {issuedPassword && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true"><div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl"><h2 className="font-bold text-slate-900">Geçici şifre hazır</h2><p className="mt-2 text-sm text-slate-600">{issuedPassword.name} bu şifreyle giriş yapınca yeni şifre oluşturmalıdır. Şifre yalnızca burada bir kez gösterilir.</p><div className="mt-4 flex items-center gap-2"><code className="min-w-0 flex-1 select-all break-all rounded-lg bg-slate-100 px-3 py-2 text-sm">{issuedPassword.password}</code><button onClick={() => void navigator.clipboard.writeText(issuedPassword.password)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">Kopyala</button></div><button onClick={() => setIssuedPassword(null)} className="mt-5 w-full rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white">Kapat</button></div></div>}
