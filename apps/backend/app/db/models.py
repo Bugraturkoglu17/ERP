@@ -1494,3 +1494,36 @@ class BackupRun(SQLModel, table=True):
     error_message:        Optional[str] = Field(default=None, max_length=2000)
     started_at:           datetime      = Field(default_factory=utc_now, nullable=False, index=True)
     completed_at:         Optional[datetime] = Field(default=None)
+
+
+class PushSubscription(SQLModel, table=True):
+    """Bir kullanıcının telefon/tarayıcı bildirimi (Web Push) açtığı cihaz.
+
+    Kullanıcı başına birden çok satır olabilir (telefon + bilgisayar). Push
+    servisi "artık geçersiz" (404/410) dediğinde satır silinir."""
+
+    __tablename__ = "push_subscriptions"
+
+    id:              UUID           = Field(default_factory=uuid4, primary_key=True)
+    user_id:         UUID           = Field(foreign_key="users.id", index=True)
+    tenant_id:       Optional[UUID] = Field(foreign_key="tenants.id", default=None)
+    # Push servisinin (FCM / Apple / Mozilla) bu cihaza özel adresi.
+    endpoint:        str            = Field(max_length=1000, unique=True)
+    p256dh:          str            = Field(max_length=255)
+    auth:            str            = Field(max_length=255)
+    # Cihazın kullandığı panel öneki ("/manager", "/user" ya da "") — bildirime
+    # tıklanınca doğru panelde iş emrini açmak için.
+    panel:           str            = Field(default="", max_length=20)
+    user_agent:      Optional[str]  = Field(default=None, max_length=400)
+    created_at:      datetime       = Field(default_factory=utc_now, nullable=False)
+    last_success_at: Optional[datetime] = Field(default=None)
+
+
+class SystemSetting(SQLModel, table=True):
+    """Sunucunun kendi ürettiği kalıcı anahtar/değer ayarları (örn. VAPID anahtar çifti)."""
+
+    __tablename__ = "system_settings"
+
+    key:        str      = Field(primary_key=True, max_length=100)
+    value:      str      = Field(sa_column=Column(Text(), nullable=False))
+    updated_at: datetime = Field(default_factory=utc_now, nullable=False)

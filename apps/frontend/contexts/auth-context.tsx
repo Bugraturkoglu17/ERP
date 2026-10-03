@@ -9,6 +9,7 @@ import {
 } from "react";
 import { getTokenPayloadFromStorage } from "@/lib/auth";
 import { buildApiUrl } from "@/lib/api";
+import { detachPushOnLogout } from "@/lib/push";
 import { clearClientSession } from "@/lib/client-session";
 import { type UserRole, ROLE_PERMISSIONS } from "@/lib/permissions";
 
@@ -79,6 +80,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     try {
       if (token) {
+        // Çıkış yapan kişinin bildirimleri bu telefona gitmeye devam etmesin.
+        await detachPushOnLogout(token);
         const controller = new AbortController();
         const timeout = window.setTimeout(() => controller.abort(), 1500);
         await fetch(buildApiUrl("/auth/logout"), {

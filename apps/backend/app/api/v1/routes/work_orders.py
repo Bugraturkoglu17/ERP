@@ -16,13 +16,14 @@ from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status, Request
 from pydantic import BaseModel, Field
-from sqlalchemy import select, desc, text
+from sqlalchemy import select, desc, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user, get_db, is_platform_admin
 from app.core.notifications import notify
 from app.core.storage import storage, sanitize_filename
 from app.db.models import (
+    Notification,
     Document, Project, User, WorkOrder, WorkOrderActivity, WorkOrderPhoto,
     WorkOrderPublicLink, WorkOrderReport, WorkOrderReportPhoto, WorkOrderServiceForm,
     WorkOrderStage, WorkOrderStatus, WorkOrderType, WorkOrderWhatsappMessage,
@@ -313,6 +314,13 @@ async def _photo_inventory_refs(project_id: UUID, db: AsyncSession) -> tuple[dic
         except (TypeError, ValueError, json.JSONDecodeError):
             continue
     return work_refs, report_refs
+
+
+def _other_parties(wo: WorkOrder, actor: User) -> list[UUID]:
+    """İşlemi yapan DIŞINDAKİ taraflar: iş emrini açan yönetici ve atanan
+    kullanıcı. Kişi kendi yaptığı işlem için bildirim almaz."""
+    parties = {wo.created_by, wo.assigned_to_user_id} - {None, actor.id}
+    return list(parties)
 
 
 def _ensure_work_order_access(wo: WorkOrder, user: User) -> None:
@@ -610,9 +618,18 @@ async def update_work_order(
             raise HTTPException(400, "Atanacak aktif kullanıcı bulunamadı.")
         if user.tenant_id and assigned_user.tenant_id != user.tenant_id:
             raise HTTPException(403, "Kullanıcı şirket kapsamınız dışında.")
+        previous_assignee_id = wo.assigned_to_user_id
         wo.assigned_to_user_id = assigned_user.id
         wo.assigned_to_name = assigned_user.full_name or assigned_user.email
         wo.assigned_to_phone = assigned_user.phone
+        # İş emri başka birine devredildiyse yeni atanan kişiye haber ver.
+        if assigned_user.id != previous_assignee_id and assigned_user.id != user.id:
+            await notify(
+                db, user_id=assigned_user.id, tenant_id=wo.tenant_id, work_order_id=wo.id,
+                category="work_order_assigned",
+                title="Yeni iş emri atandı",
+                body=wo.title,
+            )
     if payload.priority is not None:        wo.priority = payload.priority
     if payload.due_date is not None:        wo.due_date = _parse_date(payload.due_date)
     if payload.status is not None:
@@ -738,6 +755,14 @@ async def delete_work_order(
         for row in rows.scalars().all():
             await db.delete(row)
 
+    # Bu iş emrine bağlı eski bildirimler (atandı / başlatıldı / aşama) silinmez,
+    # yalnızca bağlantıları boşaltılır. Veritabanındaki FK kuralına (ON DELETE
+    # SET NULL) güvenmiyoruz: tablo migration yerine create_all ile oluşmuşsa
+    # o kural yoktur ve silme FK ihlaliyle 500 verir.
+    await db.execute(
+        update(Notification).where(Notification.work_order_id == work_order_id).values(work_order_id=None)
+    )
+
     await db.flush()
     await db.delete(wo)
     await db.commit()
@@ -802,6 +827,13 @@ async def create_report(
         ))
 
     await _log_activity(db, wo.id, wo.project_id, "report_created", f"Rapor eklendi: {title}")
+    for recipient_id in _other_parties(wo, user):
+        await notify(
+            db, user_id=recipient_id, tenant_id=wo.tenant_id, work_order_id=wo.id,
+            category="work_order_report_added",
+            title="Yeni saha raporu",
+            body=f"{user.full_name} — {wo.title}: {report.title}",
+        )
     await db.commit()
 
     return WorkOrderReportRead(
@@ -1008,6 +1040,20 @@ async def update_stage(
         f"{stage.stage_name} aşaması: {STAGE_STATUS_LABELS.get(stage.status, stage.status)}",
         payload.description,
     )
+
+    # Karşı tarafa haber ver: son aşama tamamlandıysa "iş emri tamamlandı",
+    # aksi halde hangi aşamanın ne olduğunu söyleyen bir güncelleme.
+    finished = stage.stage_order == 4 and stage.status == "completed"
+    for recipient_id in _other_parties(wo, user):
+        await notify(
+            db, user_id=recipient_id, tenant_id=wo.tenant_id, work_order_id=wo.id,
+            category="work_order_completed" if finished else "work_order_stage_updated",
+            title="İş emri tamamlandı" if finished else "Aşama güncellendi",
+            body=(
+                f"{user.full_name} — {wo.title}" if finished
+                else f"{user.full_name} — {wo.title}: {stage.stage_name} → {STAGE_STATUS_LABELS.get(stage.status, stage.status)}"
+            ),
+        )
 
     await db.commit()
     await db.refresh(stage)

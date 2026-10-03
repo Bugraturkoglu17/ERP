@@ -64,6 +64,17 @@ class Settings(BaseSettings):
     # çökerse kilit sonsuza kadar takılı kalmasın diye.
     BACKUP_LOCK_TTL_SECONDS: int = 7200
 
+    # ── Web Push (telefon bildirimleri) ──────────────────────────────────────
+    # Boş bırakılırsa anahtar çifti ilk kullanımda üretilir ve system_settings
+    # tablosunda saklanır (ek kurulum gerekmez). Ortam değişkeni verilirse o
+    # kullanılır; ikisi birlikte verilmelidir.
+    VAPID_PUBLIC_KEY: str = ""
+    VAPID_PRIVATE_KEY: str = ""
+    # Push servislerinin (Apple/Google) sorun olduğunda ulaşacağı adres.
+    VAPID_SUBJECT: str = "mailto:destek@sismikmekanik.com.tr"
+    # Cihaz çevrimdışıysa bildirimin push servisinde bekleyeceği azami süre.
+    PUSH_TTL_SECONDS: int = 86400
+
     # ── Email (Resend) ───────────────────────────────────────────────────────
     RESEND_API_KEY: str = ""
     EMAIL_PROVIDER: str = "resend"

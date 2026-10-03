@@ -25,6 +25,9 @@ PyJWT==2.9.0
 # ── Object Storage ──────────────────────────────────────────────────────────
 boto3==1.35.73                    # OCI / AWS S3 API
 
+# ── Web Push (telefon bildirimleri) ─────────────────────────────────────────
+pywebpush==2.0.3                  # VAPID imzalı Web Push gönderimi
+
 # ── Task Queue ──────────────────────────────────────────────────────────────
 celery==5.4.0
 redis==5.1.1

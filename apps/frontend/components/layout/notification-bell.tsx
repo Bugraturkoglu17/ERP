@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, CheckCheck } from "lucide-react";
+import { Bell, BellOff, BellRing, CheckCheck, Loader2 } from "lucide-react";
 import { apiGet, apiPatch } from "@/lib/api";
+import { disablePush, enablePush, getPushState, sendTestPush, syncPushSubscription, type PushState } from "@/lib/push";
 
 type Notification = {
   id: string;
@@ -16,7 +17,10 @@ type Notification = {
 };
 
 function formatRelative(iso: string) {
-  const diffMs = Date.now() - new Date(iso).getTime();
+  // Sunucu saatleri UTC'dir ama saat dilimi eki olmadan gelir; ek yoksa tarayıcı
+  // yerel saat sanıp yeni bildirimi "3 sa önce" gösteriyordu.
+  const utc = /(Z|[+-]\d{2}:?\d{2})$/.test(iso) ? iso : `${iso}Z`;
+  const diffMs = Date.now() - new Date(utc).getTime();
   const min = Math.floor(diffMs / 60000);
   if (min < 1) return "az önce";
   if (min < 60) return `${min} dk önce`;
@@ -41,6 +45,43 @@ export function NotificationBell() {
   const containerRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const router = useRouter();
+
+  // Telefon / tarayıcı bildirimi (Web Push) — bu CİHAZ için aç/kapat.
+  const [pushState, setPushState] = useState<PushState | null>(null);
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushNote, setPushNote] = useState("");
+
+  useEffect(() => {
+    // İzin daha önce verildiyse aboneliği oturumdaki kullanıcıya bağla (pencere açmaz).
+    void syncPushSubscription().then(() => getPushState().then(setPushState));
+  }, []);
+
+  const runPush = async (action: () => Promise<PushState>, okNote: string) => {
+    setPushBusy(true);
+    setPushNote("");
+    try {
+      const next = await action();
+      setPushState(next);
+      setPushNote(next === "denied" ? "" : okNote);
+    } catch {
+      setPushNote("İşlem tamamlanamadı. Bağlantıyı kontrol edip tekrar deneyin.");
+    } finally {
+      setPushBusy(false);
+    }
+  };
+
+  const testPush = async () => {
+    setPushBusy(true);
+    setPushNote("");
+    try {
+      const sent = await sendTestPush();
+      setPushNote(sent > 0 ? "Deneme bildirimi gönderildi." : "Bu hesaba bağlı cihaz bulunamadı; bildirimleri yeniden açın.");
+    } catch {
+      setPushNote("Deneme bildirimi gönderilemedi.");
+    } finally {
+      setPushBusy(false);
+    }
+  };
 
   const loadUnreadCount = useCallback(() => {
     apiGet<{ count: number }>("/notifications/unread-count")
@@ -153,6 +194,45 @@ export function NotificationBell() {
               </ul>
             )}
           </div>
+
+          {/* Bu cihazda telefon bildirimi. Desteklenmeyen tarayıcıda hiç gösterilmez. */}
+          {pushState && pushState !== "unsupported" && (
+            <div className="border-t border-slate-100 bg-slate-50 px-4 py-3">
+              {pushState === "on" ? (
+                <div className="flex items-center justify-between gap-3">
+                  <p className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-slate-700">
+                    <BellRing className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                    <span className="truncate">Bu cihazda bildirimler açık</span>
+                  </p>
+                  <div className="flex shrink-0 items-center gap-3 text-xs font-medium">
+                    <button type="button" disabled={pushBusy} onClick={testPush} className="text-blue-600 hover:text-blue-800 disabled:opacity-50">Dene</button>
+                    <button type="button" disabled={pushBusy} onClick={() => runPush(disablePush, "Bu cihazda bildirimler kapatıldı.")} className="text-slate-500 hover:text-slate-800 disabled:opacity-50">Kapat</button>
+                  </div>
+                </div>
+              ) : pushState === "off" ? (
+                <button
+                  type="button"
+                  disabled={pushBusy}
+                  onClick={() => runPush(enablePush, "Bildirimler açıldı. Yeni iş emri ve güncellemeler bu cihaza gelecek.")}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+                >
+                  {pushBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <BellRing className="h-3.5 w-3.5" />}
+                  Bu cihazda bildirimleri aç
+                </button>
+              ) : pushState === "denied" ? (
+                <p className="flex items-start gap-1.5 text-xs text-slate-600">
+                  <BellOff className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+                  <span>Bildirimler bu tarayıcıda engellenmiş. Site ayarlarından “Bildirimler”e izin verip sayfayı yenileyin.</span>
+                </p>
+              ) : (
+                <p className="flex items-start gap-1.5 text-xs text-slate-600">
+                  <BellRing className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+                  <span>iPhone’da bildirim almak için: Paylaş → <strong>Ana Ekrana Ekle</strong>, ardından uygulamayı ana ekrandan açın.</span>
+                </p>
+              )}
+              {pushNote && <p role="status" className="mt-2 text-[11px] text-slate-500">{pushNote}</p>}
+            </div>
+          )}
         </div>
       )}
     </div>
